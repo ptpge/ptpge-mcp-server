@@ -1,0 +1,30 @@
+# cPanel Git Version Control deploy configuration.
+#
+# Triggered when "Deploy HEAD Commit" is clicked in cPanel Git Version Control,
+# or via webhook on push (when configured).
+#
+# This file assumes:
+#   1. The repository has been cloned via cPanel Git Version Control into the
+#      Python App's application root (e.g. ~/mcp.ptpge.org/).
+#   2. cPanel "Setup Python App" has created a virtualenv and points at
+#      passenger_wsgi.py at the app root.
+#
+# After deploy, Passenger needs a restart signal — `touch tmp/restart.txt` is
+# the standard mechanism.
+
+---
+deployment:
+  tasks:
+    - export DEPLOYDIR=/home/$USER/mcp.ptpge.org
+
+    # Mirror repository contents into the app directory (excluding .git).
+    - /bin/rsync -av --delete --exclude='.git' --exclude='tmp' --exclude='venv' $PWD/ $DEPLOYDIR/
+
+    # Install / update Python dependencies into the cPanel-managed virtualenv.
+    # Replace the path below with the actual virtualenv path shown in cPanel
+    # "Setup Python App" → "Enter to the virtual environment".
+    - /bin/bash -lc "source /home/$USER/virtualenv/mcp.ptpge.org/3.11/bin/activate && pip install --upgrade pip && pip install -r $DEPLOYDIR/requirements.txt"
+
+    # Signal Passenger to reload the app.
+    - mkdir -p $DEPLOYDIR/tmp
+    - touch $DEPLOYDIR/tmp/restart.txt

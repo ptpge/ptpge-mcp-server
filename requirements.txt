@@ -1,0 +1,18 @@
+# PTPGE MCP Server — Python dependencies
+# Pinned versions for reproducibility on cPanel Python App
+
+# MCP Python SDK — provides tool registration and protocol handling
+mcp>=1.0.0
+
+# HTTP server (Passenger speaks WSGI; we use Starlette/Uvicorn-compatible shim
+# for HTTP+SSE while keeping a WSGI entrypoint)
+starlette>=0.40.0
+uvicorn[standard]>=0.30.0
+a2wsgi>=1.10.0  # ASGI → WSGI bridge for Passenger
+
+# HTTP client for fetching data from api.ptpge.org
+httpx>=0.27.0
+
+# Standard tooling
+pydantic>=2.7.0
+python-dotenv>=1.0.0
