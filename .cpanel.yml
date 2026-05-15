@@ -4,25 +4,50 @@
 # or via webhook on push (when configured).
 #
 # This file assumes:
-#   1. The repository has been cloned via cPanel Git Version Control into the
-#      Python App's application root (e.g. ~/mcp.ptpge.org/).
-#   2. cPanel "Setup Python App" has created a virtualenv and points at
-#      passenger_wsgi.py at the app root.
+#   1. The repository has been cloned via cPanel Git Version Control into
+#      ~/repositories/ptpge-mcp-server/ (cPanel default).
+#   2. cPanel "Setup Python App" has created a Python App at ~/mcp.ptpge.org/
+#      with passenger_wsgi.py as the startup file and a virtualenv at
+#      ~/virtualenv/mcp.ptpge.org/3.11/.
 #
-# After deploy, Passenger needs a restart signal — `touch tmp/restart.txt` is
-# the standard mechanism.
+# Important: we do NOT use rsync --delete because cPanel maintains files in
+# the app directory (Passengerfile.json, .htaccess, public/, tmp/restart.txt)
+# that must survive each deploy. Excludes cover everything from our repo that
+# shouldn't be deployed.
 
 ---
 deployment:
   tasks:
     - export DEPLOYDIR=/home/$USER/mcp.ptpge.org
 
-    # Mirror repository contents into the app directory (excluding .git).
-    - /bin/rsync -av --delete --exclude='.git' --exclude='tmp' --exclude='venv' $PWD/ $DEPLOYDIR/
+    # Mirror repository contents into the app directory.
+    # No --delete: cPanel-managed files (Passengerfile.json etc.) must persist.
+    - >
+      /bin/rsync -av
+      --exclude='.git'
+      --exclude='.gitignore'
+      --exclude='.cpanel.yml'
+      --exclude='tests/'
+      --exclude='__pycache__/'
+      --exclude='.pytest_cache/'
+      --exclude='.ruff_cache/'
+      --exclude='.mypy_cache/'
+      --exclude='*.pyc'
+      --exclude='*.pyo'
+      --exclude='tmp/'
+      --exclude='venv/'
+      --exclude='.venv/'
+      --exclude='public/'
+      --exclude='Passengerfile.json'
+      $PWD/ $DEPLOYDIR/
 
-    # Install / update Python dependencies into the cPanel-managed virtualenv.
-    # Replace the path below with the actual virtualenv path shown in cPanel
-    # "Setup Python App" → "Enter to the virtual environment".
+    # Make sure cPanel-managed files keep the permissions Apache needs to read them.
+    # (rsync occasionally clobbers these on the app directory itself.)
+    - chmod 755 $DEPLOYDIR
+    - test -f $DEPLOYDIR/Passengerfile.json && chmod 644 $DEPLOYDIR/Passengerfile.json || true
+    - test -f $DEPLOYDIR/passenger_wsgi.py && chmod 644 $DEPLOYDIR/passenger_wsgi.py || true
+
+    # Install / update Python dependencies in the cPanel-managed virtualenv.
     - /bin/bash -lc "source /home/$USER/virtualenv/mcp.ptpge.org/3.11/bin/activate && pip install --upgrade pip && pip install -r $DEPLOYDIR/requirements.txt"
 
     # Signal Passenger to reload the app.
