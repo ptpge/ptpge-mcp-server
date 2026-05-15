@@ -1,3 +1,3 @@
-"""PTPGE MCP Server — exposes the PTPGE taxonomy to AI agents."""
+"""PTPGE MCP Server — exposes the PTPGE Standard (Layer 1 vocabulary) to AI agents."""
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"

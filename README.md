@@ -1,8 +1,8 @@
 # PTPGE MCP Server
 
-A standalone Model Context Protocol (MCP) server that exposes the PTPGE vocabulary to AI agents.
+A standalone Model Context Protocol (MCP) server that exposes the PTPGE Standard (Layer 1 — the open vocabulary for the printing industry) to AI agents.
 
-This is the implementation referenced in `PTPGE-API-arkitektur.md` (Fase 2) and `STRATEGIC-DECISIONS.md` SD-0003 / SD-0007.
+This is the implementation referenced in `PTPGE-API-architecture.md` (Fase 2) and `STRATEGIC-DECISIONS.md` SD-0003 / SD-0007.
 
 ## What this is
 
@@ -11,7 +11,7 @@ A read-only HTTP/SSE MCP server written in Python that:
 1. Fetches `terms.jsonld` and `search-index.json` from `https://api.ptpge.org/v1/` at startup.
 2. Holds the data in memory (~50 MB for 464 terms — trivial).
 3. Periodically reloads when `version.json` indicates a new dataset version.
-4. Exposes a small set of MCP tools so AI agents can search, fetch, and classify against the PTPGE taxonomy.
+4. Exposes a small set of MCP tools so AI agents can search, fetch, and classify against the PTPGE Standard vocabulary.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ A read-only HTTP/SSE MCP server written in Python that:
 - **Deploy:** Passenger via cPanel "Setup Python App" → entry point `passenger_wsgi.py`
 - **Stealth Mode:** HTTP Basic Auth at the cPanel level until public launch
 
-See `../PTPGE-API-arkitektur.md` for the full architectural context.
+See `../PTPGE-API-architecture.md` for the full architectural context.
 
 ## Tools exposed (v1, per SD-0010)
 
@@ -28,7 +28,7 @@ The v1 tool surface was finalised on 2026-05-14 in [SD-0010](../STRATEGIC-DECISI
 
 | Tool | Purpose |
 |---|---|
-| `ptpge_search_terms` | Free-text search over the taxonomy (uses `search-index.json`). Returns ranked hits with URI, notation, prefLabel, level, group, and score. |
+| `ptpge_search_terms` | Free-text search over the vocabulary (uses `search-index.json`). Returns ranked hits with URI, notation, prefLabel, level, group, and score. |
 | `ptpge_get_term` | Full context for one term: definition, relations (`broader` / `narrower` / `related`), mappings (`exactMatch` / `closeMatch`), `properties`, notation, level. Accepts full URI or relative path. |
 | `ptpge_get_version` | Current dataset version, term counts per level and per group, license, scheme URL, server version. For version-pinning and diagnostics. |
 
@@ -96,7 +96,7 @@ Environment variables (set in cPanel Python App → Environment Variables):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PTPGE_API_BASE` | `https://api.ptpge.org/v1` | Where to fetch taxonomy data |
+| `PTPGE_API_BASE` | `https://api.ptpge.org/v1` | Where to fetch vocabulary data |
 | `PTPGE_API_USER` | — | Basic Auth username for Stealth Mode API |
 | `PTPGE_API_PASS` | — | Basic Auth password for Stealth Mode API |
 | `PTPGE_REFRESH_SECONDS` | `900` | How often to check for new dataset version (15 min default) |

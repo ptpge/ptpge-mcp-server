@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ptpge_mcp.config import Config
-from ptpge_mcp.data import TaxonomyCache
+from ptpge_mcp.data import VocabularyCache
 
 
 def _config() -> Config:
@@ -113,9 +113,9 @@ _FAKE_SEARCH_INDEX = {
 
 
 @pytest.fixture
-def loaded_cache() -> TaxonomyCache:
+def loaded_cache() -> VocabularyCache:
     """Build a cache with patched fetch returning the fake bundles."""
-    cache = TaxonomyCache(_config())
+    cache = VocabularyCache(_config())
     fake = {
         "version.json": _FAKE_VERSION,
         "terms.jsonld": _FAKE_TERMS,
@@ -125,8 +125,8 @@ def loaded_cache() -> TaxonomyCache:
     def fake_fetch(_self, _client, path):
         return fake[path]
 
-    with patch.object(TaxonomyCache, "_fetch_json", fake_fetch), \
-         patch.object(TaxonomyCache, "_client", return_value=MagicMock()):
+    with patch.object(VocabularyCache, "_fetch_json", fake_fetch), \
+         patch.object(VocabularyCache, "_client", return_value=MagicMock()):
         cache.load()
     return cache
 

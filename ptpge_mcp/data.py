@@ -1,4 +1,4 @@
-"""Fetches and caches PTPGE taxonomy data from api.ptpge.org.
+"""Fetches and caches PTPGE vocabulary data from api.ptpge.org.
 
 Strategy:
 - At startup, fetch terms.jsonld, search-index.json, and version.json.
@@ -25,8 +25,8 @@ from .config import Config
 logger = logging.getLogger(__name__)
 
 
-class TaxonomyCache:
-    """In-memory cache of PTPGE taxonomy data.
+class VocabularyCache:
+    """In-memory cache of PTPGE vocabulary data.
 
     Thread-safe for read operations once load() has completed at least once.
     """
@@ -45,21 +45,21 @@ class TaxonomyCache:
     def version(self) -> dict[str, Any]:
         with self._lock:
             if self._version is None:
-                raise RuntimeError("TaxonomyCache.load() has not been called yet")
+                raise RuntimeError("VocabularyCache.load() has not been called yet")
             return self._version
 
     @property
     def terms(self) -> dict[str, Any]:
         with self._lock:
             if self._terms is None:
-                raise RuntimeError("TaxonomyCache.load() has not been called yet")
+                raise RuntimeError("VocabularyCache.load() has not been called yet")
             return self._terms
 
     @property
     def search_index(self) -> dict[str, Any]:
         with self._lock:
             if self._search_index is None:
-                raise RuntimeError("TaxonomyCache.load() has not been called yet")
+                raise RuntimeError("VocabularyCache.load() has not been called yet")
             return self._search_index
 
     def _client(self) -> httpx.Client:
@@ -91,7 +91,7 @@ class TaxonomyCache:
 
     def load(self) -> None:
         """Fetch all data from the API and replace the cache atomically."""
-        logger.info("Loading taxonomy data from %s", self._config.api_base)
+        logger.info("Loading vocabulary data from %s", self._config.api_base)
         with self._client() as client:
             version = self._fetch_json(client, "version.json")
             terms = self._fetch_json(client, "terms.jsonld")
@@ -105,7 +105,7 @@ class TaxonomyCache:
             self._build_indices()
 
         logger.info(
-            "Loaded taxonomy version %s (%s terms, %s indexed)",
+            "Loaded vocabulary version %s (%s terms, %s indexed)",
             version.get("version"),
             version.get("terms"),
             len(self._term_index),

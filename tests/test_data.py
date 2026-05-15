@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 from ptpge_mcp.config import Config
-from ptpge_mcp.data import TaxonomyCache
+from ptpge_mcp.data import VocabularyCache
 
 
 def _config() -> Config:
@@ -18,7 +18,7 @@ def _config() -> Config:
 
 def test_load_populates_cache() -> None:
     """load() should fetch all three files and populate the cache atomically."""
-    cache = TaxonomyCache(_config())
+    cache = VocabularyCache(_config())
 
     fake_responses = {
         "version.json": {"version": "2026-05-03", "term_count": 464},
@@ -29,8 +29,8 @@ def test_load_populates_cache() -> None:
     def fake_fetch(_self, _client, path):
         return fake_responses[path]
 
-    with patch.object(TaxonomyCache, "_fetch_json", fake_fetch), \
-         patch.object(TaxonomyCache, "_client", return_value=MagicMock()):
+    with patch.object(VocabularyCache, "_fetch_json", fake_fetch), \
+         patch.object(VocabularyCache, "_client", return_value=MagicMock()):
         cache.load()
 
     assert cache.version["version"] == "2026-05-03"
@@ -39,7 +39,7 @@ def test_load_populates_cache() -> None:
 
 
 def test_maybe_reload_returns_false_when_version_unchanged() -> None:
-    cache = TaxonomyCache(_config())
+    cache = VocabularyCache(_config())
 
     same_version = {"version": "2026-05-03", "term_count": 464}
     fake_responses = {
@@ -51,7 +51,7 @@ def test_maybe_reload_returns_false_when_version_unchanged() -> None:
     def fake_fetch(_self, _client, path):
         return fake_responses[path]
 
-    with patch.object(TaxonomyCache, "_fetch_json", fake_fetch), \
-         patch.object(TaxonomyCache, "_client", return_value=MagicMock()):
+    with patch.object(VocabularyCache, "_fetch_json", fake_fetch), \
+         patch.object(VocabularyCache, "_client", return_value=MagicMock()):
         cache.load()
         assert cache.maybe_reload() is False

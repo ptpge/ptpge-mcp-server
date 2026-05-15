@@ -1,9 +1,9 @@
-"""PTPGE MCP server — exposes the PTPGE taxonomy via the Model Context Protocol.
+"""PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
 v0.2.2 — implements the full v1 tool surface per SD-0010 and
 MCP-tool-surface-v1.md:
 
-    - ptpge_search_terms — free-text search over the taxonomy
+    - ptpge_search_terms — free-text search over the vocabulary
     - ptpge_get_term     — full context for a single term
     - ptpge_get_version  — current dataset version and statistics
 
@@ -37,7 +37,7 @@ from starlette.routing import Mount, Route
 
 from . import __version__
 from .config import Config
-from .data import TaxonomyCache
+from .data import VocabularyCache
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
     Tool(
         name="ptpge_search_terms",
         description=(
-            "Free-text search over the PTPGE taxonomy. Returns a ranked list "
+            "Free-text search over the PTPGE Standard vocabulary. Returns a ranked list "
             "of matching terms with their URI, notation, preferred label, "
             "level (top-concept / group / category / sub-category / element), "
             "group, and a relevance score (0.0–1.0)."
@@ -222,7 +222,7 @@ def build_app() -> Starlette:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    cache = TaxonomyCache(config)
+    cache = VocabularyCache(config)
     cache.load()
     cache.start_background_refresh()
 
