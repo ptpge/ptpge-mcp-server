@@ -1,11 +1,16 @@
 """PTPGE MCP server — exposes the PTPGE taxonomy via the Model Context Protocol.
 
-v0.2.0 — implements the full v1 tool surface per SD-0010 and
+v0.2.2 — implements the full v1 tool surface per SD-0010 and
 MCP-tool-surface-v1.md:
 
     - ptpge_search_terms — free-text search over the taxonomy
     - ptpge_get_term     — full context for a single term
     - ptpge_get_version  — current dataset version and statistics
+
+Stealth Mode HTTP Basic Auth is enforced at the application layer (Starlette
+middleware) because cPanel/Passenger bypasses Apache .htaccess auth for
+Python apps. Credentials come from PTPGE_MCP_AUTH_USER / PTPGE_MCP_AUTH_PASS
+environment variables; if unset, the server runs unauthenticated.
 
 Run locally:
     python -m ptpge_mcp.server
@@ -15,13 +20,17 @@ Deploy on cPanel Passenger:
     the ASGI app from this module and bridges it via a2wsgi.
 """
 
+import base64
 import json
 import logging
+import secrets
 
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.types import TextContent, Tool
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
@@ -31,6 +40,44 @@ from .config import Config
 from .data import TaxonomyCache
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Basic Auth middleware — Stealth Mode gatekeeper
+# ---------------------------------------------------------------------------
+
+class BasicAuthMiddleware(BaseHTTPMiddleware):
+    """Reject requests without valid HTTP Basic Auth credentials.
+
+    Activated when both PTPGE_MCP_AUTH_USER and PTPGE_MCP_AUTH_PASS are set.
+    Passes through transparently if either is unset, so local development and
+    post-launch open access remain frictionless.
+
+    Uses `secrets.compare_digest` for constant-time comparison to avoid
+    leaking auth timing.
+    """
+
+    def __init__(self, app, username: str = "", password: str = "") -> None:
+        super().__init__(app)
+        self._enabled = bool(username and password)
+        if self._enabled:
+            token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+            self._expected = f"Basic {token}"
+        else:
+            self._expected = ""
+
+    async def dispatch(self, request: Request, call_next):
+        if not self._enabled:
+            return await call_next(request)
+
+        provided = request.headers.get("authorization", "")
+        if not secrets.compare_digest(provided, self._expected):
+            return Response(
+                content="Unauthorized\n",
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="PTPGE MCP — Stealth Mode"'},
+            )
+        return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -240,8 +287,22 @@ def build_app() -> Starlette:
         except Exception as exc:
             return JSONResponse({"status": "error", "error": str(exc)}, status_code=503)
 
+    middleware = [
+        Middleware(
+            BasicAuthMiddleware,
+            username=config.auth_user,
+            password=config.auth_pass,
+        ),
+    ]
+
+    if config.auth_user and config.auth_pass:
+        logger.info("Basic Auth ENABLED for all routes (Stealth Mode)")
+    else:
+        logger.warning("Basic Auth NOT configured — server is open. Set PTPGE_MCP_AUTH_USER / _PASS to enable.")
+
     return Starlette(
         debug=False,
+        middleware=middleware,
         routes=[
             Route("/health", endpoint=health, methods=["GET"]),
             Route("/sse", endpoint=handle_sse, methods=["GET"]),

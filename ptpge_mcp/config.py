@@ -14,6 +14,11 @@ class Config:
     refresh_seconds: int
     log_level: str
 
+    # Stealth Mode HTTP Basic Auth on this MCP server itself.
+    # Both must be set to enable; empty strings disable auth (default).
+    auth_user: str = ""
+    auth_pass: str = ""
+
     @classmethod
     def from_env(cls) -> "Config":
         """Build a Config from environment variables.
@@ -27,4 +32,6 @@ class Config:
             api_pass=os.getenv("PTPGE_API_PASS"),
             refresh_seconds=int(os.getenv("PTPGE_REFRESH_SECONDS", "900")),
             log_level=os.getenv("PTPGE_LOG_LEVEL", "INFO"),
+            auth_user=os.getenv("PTPGE_MCP_AUTH_USER", ""),
+            auth_pass=os.getenv("PTPGE_MCP_AUTH_PASS", ""),
         )
