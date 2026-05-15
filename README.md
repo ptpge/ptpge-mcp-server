@@ -1,6 +1,6 @@
 # PTPGE MCP Server
 
-A standalone Model Context Protocol (MCP) server that exposes the PTPGE taxonomy to AI agents.
+A standalone Model Context Protocol (MCP) server that exposes the PTPGE vocabulary to AI agents.
 
 This is the implementation referenced in `PTPGE-API-arkitektur.md` (Fase 2) and `STRATEGIC-DECISIONS.md` SD-0003 / SD-0007.
 
