@@ -35,7 +35,7 @@ The v1 tool surface was finalised on 2026-05-14 in [SD-0010](../STRATEGIC-DECISI
 **Deferred (v1.x or later):**
 
 - `ptpge_classify_text` — requires ranking policy and likely embeddings; deferred until empirics from real `search_terms` usage are available.
-- `ptpge_list_groups` — rejected as redundant; covered by `get_term` on the manufacturing top-concept (returns `narrower` list).
+- `ptpge_list_groups` — rejected as redundant; covered by `get_term` on the `printing` top-concept (returns `narrower` list).
 - `ptpge_get_relations` — rejected as redundant; relations are already part of the `get_term` response.
 
 Tool responses are plain JSON (not JSON-LD). Consumers don't need to handle `@context`.

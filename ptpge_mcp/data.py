@@ -119,9 +119,9 @@ class VocabularyCache:
         """Look up a term by full URI or by relative path under /v1/.
 
         Examples of accepted inputs:
-            https://ptpge.org/v1/manufacturing/configurations/formats/a-series/a4
-            manufacturing/configurations/formats/a-series/a4
-            /manufacturing/configurations/formats/a-series/a4
+            https://ptpge.org/v1/printing/configurations/formats/a-series/a4
+            printing/configurations/formats/a-series/a4
+            /printing/configurations/formats/a-series/a4
         """
         with self._lock:
             if id_or_path in self._term_index:

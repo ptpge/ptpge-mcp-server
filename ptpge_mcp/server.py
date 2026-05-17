@@ -1,7 +1,16 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
-v0.2.2 — implements the full v1 tool surface per SD-0010 and
-MCP-tool-surface-v1.md:
+v0.2.4 — two production fixes:
+    1. Critical: removed em-dash from the WWW-Authenticate realm string.
+       HTTP header values are encoded as latin-1, so any non-ASCII
+       character (em-dash, en-dash, smart quotes) triggers
+       UnicodeEncodeError when the response is serialised, causing
+       every unauthenticated request to return 500 instead of 401.
+    2. Added GET / root banner so the base URL returns a friendly JSON
+       descriptor (200 OK) instead of a bare 404 to clients that probe
+       the domain.
+
+v1 tool surface unchanged (per SD-0010 and MCP-tool-surface-v1.md):
 
     - ptpge_search_terms — free-text search over the vocabulary
     - ptpge_get_term     — full context for a single term
@@ -17,7 +26,8 @@ Run locally:
 
 Deploy on cPanel Passenger:
     The Passenger entry point at the project root (`passenger_wsgi.py`) imports
-    the ASGI app from this module and bridges it via a2wsgi.
+    the ASGI app from this module and bridges it via a2wsgi. Passenger spawns
+    the app on a dynamic port — there is no fixed port 8000 in this mode.
 """
 
 import base64
@@ -57,6 +67,11 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
     leaking auth timing.
     """
 
+    # HTTP header values must be latin-1 encodable. We pin this to a strict
+    # ASCII subset and verify at construction time so any drift back to
+    # smart-punctuation gets caught at import, not at the first 401.
+    _REALM = "PTPGE MCP Stealth Mode"
+
     def __init__(self, app, username: str = "", password: str = "") -> None:
         super().__init__(app)
         self._enabled = bool(username and password)
@@ -65,6 +80,15 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
             self._expected = f"Basic {token}"
         else:
             self._expected = ""
+        # Fail loudly if anyone later edits the realm with non-ASCII text.
+        try:
+            self._REALM.encode("ascii")
+        except UnicodeEncodeError as e:  # pragma: no cover
+            raise RuntimeError(
+                "BasicAuthMiddleware._REALM contains non-ASCII characters and "
+                "cannot be sent as an HTTP header value. Use plain hyphens "
+                "and straight quotes."
+            ) from e
 
     async def dispatch(self, request: Request, call_next):
         if not self._enabled:
@@ -75,7 +99,11 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
             return Response(
                 content="Unauthorized\n",
                 status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="PTPGE MCP — Stealth Mode"'},
+                # NOTE: HTTP header values are encoded as latin-1, so the realm
+                # string must be ASCII-only. The class-level _REALM constant is
+                # asserted ASCII at construction time, so any drift back to
+                # smart-punctuation is caught immediately at app import.
+                headers={"WWW-Authenticate": f'Basic realm="{self._REALM}"'},
             )
         return await call_next(request)
 
@@ -140,7 +168,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
                     "type": "string",
                     "description": (
                         "Full URI or relative path under /v1/. "
-                        "E.g. 'manufacturing/configurations/formats/a-series/a4'."
+                        "E.g. 'printing/configurations/formats/a-series/a4'."
                     ),
                 },
                 "language": {
@@ -287,6 +315,31 @@ def build_app() -> Starlette:
         except Exception as exc:
             return JSONResponse({"status": "error", "error": str(exc)}, status_code=503)
 
+    async def root(_request: Request) -> JSONResponse:
+        """Service banner for the base URL.
+
+        Returns 200 OK with a small JSON descriptor instead of letting
+        Starlette 404 / proxy clients 500 on the bare domain. Useful as a
+        smoke-test endpoint and as a friendly response for anyone who
+        navigates to https://mcp.ptpge.org/ in a browser.
+        """
+        v = cache.version.get("version") if cache.version else None
+        return JSONResponse(
+            {
+                "service": "PTPGE MCP Server",
+                "description": "Model Context Protocol server for the PTPGE Standard vocabulary.",
+                "server_version": __version__,
+                "data_version": v,
+                "endpoints": {
+                    "sse": "/sse",
+                    "messages": "/mcp/messages/",
+                    "health": "/health",
+                },
+                "documentation": "https://ptpge.org",
+                "status": "stealth-mode",
+            }
+        )
+
     middleware = [
         Middleware(
             BasicAuthMiddleware,
@@ -304,6 +357,7 @@ def build_app() -> Starlette:
         debug=False,
         middleware=middleware,
         routes=[
+            Route("/", endpoint=root, methods=["GET"]),
             Route("/health", endpoint=health, methods=["GET"]),
             Route("/sse", endpoint=handle_sse, methods=["GET"]),
             Mount("/mcp/messages/", app=sse.handle_post_message),

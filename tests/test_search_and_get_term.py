@@ -36,29 +36,29 @@ _FAKE_TERMS = {
     "@context": "https://ptpge.org/v1/context.jsonld",
     "@graph": [
         {
-            "id": "https://ptpge.org/v1/manufacturing",
+            "id": "https://ptpge.org/v1/printing",
             "type": "skos:Concept",
             "level": "top-concept",
-            "label": {"en": "Manufacturing"},
-            "notation": "M",
+            "label": {"en": "Printing Process"},
+            "notation": "P",
         },
         {
-            "id": "https://ptpge.org/v1/manufacturing/configurations/formats/a-series",
+            "id": "https://ptpge.org/v1/printing/configurations/formats/a-series",
             "type": "skos:Concept",
             "level": "sub-category",
             "label": {"en": "A Series (ISO 216)", "nb": "A-serien (ISO 216)"},
             "notation": "ASER",
             "group": "configurations",
-            "broader": "https://ptpge.org/v1/manufacturing/configurations/formats",
+            "broader": "https://ptpge.org/v1/printing/configurations/formats",
         },
         {
-            "id": "https://ptpge.org/v1/manufacturing/configurations/formats/a-series/a4",
+            "id": "https://ptpge.org/v1/printing/configurations/formats/a-series/a4",
             "type": "skos:Concept",
             "level": "element",
             "label": {"en": "A4", "nb": "A4"},
             "notation": "A4",
             "group": "configurations",
-            "broader": "https://ptpge.org/v1/manufacturing/configurations/formats/a-series",
+            "broader": "https://ptpge.org/v1/printing/configurations/formats/a-series",
             "exactMatch": ["https://www.wikidata.org/wiki/Q254446"],
             "definition": {
                 "en": "A4 paper size — 210 × 297 mm.",
@@ -79,27 +79,27 @@ _FAKE_SEARCH_INDEX = {
     "count": 3,
     "terms": [
         {
-            "id": "https://ptpge.org/v1/manufacturing",
-            "notation": "M",
+            "id": "https://ptpge.org/v1/printing",
+            "notation": "P",
             "level": "top-concept",
             "group": "",
-            "label": {"en": "Manufacturing"},
+            "label": {"en": "Printing Process"},
             "altLabels": {},
-            "definition_en": "The supply-side view of the printing industry.",
+            "definition_en": "The supply-side view of the printing industry — how printed goods are produced.",
             "narrower": [],
         },
         {
-            "id": "https://ptpge.org/v1/manufacturing/configurations/formats/a-series",
+            "id": "https://ptpge.org/v1/printing/configurations/formats/a-series",
             "notation": "ASER",
             "level": "sub-category",
             "group": "configurations",
             "label": {"en": "A Series (ISO 216)", "nb": "A-serien (ISO 216)"},
             "altLabels": {"en": ["A-series", "ISO A"]},
             "definition_en": "ISO 216 A-series paper sizes, based on a 1:sqrt(2) aspect ratio.",
-            "narrower": ["https://ptpge.org/v1/manufacturing/configurations/formats/a-series/a4"],
+            "narrower": ["https://ptpge.org/v1/printing/configurations/formats/a-series/a4"],
         },
         {
-            "id": "https://ptpge.org/v1/manufacturing/configurations/formats/a-series/a4",
+            "id": "https://ptpge.org/v1/printing/configurations/formats/a-series/a4",
             "notation": "A4",
             "level": "element",
             "group": "configurations",
@@ -135,7 +135,7 @@ def loaded_cache() -> VocabularyCache:
 
 def test_get_term_by_full_uri(loaded_cache):
     term = loaded_cache.get_term(
-        "https://ptpge.org/v1/manufacturing/configurations/formats/a-series/a4"
+        "https://ptpge.org/v1/printing/configurations/formats/a-series/a4"
     )
     assert term is not None
     assert term["notation"] == "A4"
@@ -145,7 +145,7 @@ def test_get_term_by_full_uri(loaded_cache):
 
 def test_get_term_by_relative_path(loaded_cache):
     term = loaded_cache.get_term(
-        "manufacturing/configurations/formats/a-series/a4"
+        "printing/configurations/formats/a-series/a4"
     )
     assert term is not None
     assert term["notation"] == "A4"
@@ -153,7 +153,7 @@ def test_get_term_by_relative_path(loaded_cache):
 
 def test_get_term_by_leading_slash_path(loaded_cache):
     term = loaded_cache.get_term(
-        "/manufacturing/configurations/formats/a-series/a4"
+        "/printing/configurations/formats/a-series/a4"
     )
     assert term is not None
     assert term["notation"] == "A4"
@@ -188,7 +188,7 @@ def test_search_definition_substring(loaded_cache):
 
 def test_search_groups_filter(loaded_cache):
     results = loaded_cache.search("A", groups=["configurations"])
-    # Manufacturing top-concept has no group, so it's filtered out
+    # Printing Process top-concept has no group, so it's filtered out
     levels = {r["level"] for r in results}
     assert "top-concept" not in levels
 
