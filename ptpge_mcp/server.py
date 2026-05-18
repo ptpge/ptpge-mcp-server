@@ -1,5 +1,16 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
+v0.2.6 — cPanel-friendly per-recipient env var pattern:
+    Config loader now auto-detects PTPGE_<NAME>_AUTH_USER +
+    PTPGE_<NAME>_AUTH_PASS pairs and treats each pair as one Basic Auth
+    credential. Easier to add, revoke, and rotate individual recipients
+    via the cPanel environment-variables UI than the v0.2.5 comma-
+    separated PTPGE_MCP_AUTH_USERS approach (which also still works,
+    taking precedence when explicitly set). The legacy PTPGE_MCP_AUTH_USER +
+    PTPGE_MCP_AUTH_PASS pair is captured automatically by the pattern
+    (NAME="MCP"), so deployments configured with only the legacy
+    variables continue to work without changes.
+
 v0.2.5 — multi-user Basic Auth for tracked Stealth Mode access:
     BasicAuthMiddleware now accepts a list of (username, password) pairs
     and treats a request as authenticated if it matches any of them. The
