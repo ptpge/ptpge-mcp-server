@@ -1,5 +1,15 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
+v0.2.5 — multi-user Basic Auth for tracked Stealth Mode access:
+    BasicAuthMiddleware now accepts a list of (username, password) pairs
+    and treats a request as authenticated if it matches any of them. The
+    Config object reads PTPGE_MCP_AUTH_USERS (comma-separated
+    `user:pass,user:pass,...`) when set, falling back to legacy
+    PTPGE_MCP_AUTH_USER/_PASS otherwise. This enables per-recipient
+    credentials for selective revocation and access tracking, documented
+    in external-references/access-log.md and the credentials-sharing
+    policy section of SD-0014.
+
 v0.2.4 — two production fixes:
     1. Critical: removed em-dash from the WWW-Authenticate realm string.
        HTTP header values are encoded as latin-1, so any non-ASCII
@@ -59,12 +69,22 @@ logger = logging.getLogger(__name__)
 class BasicAuthMiddleware(BaseHTTPMiddleware):
     """Reject requests without valid HTTP Basic Auth credentials.
 
-    Activated when both PTPGE_MCP_AUTH_USER and PTPGE_MCP_AUTH_PASS are set.
-    Passes through transparently if either is unset, so local development and
-    post-launch open access remain frictionless.
+    v0.2.5+: supports multiple credential pairs simultaneously. A request
+    is accepted if its `Authorization` header matches **any** configured
+    credential. This enables per-recipient credentials for tracked
+    Stealth Mode access (see external-references/access-log.md).
 
-    Uses `secrets.compare_digest` for constant-time comparison to avoid
-    leaking auth timing.
+    Activated when at least one credential pair is configured via either:
+
+      - PTPGE_MCP_AUTH_USERS (multi-user: comma-separated `user:pass` pairs)
+      - PTPGE_MCP_AUTH_USER + PTPGE_MCP_AUTH_PASS (legacy single-user)
+
+    Passes through transparently if no credentials are configured, so local
+    development and post-launch open access remain frictionless.
+
+    Uses `secrets.compare_digest` for constant-time comparison against
+    every configured credential, to avoid leaking auth timing for any
+    individual credential.
     """
 
     # HTTP header values must be latin-1 encodable. We pin this to a strict
@@ -72,14 +92,20 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
     # smart-punctuation gets caught at import, not at the first 401.
     _REALM = "PTPGE MCP Stealth Mode"
 
-    def __init__(self, app, username: str = "", password: str = "") -> None:
+    def __init__(self, app, credentials: list[tuple[str, str]] | None = None) -> None:
         super().__init__(app)
-        self._enabled = bool(username and password)
-        if self._enabled:
+        credentials = credentials or []
+        self._enabled = bool(credentials)
+        self._expected_tokens: list[str] = []
+        for username, password in credentials:
+            if not username or not password:
+                continue
             token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
-            self._expected = f"Basic {token}"
-        else:
-            self._expected = ""
+            self._expected_tokens.append(f"Basic {token}")
+        # If credentials were provided but all dropped during validation,
+        # disable auth rather than locking the server with an empty list.
+        if not self._expected_tokens:
+            self._enabled = False
         # Fail loudly if anyone later edits the realm with non-ASCII text.
         try:
             self._REALM.encode("ascii")
@@ -95,7 +121,14 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         provided = request.headers.get("authorization", "")
-        if not secrets.compare_digest(provided, self._expected):
+        # Constant-time compare against every configured credential.
+        # We always run the full loop to avoid timing leaks about which
+        # credential (if any) matched.
+        match = False
+        for token in self._expected_tokens:
+            if secrets.compare_digest(provided, token):
+                match = True
+        if not match:
             return Response(
                 content="Unauthorized\n",
                 status_code=401,
@@ -343,15 +376,18 @@ def build_app() -> Starlette:
     middleware = [
         Middleware(
             BasicAuthMiddleware,
-            username=config.auth_user,
-            password=config.auth_pass,
+            credentials=config.credentials,
         ),
     ]
 
-    if config.auth_user and config.auth_pass:
-        logger.info("Basic Auth ENABLED for all routes (Stealth Mode)")
+    if config.credentials:
+        n = len(config.credentials)
+        if n == 1:
+            logger.info("Basic Auth ENABLED for all routes (Stealth Mode, 1 credential pair)")
+        else:
+            logger.info("Basic Auth ENABLED for all routes (Stealth Mode, %d credential pairs)", n)
     else:
-        logger.warning("Basic Auth NOT configured — server is open. Set PTPGE_MCP_AUTH_USER / _PASS to enable.")
+        logger.warning("Basic Auth NOT configured - server is open. Set PTPGE_MCP_AUTH_USERS or PTPGE_MCP_AUTH_USER/_PASS to enable.")
 
     return Starlette(
         debug=False,
