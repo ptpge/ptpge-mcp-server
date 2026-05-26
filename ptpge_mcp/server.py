@@ -310,8 +310,19 @@ def build_app() -> Starlette:
 
         if name == "ptpge_get_version":
             v = cache.version
+            # Two complementary version dimensions per the PTPGE Stability
+            # Guarantee (see PTPGE-API-architecture.md § 8): calendar dataVersion
+            # for the term snapshot, semantic apiVersion for the contract.
+            # Integrators can pin on apiVersion (e.g. "1.x") without parsing
+            # the changelog. previousDataVersion + previousApiVersion let
+            # clients detect skipped releases.
             payload = {
                 "dataVersion": v.get("version"),
+                "apiVersion": v.get("apiVersion"),
+                "changeType": v.get("changeType"),
+                "previousDataVersion": v.get("previousVersion"),
+                "previousApiVersion": v.get("previousApiVersion"),
+                "changelogUrl": v.get("changelogUrl"),
                 "schemaVersion": "v1",
                 "generated": v.get("generated"),
                 "termsTotal": v.get("terms"),
