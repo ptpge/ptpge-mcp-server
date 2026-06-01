@@ -1,7 +1,11 @@
 """Tests for ptpge_search_terms and ptpge_get_term against fixture data.
 
 No network — fixtures mimic the actual shapes verified against dist/v1/
-on 2026-05-14.
+on 2026-05-14, updated 2026-05-20 for Notation v2.0 (SD-0020):
+  • Printing-only notation (Ordering Process gets none)
+  • § separator between group and element (CF§A4)
+  • Hierarchical dash form for structural (CF-FMT-ASER)
+  • Top-concept and templates have no notation
 """
 
 from unittest.mock import MagicMock, patch
@@ -40,14 +44,14 @@ _FAKE_TERMS = {
             "type": "skos:Concept",
             "level": "top-concept",
             "label": {"en": "Printing Process"},
-            "notation": "P",
+            # Top-concept has no notation in v2.0
         },
         {
             "id": "https://ptpge.org/v1/printing/configurations/formats/a-series",
             "type": "skos:Concept",
             "level": "sub-category",
             "label": {"en": "A Series (ISO 216)", "nb": "A-serien (ISO 216)"},
-            "notation": "ASER",
+            "notation": "CF-FMT-ASER",
             "group": "configurations",
             "broader": "https://ptpge.org/v1/printing/configurations/formats",
         },
@@ -56,7 +60,7 @@ _FAKE_TERMS = {
             "type": "skos:Concept",
             "level": "element",
             "label": {"en": "A4", "nb": "A4"},
-            "notation": "A4",
+            "notation": "CF§A4",
             "group": "configurations",
             "broader": "https://ptpge.org/v1/printing/configurations/formats/a-series",
             "exactMatch": ["https://www.wikidata.org/wiki/Q254446"],
@@ -80,7 +84,7 @@ _FAKE_SEARCH_INDEX = {
     "terms": [
         {
             "id": "https://ptpge.org/v1/printing",
-            "notation": "P",
+            "notation": "",   # top-concept has no notation in v2.0
             "level": "top-concept",
             "group": "",
             "label": {"en": "Printing Process"},
@@ -90,7 +94,7 @@ _FAKE_SEARCH_INDEX = {
         },
         {
             "id": "https://ptpge.org/v1/printing/configurations/formats/a-series",
-            "notation": "ASER",
+            "notation": "CF-FMT-ASER",
             "level": "sub-category",
             "group": "configurations",
             "label": {"en": "A Series (ISO 216)", "nb": "A-serien (ISO 216)"},
@@ -100,7 +104,7 @@ _FAKE_SEARCH_INDEX = {
         },
         {
             "id": "https://ptpge.org/v1/printing/configurations/formats/a-series/a4",
-            "notation": "A4",
+            "notation": "CF§A4",
             "level": "element",
             "group": "configurations",
             "label": {"en": "A4", "nb": "A4"},
@@ -138,7 +142,7 @@ def test_get_term_by_full_uri(loaded_cache):
         "https://ptpge.org/v1/printing/configurations/formats/a-series/a4"
     )
     assert term is not None
-    assert term["notation"] == "A4"
+    assert term["notation"] == "CF§A4"
     assert term["level"] == "element"
     assert term["properties"]["width"] == 210
 
@@ -148,7 +152,7 @@ def test_get_term_by_relative_path(loaded_cache):
         "printing/configurations/formats/a-series/a4"
     )
     assert term is not None
-    assert term["notation"] == "A4"
+    assert term["notation"] == "CF§A4"
 
 
 def test_get_term_by_leading_slash_path(loaded_cache):
@@ -156,7 +160,7 @@ def test_get_term_by_leading_slash_path(loaded_cache):
         "/printing/configurations/formats/a-series/a4"
     )
     assert term is not None
-    assert term["notation"] == "A4"
+    assert term["notation"] == "CF§A4"
 
 
 def test_get_term_not_found(loaded_cache):
@@ -167,23 +171,23 @@ def test_get_term_not_found(loaded_cache):
 # -------------------- search --------------------
 
 def test_search_exact_notation_match_wins(loaded_cache):
-    results = loaded_cache.search("A4")
+    results = loaded_cache.search("CF§A4")
     assert len(results) >= 1
-    assert results[0]["notation"] == "A4"
+    assert results[0]["notation"] == "CF§A4"
     assert results[0]["score"] == 1.0
 
 
 def test_search_label_substring(loaded_cache):
     results = loaded_cache.search("Series")
     notations = [r["notation"] for r in results]
-    assert "ASER" in notations
+    assert "CF-FMT-ASER" in notations
 
 
 def test_search_definition_substring(loaded_cache):
     results = loaded_cache.search("paper size")
     # Should hit A4 via definition match
     notations = [r["notation"] for r in results]
-    assert "A4" in notations
+    assert "CF§A4" in notations
 
 
 def test_search_groups_filter(loaded_cache):

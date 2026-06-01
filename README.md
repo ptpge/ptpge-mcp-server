@@ -16,7 +16,7 @@ A read-only HTTP/SSE MCP server written in Python that:
 ## Architecture
 
 - **Stack:** Python 3.11+, `mcp` Python SDK over HTTP/SSE
-- **Hosting:** A2 Hosting Managed cPanel 4GB VPS at `mcp.ptpge.org` (operated by Tangerin AS as Tier 4 in the Infrastructure Services Catalog)
+- **Hosting:** A2 Hosting Managed cPanel 4GB VPS in Frankfurt at `mcp.ptpge.org` (operated by Tangerin AS as Tier 4 in the Infrastructure Services Catalog; shares the dedicated VPS with `api.ptpge.org`, `internal.ptpge.org`, `dashboard.ptpge.org`, and `editor.ptpge.org` since SD-0021 consolidation 2026-05-21)
 - **Deploy:** Passenger via cPanel "Setup Python App" → entry point `passenger_wsgi.py`
 - **Stealth Mode:** HTTP Basic Auth at the cPanel level until public launch
 
@@ -62,19 +62,77 @@ mcp-server/
 
 ## Local development
 
+### First-time setup
+
 ```bash
 cd mcp-server
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
+
+### Running the server — two modes
+
+**Mode A: Local Inspector / vocabulary-testing (most common)**
+
+For verifying that the server loads vocabulary correctly, that MCP tools are exposed, and that search/lookup operations work via MCP Inspector. Skip MCP Basic Auth — it adds complexity that Inspector handles poorly with SSE transport.
+
+In tab 1:
+
+```bash
+export PTPGE_API_BASE="https://internal.ptpge.org/v1"
 python -m ptpge_mcp.server
 ```
 
-The server listens on `http://localhost:8000` by default. Use the MCP Inspector (or any MCP-capable client) to test:
+Expected output:
+
+```
+INFO ptpge_mcp.data: Loading vocabulary data from https://internal.ptpge.org/v1
+INFO httpx: HTTP Request: GET https://internal.ptpge.org/v1/version.json "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: GET https://internal.ptpge.org/v1/terms.jsonld "HTTP/1.1 200 OK"
+WARNING: Basic Auth NOT configured - server is open. (expected for local mode)
+INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
+
+In tab 2 (open with Cmd+T), launch Inspector:
 
 ```bash
-npx @modelcontextprotocol/inspector http://localhost:8000
+npx @modelcontextprotocol/inspector
 ```
+
+In the Inspector UI: keep URL as `http://localhost:8000/sse`, Transport=SSE, Connection Type=Via Proxy. Click **Connect** directly — do not click "Open Auth Settings" (that triggers OAuth, which this server does not support).
+
+**Mode B: Auth-layer testing (rare — usually done with curl, not Inspector)**
+
+For verifying that Basic Auth on the MCP server itself works. Inspector v0.21.2 has poor support for Basic Auth in SSE URLs, so use curl for this mode.
+
+In tab 1:
+
+```bash
+export PTPGE_API_BASE="https://internal.ptpge.org/v1"
+export PTPGE_MCP_AUTH_USER="frankenstein-mcp"
+export PTPGE_MCP_AUTH_PASS="<actual password>"
+python -m ptpge_mcp.server
+```
+
+In tab 2, test:
+
+```bash
+# Without auth: should return 401
+curl -i http://localhost:8000/health
+
+# With correct auth: should return 200 + JSON
+curl -i -u "frankenstein-mcp:<actual password>" http://localhost:8000/health
+```
+
+### Critical: `PTPGE_API_BASE` must point to `internal.ptpge.org`
+
+The default fallback in `config.py` points to `api.ptpge.org/v1`, but that domain is behind HTTP Basic Auth during Stealth Mode. If `PTPGE_API_BASE` is not explicitly set to `internal.ptpge.org/v1` (the unauthed mirror introduced in SD-0021), the server will crash at startup with a `401 Unauthorized` from `version.json`. **Always export `PTPGE_API_BASE` before starting the server.**
+
+### Credential rotation notes
+
+- **2026-05-24 (SD-0022):** Stealth Mode MCP user renamed from `frankenstein-stealth` → `frankenstein-mcp` and the password was rotated. Use the new name in all local examples.
+- **2026-05-24 (SD-0022):** Per-recipient credentials introduced. Use `PTPGE_MCP_AUTH_USERS` (comma-separated `user:pass` pairs) or `PTPGE_MCP_<NAME>_AUTH_USER` / `_PASS` for multi-recipient setups. The legacy single-user `PTPGE_MCP_AUTH_USER` / `_PASS` still works (used in Mode B above).
 
 ## Deployment to A2 Managed VPS
 
@@ -96,9 +154,12 @@ Environment variables (set in cPanel Python App → Environment Variables):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PTPGE_API_BASE` | `https://api.ptpge.org/v1` | Where to fetch vocabulary data |
-| `PTPGE_API_USER` | — | Basic Auth username for Stealth Mode API |
-| `PTPGE_API_PASS` | — | Basic Auth password for Stealth Mode API |
+| `PTPGE_API_BASE` | `https://api.ptpge.org/v1` | Where to fetch vocabulary data. **In practice always set to `https://internal.ptpge.org/v1`** to avoid auth-loop against api.ptpge.org which is behind Stealth Mode Basic Auth (per SD-0021). The default is a legacy value; consider it required to override. |
+| `PTPGE_API_USER` | — | Basic Auth username for Stealth Mode API. Only needed if `PTPGE_API_BASE` points to an authed endpoint (rare — not the production setup). |
+| `PTPGE_API_PASS` | — | Basic Auth password for Stealth Mode API. Same — rarely used in practice. |
+| `PTPGE_MCP_AUTH_USERS` | — | Comma-separated `user:pass` pairs for multi-recipient Basic Auth on the MCP server itself. e.g. `frankenstein-mcp:p1,zipper:p2`. |
+| `PTPGE_MCP_<NAME>_AUTH_USER` / `_PASS` | — | Per-recipient pair (cPanel-friendly). One pair per recipient; merges with legacy single-user variables. |
+| `PTPGE_MCP_AUTH_USER` / `_PASS` | — | Legacy single-user Basic Auth on the MCP server. Still supported. Set both to enable Basic Auth. |
 | `PTPGE_REFRESH_SECONDS` | `900` | How often to check for new dataset version (15 min default) |
 | `PTPGE_LOG_LEVEL` | `INFO` | Standard Python logging level |
 
