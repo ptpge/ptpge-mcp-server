@@ -53,3 +53,40 @@ deployment:
     # Signal Passenger to reload the app.
     - mkdir -p $DEPLOYDIR/tmp
     - touch $DEPLOYDIR/tmp/restart.txt
+
+    # ------------------------------------------------------------------
+    # Second target: open.mcp.ptpge.org — the unauthenticated public
+    # mirror (same code, no PTPGE_MCP_AUTH_* env vars set in its Python
+    # App config). One deploy updates both apps. The mirror's .htaccess
+    # carries the CloudLinux Passenger block and survives because rsync
+    # runs without --delete and the repo contains no .htaccess.
+    # ------------------------------------------------------------------
+    - export OPENDIR=/home/$USER/open.mcp.ptpge.org
+
+    - >
+      /bin/rsync -av
+      --exclude='.git'
+      --exclude='.gitignore'
+      --exclude='.cpanel.yml'
+      --exclude='tests/'
+      --exclude='__pycache__/'
+      --exclude='.pytest_cache/'
+      --exclude='.ruff_cache/'
+      --exclude='.mypy_cache/'
+      --exclude='*.pyc'
+      --exclude='*.pyo'
+      --exclude='tmp/'
+      --exclude='venv/'
+      --exclude='.venv/'
+      --exclude='public/'
+      --exclude='Passengerfile.json'
+      $PWD/ $OPENDIR/
+
+    - chmod 755 $OPENDIR
+    - test -f $OPENDIR/Passengerfile.json && chmod 644 $OPENDIR/Passengerfile.json || true
+    - test -f $OPENDIR/passenger_wsgi.py && chmod 644 $OPENDIR/passenger_wsgi.py || true
+
+    - /bin/bash -lc "source /home/$USER/virtualenv/open.mcp.ptpge.org/3.11/bin/activate && pip install --upgrade pip && pip install -r $OPENDIR/requirements.txt"
+
+    - mkdir -p $OPENDIR/tmp
+    - touch $OPENDIR/tmp/restart.txt

@@ -1,5 +1,32 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
+v0.3.0 — Streamable HTTP transport at /mcp (stateless JSON mode):
+    The SSE transport keeps one HTTP connection open per client for the
+    lifetime of the session. Behind cPanel/Passenger on shared hosting the
+    app gets very few worker processes, so a single long-lived SSE client
+    occupies a worker permanently and every other request queues behind it
+    (observed 2026-06-05: claude.ai connector probes left hanging SSE
+    streams and ALL requests took 60+ seconds).
+
+    /mcp implements the MCP Streamable HTTP transport in *stateless JSON*
+    mode: every JSON-RPC message is one short-lived POST with a plain
+    application/json response. No sessions, no server-initiated streams,
+    no persistent connections — a perfect impedance match for Passenger,
+    and the transport claude.ai custom connectors prefer.
+
+    Implemented directly on Starlette (not via the SDK's
+    StreamableHTTPSessionManager) because the a2wsgi bridge Passenger
+    requires does not run ASGI lifespan events, which the SDK session
+    manager depends on. The protocol surface we need is small: initialize,
+    ping, tools/list, tools/call, plus empty resources/prompts lists and
+    202 for notifications.
+
+    /sse remains mounted for backwards compatibility (MCP Inspector,
+    mcp-remote bridges). New integrations should use /mcp.
+
+    Also new: X-Robots-Tag "noindex, nofollow" on every response (parity
+    with api/internal subdomains; Stealth Mode hygiene).
+
 v0.2.6 — cPanel-friendly per-recipient env var pattern:
     Config loader now auto-detects PTPGE_<NAME>_AUTH_USER +
     PTPGE_<NAME>_AUTH_PASS pairs and treats each pair as one Basic Auth
@@ -282,6 +309,171 @@ def _term_for_response(term: dict, language: str) -> dict:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Shared tool dispatch — used by BOTH transports (SSE and Streamable HTTP).
+# Pure function of (cache, name, args) so it is unit-testable without an app.
+# ---------------------------------------------------------------------------
+
+def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
+    """Execute a tool and return its JSON-serialisable payload.
+
+    Raises ValueError for unknown tool names (protocol-level error);
+    any other exception is a tool-execution error (isError=true in MCP).
+    """
+    if name == "ptpge_get_version":
+        v = cache.version
+        # Two complementary version dimensions per the PTPGE Stability
+        # Guarantee (see PTPGE-API-architecture.md § 8): calendar dataVersion
+        # for the term snapshot, semantic apiVersion for the contract.
+        return {
+            "dataVersion": v.get("version"),
+            "apiVersion": v.get("apiVersion"),
+            "changeType": v.get("changeType"),
+            "previousDataVersion": v.get("previousVersion"),
+            "previousApiVersion": v.get("previousApiVersion"),
+            "changelogUrl": v.get("changelogUrl"),
+            "schemaVersion": "v1",
+            "generated": v.get("generated"),
+            "termsTotal": v.get("terms"),
+            "termsByLevel": v.get("by_level"),
+            "termsByGroup": v.get("by_group"),
+            "license": v.get("license"),
+            "schemeUrl": v.get("scheme_url"),
+            "serverVersion": __version__,
+        }
+
+    if name == "ptpge_search_terms":
+        query = args.get("query", "")
+        limit = int(args.get("limit", 10))
+        groups = args.get("groups")
+        language = args.get("language", "en")
+        hits = cache.search(query=query, limit=limit, groups=groups, language=language)
+        return {"query": query, "count": len(hits), "results": hits}
+
+    if name == "ptpge_get_term":
+        id_or_path = args.get("id_or_path", "")
+        language = args.get("language", "en")
+        term = cache.get_term(id_or_path)
+        if term is None:
+            return {"error": "not_found", "id_or_path": id_or_path}
+        return _term_for_response(term, language)
+
+    raise ValueError(f"Unknown tool: {name}")
+
+
+# ---------------------------------------------------------------------------
+# Streamable HTTP transport (stateless JSON mode) — JSON-RPC plumbing
+# ---------------------------------------------------------------------------
+
+# Protocol revisions we know how to speak. We echo the client's requested
+# version when we recognise it; otherwise we answer with our latest, per the
+# MCP version-negotiation rules.
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
+LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[-1]
+
+SERVER_INSTRUCTIONS = (
+    "PTPGE Standard vocabulary server (printing & graphic industry). "
+    "Use ptpge_search_terms to find terms, ptpge_get_term for full context "
+    "on one term, ptpge_get_version for dataset version/statistics."
+)
+
+
+def negotiate_protocol_version(requested: object) -> str:
+    if isinstance(requested, str) and requested in SUPPORTED_PROTOCOL_VERSIONS:
+        return requested
+    return LATEST_PROTOCOL_VERSION
+
+
+def _rpc_result(msg_id: object, result: dict) -> dict:
+    return {"jsonrpc": "2.0", "id": msg_id, "result": result}
+
+
+def _rpc_error(msg_id: object, code: int, message: str) -> dict:
+    return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
+
+
+def handle_jsonrpc_message(cache: "VocabularyCache", msg: object) -> dict | None:
+    """Process one JSON-RPC message; return the response dict, or None for
+    messages that get no response body (notifications, client responses)."""
+    if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0":
+        msg_id = msg.get("id") if isinstance(msg, dict) else None
+        return _rpc_error(msg_id, -32600, "Invalid Request")
+
+    method = msg.get("method")
+    msg_id = msg.get("id")
+
+    if method is None:
+        return None  # a response from the client (e.g. to a ping) — nothing to do
+    if msg_id is None:
+        return None  # notification (notifications/initialized, .../cancelled, ...)
+
+    if method == "initialize":
+        params = msg.get("params") or {}
+        return _rpc_result(msg_id, {
+            "protocolVersion": negotiate_protocol_version(params.get("protocolVersion")),
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {
+                "name": "ptpge-mcp",
+                "title": "PTPGE Standard",
+                "version": __version__,
+            },
+            "instructions": SERVER_INSTRUCTIONS,
+        })
+
+    if method == "ping":
+        return _rpc_result(msg_id, {})
+
+    if method == "tools/list":
+        tools = [t.model_dump(by_alias=True, exclude_none=True) for t in TOOL_DESCRIPTORS]
+        return _rpc_result(msg_id, {"tools": tools})
+
+    if method == "tools/call":
+        params = msg.get("params") or {}
+        name = params.get("name", "")
+        args = params.get("arguments") or {}
+        try:
+            payload = tool_payload(cache, name, args)
+        except ValueError as exc:
+            return _rpc_error(msg_id, -32602, str(exc))
+        except Exception as exc:  # tool execution error → isError result, not protocol error
+            logger.exception("Tool %s failed", name)
+            return _rpc_result(msg_id, {
+                "content": [{"type": "text", "text": f"Tool execution failed: {exc}"}],
+                "isError": True,
+            })
+        return _rpc_result(msg_id, {
+            "content": [{
+                "type": "text",
+                "text": json.dumps(payload, ensure_ascii=False, indent=2),
+            }],
+            "isError": False,
+        })
+
+    # We advertise only tools, but answer the other list methods gracefully
+    # for clients that probe them anyway.
+    if method == "resources/list":
+        return _rpc_result(msg_id, {"resources": []})
+    if method == "resources/templates/list":
+        return _rpc_result(msg_id, {"resourceTemplates": []})
+    if method == "prompts/list":
+        return _rpc_result(msg_id, {"prompts": []})
+
+    return _rpc_error(msg_id, -32601, f"Method not found: {method}")
+
+
+# ---------------------------------------------------------------------------
+# noindex middleware — Stealth Mode hygiene, parity with api/internal
+# ---------------------------------------------------------------------------
+
+class NoIndexHeaderMiddleware(BaseHTTPMiddleware):
+    """Add X-Robots-Tag: noindex to every response (including 401s)."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        return response
+
+
 def build_app() -> Starlette:
     """Construct the Starlette ASGI app, MCP server, and tool handlers.
 
@@ -306,55 +498,8 @@ def build_app() -> Starlette:
 
     @mcp_server.call_tool()
     async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
-        args = arguments or {}
-
-        if name == "ptpge_get_version":
-            v = cache.version
-            # Two complementary version dimensions per the PTPGE Stability
-            # Guarantee (see PTPGE-API-architecture.md § 8): calendar dataVersion
-            # for the term snapshot, semantic apiVersion for the contract.
-            # Integrators can pin on apiVersion (e.g. "1.x") without parsing
-            # the changelog. previousDataVersion + previousApiVersion let
-            # clients detect skipped releases.
-            payload = {
-                "dataVersion": v.get("version"),
-                "apiVersion": v.get("apiVersion"),
-                "changeType": v.get("changeType"),
-                "previousDataVersion": v.get("previousVersion"),
-                "previousApiVersion": v.get("previousApiVersion"),
-                "changelogUrl": v.get("changelogUrl"),
-                "schemaVersion": "v1",
-                "generated": v.get("generated"),
-                "termsTotal": v.get("terms"),
-                "termsByLevel": v.get("by_level"),
-                "termsByGroup": v.get("by_group"),
-                "license": v.get("license"),
-                "schemeUrl": v.get("scheme_url"),
-                "serverVersion": __version__,
-            }
-            return _json_text(payload)
-
-        if name == "ptpge_search_terms":
-            query = args.get("query", "")
-            limit = int(args.get("limit", 10))
-            groups = args.get("groups")
-            language = args.get("language", "en")
-            hits = cache.search(
-                query=query, limit=limit, groups=groups, language=language
-            )
-            return _json_text({"query": query, "count": len(hits), "results": hits})
-
-        if name == "ptpge_get_term":
-            id_or_path = args.get("id_or_path", "")
-            language = args.get("language", "en")
-            term = cache.get_term(id_or_path)
-            if term is None:
-                return _json_text(
-                    {"error": "not_found", "id_or_path": id_or_path}
-                )
-            return _json_text(_term_for_response(term, language))
-
-        raise ValueError(f"Unknown tool: {name}")
+        # Shared dispatch with the Streamable HTTP transport (see tool_payload).
+        return _json_text(tool_payload(cache, name, arguments or {}))
 
     sse = SseServerTransport("/mcp/messages/")
 
@@ -362,6 +507,34 @@ def build_app() -> Starlette:
         async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
             await mcp_server.run(streams[0], streams[1], mcp_server.create_initialization_options())
         return Response()
+
+    async def handle_mcp_http(request: Request) -> Response:
+        """Streamable HTTP transport endpoint (stateless JSON mode).
+
+        POST: one JSON-RPC message (or a batch array) in, one JSON response
+        out. Notifications get 202 Accepted with no body. GET/DELETE return
+        405 — this server opens no server-initiated streams and keeps no
+        sessions, by design (see v0.3.0 note in the module docstring).
+        """
+        if request.method != "POST":
+            return Response(status_code=405, headers={"Allow": "POST"})
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse(_rpc_error(None, -32700, "Parse error"), status_code=400)
+
+        if isinstance(body, list):  # batch (protocol <= 2025-03-26)
+            if not body:
+                return JSONResponse(_rpc_error(None, -32600, "Invalid Request"), status_code=400)
+            replies = [r for m in body if (r := handle_jsonrpc_message(cache, m)) is not None]
+            if not replies:
+                return Response(status_code=202)
+            return JSONResponse(replies)
+
+        reply = handle_jsonrpc_message(cache, body)
+        if reply is None:
+            return Response(status_code=202)
+        return JSONResponse(reply)
 
     async def health(_request: Request) -> JSONResponse:
         try:
@@ -386,9 +559,14 @@ def build_app() -> Starlette:
                 "server_version": __version__,
                 "data_version": v,
                 "endpoints": {
+                    "mcp": "/mcp",
                     "sse": "/sse",
                     "messages": "/mcp/messages/",
                     "health": "/health",
+                },
+                "transport": {
+                    "recommended": "streamable-http (/mcp, stateless JSON)",
+                    "legacy": "sse (/sse)",
                 },
                 "documentation": "https://ptpge.org",
                 "status": "stealth-mode",
@@ -396,6 +574,7 @@ def build_app() -> Starlette:
         )
 
     middleware = [
+        Middleware(NoIndexHeaderMiddleware),  # outermost: header on 401s too
         Middleware(
             BasicAuthMiddleware,
             credentials=config.credentials,
@@ -417,21 +596,40 @@ def build_app() -> Starlette:
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
             Route("/health", endpoint=health, methods=["GET"]),
+            # Streamable HTTP (recommended). GET/DELETE answered with 405
+            # inside the handler — stateless servers open no streams.
+            Route("/mcp", endpoint=handle_mcp_http, methods=["POST", "GET", "DELETE"]),
+            # Legacy SSE transport (MCP Inspector, mcp-remote bridges).
+            # NOTE: /mcp/messages/ must stay mounted AFTER /mcp so the more
+            # specific Route above wins for exact /mcp requests.
             Route("/sse", endpoint=handle_sse, methods=["GET"]),
             Mount("/mcp/messages/", app=sse.handle_post_message),
         ],
     )
 
 
-# ASGI app — imported by passenger_wsgi.py and by uvicorn for local dev
-app = build_app()
+# ASGI app — imported by passenger_wsgi.py and by uvicorn for local dev.
+# Built lazily (PEP 562) so that importing this module for unit tests does
+# not require network access to the PTPGE API. Passenger still fails loudly
+# at boot: passenger_wsgi.py does `from ptpge_mcp.server import app`, which
+# triggers the build immediately.
+_app: Starlette | None = None
+
+
+def __getattr__(name: str):
+    if name == "app":
+        global _app
+        if _app is None:
+            _app = build_app()
+        return _app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def main() -> None:
     """Local development entry point. In production, Passenger drives this."""
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(build_app(), host="0.0.0.0", port=8000, log_level="info")
 
 
 if __name__ == "__main__":
