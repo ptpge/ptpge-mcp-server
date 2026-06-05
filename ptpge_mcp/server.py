@@ -1,5 +1,15 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
+v0.3.2 — tokenized, language-agnostic search:
+    ptpge_search_terms previously matched the whole query string as one
+    substring against a single language's label, so multi-word queries
+    ("trekkspill accordion fold") and cross-language queries (Norwegian
+    "trekkspill" with default language=en) silently returned nothing.
+    Search now splits the query into tokens (AND semantics) and matches
+    across ALL language variants of label/altLabels; the language
+    parameter only controls which prefLabel is returned. Essential for
+    the Norwegian v1 test-prompt and for non-English agents generally.
+
 v0.3.1 — SSE transport toggle (PTPGE_MCP_SSE=0):
     On a PUBLIC endpoint, any client that opens /sse occupies a Passenger
     worker forever — one stray curl can wedge the whole app (observed

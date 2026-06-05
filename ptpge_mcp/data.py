@@ -138,19 +138,33 @@ class VocabularyCache:
         groups: list[str] | None = None,
         language: str = "en",
     ) -> list[dict[str, Any]]:
-        """Simple substring + notation-match search over the search index.
+        """Tokenized, language-agnostic search over the search index (v0.3.2).
+
+        The query is split into whitespace tokens and an entry matches when
+        EVERY token matches somewhere (AND semantics). Matching looks across
+        ALL language variants of label/altLabels — not just the requested
+        language — so a Norwegian agent searching "trekkspill" finds
+        Accordion Fold without setting language=nb. The `language` parameter
+        controls which prefLabel is RETURNED, not which languages are
+        searched. (Pre-0.3.2 the whole query was matched as one substring
+        against one language's label, so multi-word and cross-language
+        queries silently returned nothing — the v1 test-prompt killer.)
 
         Scoring (higher = more relevant):
-            1.00 — exact match on `notation`
-            0.95 — exact match on `label[language]`
-            0.85 — `label` starts with the query
-            0.70 — substring match in `label`
-            0.60 — substring match in any `altLabels` value
-            0.40 — substring match in `definition`
+            1.00 — whole query exactly equals `notation`
+            0.95 — whole query exactly equals a label (any language)
+            0.85 — a label (any language) starts with the whole query
+            otherwise, min over tokens of the best per-token score:
+                0.70 — token substring in a label (any language)
+                0.60 — token substring in an altLabel (any language)
+                0.50 — token substring in the notation
+                0.40 — token substring in a definition
+            (min = weakest-link: every token must earn its place)
         """
         q = (query or "").strip().lower()
         if not q:
             return []
+        tokens = q.split()
         groups_filter = set(groups) if groups else None
 
         results: list[tuple[float, dict[str, Any]]] = []
@@ -160,31 +174,48 @@ class VocabularyCache:
         for entry in entries:
             if groups_filter and entry.get("group") not in groups_filter:
                 continue
-            score = 0.0
             notation = (entry.get("notation") or "").lower()
-            label_dict = entry.get("label") or {}
-            label = (label_dict.get(language) or label_dict.get("en") or "").lower()
-            alt_labels = entry.get("altLabels") or {}
-            definition = (
-                entry.get(f"definition_{language}")
-                or entry.get("definition_en")
-                or ""
-            ).lower()
+            labels = [
+                str(v).lower()
+                for v in (entry.get("label") or {}).values()
+                if v
+            ]
+            alt_values = [
+                (a or "").lower()
+                for alts in (entry.get("altLabels") or {}).values()
+                for a in (alts or [])
+            ]
+            definitions = [
+                d.lower()
+                for d in (
+                    entry.get(f"definition_{language}"),
+                    entry.get("definition_en"),
+                )
+                if d
+            ]
 
+            # Whole-query exact/prefix matches rank above token matches.
             if notation and notation == q:
-                score = max(score, 1.0)
-            if label == q:
-                score = max(score, 0.95)
-            elif label.startswith(q):
-                score = max(score, 0.85)
-            elif q in label:
-                score = max(score, 0.70)
-            for alts in alt_labels.values():
-                if any(q in (a or "").lower() for a in (alts or [])):
-                    score = max(score, 0.60)
-                    break
-            if q in definition:
-                score = max(score, 0.40)
+                score = 1.0
+            elif any(lbl == q for lbl in labels):
+                score = 0.95
+            elif any(lbl.startswith(q) for lbl in labels):
+                score = 0.85
+            else:
+                per_token: list[float] = []
+                for t in tokens:
+                    if any(t in lbl for lbl in labels):
+                        per_token.append(0.70)
+                    elif any(t in a for a in alt_values):
+                        per_token.append(0.60)
+                    elif notation and t in notation:
+                        per_token.append(0.50)
+                    elif any(t in d for d in definitions):
+                        per_token.append(0.40)
+                    else:
+                        per_token = []
+                        break  # AND semantics: one unmatched token kills the entry
+                score = min(per_token) if per_token else 0.0
 
             if score > 0:
                 results.append((score, entry))

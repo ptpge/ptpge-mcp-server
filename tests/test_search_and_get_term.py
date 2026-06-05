@@ -211,3 +211,33 @@ def test_search_result_shape(loaded_cache):
     results = loaded_cache.search("A4")
     hit = results[0]
     assert set(hit.keys()) >= {"id", "notation", "prefLabel", "level", "group", "score"}
+
+
+# -------------------- v0.3.2: tokenized, language-agnostic search --------------------
+
+def test_search_norwegian_label_found_without_language_param(loaded_cache):
+    """Cross-language: nb label must hit even with default language=en."""
+    results = loaded_cache.search("a-serien")
+    notations = [r["notation"] for r in results]
+    assert "CF-FMT-ASER" in notations
+    # prefLabel still follows the requested language (en)
+    hit = next(r for r in results if r["notation"] == "CF-FMT-ASER")
+    assert hit["prefLabel"] == "A Series (ISO 216)"
+
+
+def test_search_multi_token_and_semantics(loaded_cache):
+    """All tokens must match somewhere — across fields."""
+    results = loaded_cache.search("series iso")
+    notations = [r["notation"] for r in results]
+    assert "CF-FMT-ASER" in notations
+
+
+def test_search_multi_token_one_garbage_token_kills_entry(loaded_cache):
+    results = loaded_cache.search("series xyzzy")
+    assert results == []
+
+
+def test_search_token_in_alt_label(loaded_cache):
+    results = loaded_cache.search("ISO A")
+    notations = [r["notation"] for r in results]
+    assert "CF-FMT-ASER" in notations
