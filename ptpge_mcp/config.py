@@ -129,6 +129,15 @@ class Config:
     # entirely and the server runs open (used at public launch).
     credentials: list[tuple[str, str]] = field(default_factory=list)
 
+    # v0.3.0: SSE transport toggle. The legacy SSE transport holds one HTTP
+    # connection open per client for the lifetime of the session — behind
+    # cPanel/Passenger every such connection occupies a scarce worker
+    # process permanently, so on a PUBLIC endpoint any client (or curl)
+    # can wedge the whole app. Set PTPGE_MCP_SSE=0 on the open mirror to
+    # answer /sse with 410 Gone + a pointer to /mcp. Default on ("1") for
+    # backwards compatibility on the stealth server.
+    sse_enabled: bool = True
+
     @classmethod
     def from_env(cls) -> "Config":
         """Build a Config from environment variables.
@@ -160,4 +169,5 @@ class Config:
             refresh_seconds=int(os.getenv("PTPGE_REFRESH_SECONDS", "900")),
             log_level=os.getenv("PTPGE_LOG_LEVEL", "INFO"),
             credentials=credentials,
+            sse_enabled=os.getenv("PTPGE_MCP_SSE", "1").strip().lower() not in ("0", "false", "off"),
         )

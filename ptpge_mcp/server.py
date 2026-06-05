@@ -1,5 +1,14 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
+v0.3.1 — SSE transport toggle (PTPGE_MCP_SSE=0):
+    On a PUBLIC endpoint, any client that opens /sse occupies a Passenger
+    worker forever — one stray curl can wedge the whole app (observed
+    2026-06-05: claude.ai connector retries against /sse kept re-wedging
+    fresh workers seconds after every pkill). With PTPGE_MCP_SSE=0 the
+    /sse route answers 410 Gone with a pointer to /mcp instead of opening
+    a stream. Set it on the open mirror; leave unset on the stealth server
+    where Basic Auth limits who can connect.
+
 v0.3.0 — Streamable HTTP transport at /mcp (stateless JSON mode):
     The SSE transport keeps one HTTP connection open per client for the
     lifetime of the session. Behind cPanel/Passenger on shared hosting the
@@ -504,6 +513,19 @@ def build_app() -> Starlette:
     sse = SseServerTransport("/mcp/messages/")
 
     async def handle_sse(request: Request) -> Response:
+        if not config.sse_enabled:
+            # SSE disabled (PTPGE_MCP_SSE=0): each SSE client permanently
+            # occupies a Passenger worker, so the public mirror refuses the
+            # transport entirely instead of letting any client wedge the app.
+            return JSONResponse(
+                {
+                    "error": "sse_disabled",
+                    "message": "The SSE transport is disabled on this endpoint. "
+                               "Use the Streamable HTTP transport at /mcp instead.",
+                    "mcp_endpoint": "/mcp",
+                },
+                status_code=410,
+            )
         async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
             await mcp_server.run(streams[0], streams[1], mcp_server.create_initialization_options())
         return Response()
@@ -560,13 +582,13 @@ def build_app() -> Starlette:
                 "data_version": v,
                 "endpoints": {
                     "mcp": "/mcp",
-                    "sse": "/sse",
-                    "messages": "/mcp/messages/",
+                    "sse": "/sse" if config.sse_enabled else None,
+                    "messages": "/mcp/messages/" if config.sse_enabled else None,
                     "health": "/health",
                 },
                 "transport": {
                     "recommended": "streamable-http (/mcp, stateless JSON)",
-                    "legacy": "sse (/sse)",
+                    "legacy": "sse (/sse)" if config.sse_enabled else "sse disabled on this endpoint",
                 },
                 "documentation": "https://ptpge.org",
                 "status": "stealth-mode",
