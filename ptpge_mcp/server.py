@@ -1,5 +1,13 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
+v0.3.3 — browser playground at /playground:
+    A self-contained HTML test console (ptpge_mcp/playground.py) served
+    same-origin, whose buttons POST real JSON-RPC tools/call messages to
+    /mcp — letting anyone exercise search/get_term/get_version from a
+    browser with zero install. Demo URL for partners:
+    https://open.mcp.ptpge.org/playground (behind Basic Auth on the
+    stealth server, like every other route).
+
 v0.3.2 — tokenized, language-agnostic search:
     ptpge_search_terms previously matched the whole query string as one
     substring against a single language's label, so multi-word queries
@@ -109,12 +117,13 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 
 from . import __version__
 from .config import Config
 from .data import VocabularyCache
+from .playground import PLAYGROUND_HTML
 
 logger = logging.getLogger(__name__)
 
@@ -568,6 +577,11 @@ def build_app() -> Starlette:
             return Response(status_code=202)
         return JSONResponse(reply)
 
+    async def playground(_request: Request) -> HTMLResponse:
+        """Browser test console (v0.3.3) — same-origin JS that POSTs real
+        JSON-RPC to /mcp. See ptpge_mcp/playground.py."""
+        return HTMLResponse(PLAYGROUND_HTML)
+
     async def health(_request: Request) -> JSONResponse:
         try:
             v = cache.version.get("version")
@@ -592,6 +606,7 @@ def build_app() -> Starlette:
                 "data_version": v,
                 "endpoints": {
                     "mcp": "/mcp",
+                    "playground": "/playground",
                     "sse": "/sse" if config.sse_enabled else None,
                     "messages": "/mcp/messages/" if config.sse_enabled else None,
                     "health": "/health",
@@ -627,6 +642,7 @@ def build_app() -> Starlette:
         middleware=middleware,
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
+            Route("/playground", endpoint=playground, methods=["GET"]),
             Route("/health", endpoint=health, methods=["GET"]),
             # Streamable HTTP (recommended). GET/DELETE answered with 405
             # inside the handler — stateless servers open no streams.
