@@ -67,7 +67,7 @@ footer a { color: #2a6045; }
 <div class="card">
   <h2>ptpge_search_terms — free-text search</h2>
   <div class="row">
-    <input type="text" id="q" placeholder="e.g. trekkspill · gultonet · accordion fold · fullfarge · opplag" value="trekkspill">
+    <input type="text" id="q" placeholder="e.g. trekkspill · gultonet · accordion fold · fullfarge · opplag" value="brochure">
     <select id="q-lang">
       <option value="en" selected>en</option><option value="nb">nb</option>
       <option value="de">de</option><option value="ja">ja</option>
@@ -88,7 +88,7 @@ footer a { color: #2a6045; }
   <h2>ptpge_get_term — full context for one term</h2>
   <div class="row">
     <input type="text" id="uri" placeholder="URI or path under /v1/"
-           value="printing/completions/finishing/scoring">
+           value="printing/completions/finishing/folding">
     <select id="t-lang">
       <option value="en" selected>en</option><option value="nb">nb</option>
       <option value="de">de</option><option value="ja">ja</option>
@@ -110,8 +110,8 @@ footer a { color: #2a6045; }
 <div class="card">
   <h2>Test-prompt demo — the full chain, live</h2>
   <p style="font-size:13px;color:#555;margin:0 0 10px;font-style:italic">
-  «Jeg vil ha en brosjyre, 6 sider, A5, brettet som et trekkspill, på gultonet litt
-  tykt papir, fullfarge på den ene siden og kun sort på den andre, 500 eks.»</p>
+  "I want a brochure, 6 pages, A5, folded like an accordion, on ivory-toned
+  slightly heavy paper, full colour on one side and black only on the other, 500 copies."</p>
   <div class="row">
     <button onclick="doEnvelope()">1 · Envelope</button>
     <button onclick="doValidate()">2 · Validate</button>
