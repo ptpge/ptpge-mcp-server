@@ -25,8 +25,8 @@ TERMS = {
         "id": B + "printing/completions", "level": "group", "notation": "P:CP",
         "label": {"en": "Completions"}, "narrower": []},
     # — product (consolidated Brochure) —
-    B + "ordering/products/buy-online/sheets/brochures": {
-        "id": B + "ordering/products/buy-online/sheets/brochures",
+    B + "ordering/products/configurable/sheets/brochures": {
+        "id": B + "ordering/products/configurable/sheets/brochures",
         "level": "element", "elementType": "product", "notation": "O:PR§BROCHURE",
         "label": {"en": "Brochure", "nb": "Brosjyre"},
         "supportsSetupModel": [B + "printing/configurations/setup-models/folded-sheet/accordion-fold"],
@@ -98,7 +98,7 @@ class FakeCache:
         return []
 
 
-PRODUCT = "ordering/products/buy-online/sheets/brochures"
+PRODUCT = "ordering/products/configurable/sheets/brochures"
 
 
 # -------------------- browse --------------------
@@ -205,7 +205,7 @@ def test_validate_closed_semantics():
 def test_fingerprint_matches_spec_worked_example():
     """The spec § 9 worked example must reproduce byte-identically."""
     args = {
-        "product": "ordering/products/buy-online/sheets/brochures",
+        "product": "ordering/products/configurable/sheets/brochures",
         "bindings": [
             {"variable": "variables/structure/setup-model",
              "value": "printing/configurations/setup-models/folded-sheet/accordion-fold"},
@@ -227,10 +227,10 @@ def test_fingerprint_matches_spec_worked_example():
     }
     out = tool_payload(FakeCache(), "ptpge_fingerprint", args)
     assert out["profiles"]["spec"]["sha256"] == (
-        "4b2482d846cee891fc280ca805b123b26c68f77b156f0005b79684fd4cc4646b")
+        "ab469f126af8cdd710c153fb8a490b44654dc226adcbf0174c5a085e730f8b54")
     assert out["profiles"]["offer"]["sha256"] == (
-        "39658b5f625127ab3dba5379d5662ea9cdedecff03257a72174b82bb5f7e97c3")
-    assert out["profiles"]["spec"]["short"] == "4b2482d846cee891"
+        "e18441aacc2f98515c2377104ab4d6923d1d4062094681428bdab65b6bf936b8")
+    assert out["profiles"]["spec"]["short"] == "ab469f126af8cdd7"
 
 
 def test_fingerprint_deterministic_under_shuffle():

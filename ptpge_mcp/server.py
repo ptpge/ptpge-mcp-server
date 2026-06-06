@@ -344,7 +344,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "properties": {
                 "id_or_path": {
                     "type": "string",
-                    "description": "Product URI or path, e.g. 'ordering/products/buy-online/sheets/brochures'.",
+                    "description": "Product URI or path, e.g. 'ordering/products/configurable/sheets/brochures'.",
                 },
                 "language": {"type": "string", "default": "en"},
             },

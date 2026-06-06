@@ -97,7 +97,7 @@ footer a { color: #2a6045; }
     <button onclick="doGet()">Get term</button>
   </div>
   <div class="hint">Tip: click a result <code>id</code> from a search, or try
-  <a onclick="presetUri('ordering/products/buy-online/sheets/brochures')">brochures</a> ·
+  <a onclick="presetUri('ordering/products/configurable/sheets/brochures')">brochures</a> ·
   <a onclick="presetUri('printing/substrates/sheet-materials/paper/paper-weights/medium-paper')">medium-paper</a> ·
   <a onclick="presetUri('variables/commercial/quantity')">quantity</a></div>
 </div>
@@ -207,7 +207,7 @@ function doGet() {
 function doVersion() { callTool("ptpge_get_version", {}); }
 
 // — Test-prompt demo: the canonical brochure configuration —
-const DEMO_PRODUCT = "ordering/products/buy-online/sheets/brochures";
+const DEMO_PRODUCT = "ordering/products/configurable/sheets/brochures";
 const DEMO_BINDINGS = [
   { variable: "variables/structure/setup-model",
     value: "printing/configurations/setup-models/folded-sheet/accordion-fold" },
