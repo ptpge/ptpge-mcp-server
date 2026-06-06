@@ -67,7 +67,7 @@ footer a { color: #2a6045; }
 <div class="card">
   <h2>ptpge_search_terms — free-text search</h2>
   <div class="row">
-    <input type="text" id="q" placeholder="e.g. trekkspill · gultonet · accordion fold · fullfarge · opplag" value="brochure">
+    <input type="text" id="q" placeholder="e.g. brochure · accordion fold · ivory paper · full colour · copies" value="brochure">
     <select id="q-lang">
       <option value="en" selected>en</option><option value="nb">nb</option>
       <option value="de">de</option><option value="ja">ja</option>
@@ -75,13 +75,13 @@ footer a { color: #2a6045; }
     </select>
     <button onclick="doSearch()">Search</button>
   </div>
-  <div class="hint">Search is tokenized and language-agnostic — Norwegian buyer phrases hit
-  English terms and vice versa. Try:
-  <a onclick="preset('gultonet papir')">gultonet papir</a> ·
-  <a onclick="preset('kun sort')">kun sort</a> ·
-  <a onclick="preset('litt tykt papir')">litt tykt papir</a> ·
-  <a onclick="preset('rilling')">rilling</a> ·
-  <a onclick="preset('brosjyre')">brosjyre</a></div>
+  <div class="hint">Search is tokenized and language-agnostic — buyer phrases in any
+  supported language hit the canonical terms. Try:
+  <a onclick="preset('ivory paper')">ivory paper</a> ·
+  <a onclick="preset('black only')">black only</a> ·
+  <a onclick="preset('accordion fold')">accordion fold</a> ·
+  <a onclick="preset('creasing')">creasing</a> ·
+  <a onclick="preset('gold foil')">gold foil</a></div>
 </div>
 
 <div class="card">
