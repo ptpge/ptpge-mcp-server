@@ -107,6 +107,22 @@ footer a { color: #2a6045; }
   <div class="row"><button onclick="doVersion()">Get version</button></div>
 </div>
 
+<div class="card">
+  <h2>Test-prompt demo — the full chain, live</h2>
+  <p style="font-size:13px;color:#555;margin:0 0 10px;font-style:italic">
+  «Jeg vil ha en brosjyre, 6 sider, A5, brettet som et trekkspill, på gultonet litt
+  tykt papir, fullfarge på den ene siden og kun sort på den andre, 500 eks.»</p>
+  <div class="row">
+    <button onclick="doEnvelope()">1 · Envelope</button>
+    <button onclick="doValidate()">2 · Validate</button>
+    <button onclick="doFingerprint()">3 · Fingerprint</button>
+  </div>
+  <div class="hint">The interpretation (words → bindings) is pre-scripted here — that is
+  the AI agent's job. The lookups, envelope validation (incl. 170 gsm → weight band and
+  the creasing advisory) and the ptpge-cfs/1 fingerprint run <em>live</em> against this
+  server, exactly as an agent would call them.</div>
+</div>
+
 <div id="meta"></div>
 <div id="out">Results appear here.</div>
 
@@ -179,6 +195,27 @@ function doGet() {
   });
 }
 function doVersion() { callTool("ptpge_get_version", {}); }
+
+// — Test-prompt demo: the canonical brochure configuration —
+const DEMO_PRODUCT = "ordering/products/buy-online/sheets/brochures";
+const DEMO_BINDINGS = [
+  { variable: "variables/structure/setup-model",
+    value: "printing/configurations/setup-models/folded-sheet/accordion-fold" },
+  { variable: "variables/structure/page-count", value: 6 },
+  { variable: "variables/dimensional/format",
+    value: "printing/configurations/formats/a-series/a5" },
+  { variable: "variables/substrate/substrate-type",
+    value: "printing/substrates/sheet-materials/paper" },
+  { variable: "variables/substrate/substrate-weight", value: 170 },
+  { variable: "variables/color/color-mode", surface: "outside",
+    value: "printing/features/colors/cmyk" },
+  { variable: "variables/color/color-mode", surface: "inside",
+    value: "printing/features/colors/black" },
+  { variable: "variables/commercial/quantity", value: 500 },
+];
+function doEnvelope()    { callTool("ptpge_get_product_envelope", { id_or_path: DEMO_PRODUCT }); }
+function doValidate()    { callTool("ptpge_validate_config", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }); }
+function doFingerprint() { callTool("ptpge_fingerprint", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }); }
 function preset(v) { document.getElementById("q").value = v; doSearch(); }
 function presetUri(v) { document.getElementById("uri").value = v; doGet(); }
 

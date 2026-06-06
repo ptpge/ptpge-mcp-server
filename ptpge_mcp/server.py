@@ -1,5 +1,23 @@
 """PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
 
+v0.4.0 — four new tools (tool surface v2, additive):
+    - ptpge_browse                — hierarchy navigation (children of a node;
+      top concepts when called without arguments)
+    - ptpge_get_product_envelope  — the complete Configuration Envelope of a
+      product class in one call, with resolved labels (saves agents 10+
+      get_term round-trips when composing)
+    - ptpge_validate_config       — Layer 1 ENVELOPE validation: bindings vs
+      supports*, numeric gsm -> weight band via minWeight/maxWeight
+      properties, data-driven advisories (creasing thresholds from the
+      scoring term). Deliberately not full legality — that is Layer 2,
+      licensed; this free tool is its demonstration.
+    - ptpge_fingerprint           — canonical ptpge-cfs/1 serialization +
+      SHA-256 in both profiles (spec/offer), per SD-0040. Server-side port
+      in ptpge_mcp/fingerprint.py, verified byte-identical against the
+      reference implementation's worked example.
+    Original three tools unchanged. Playground gains a "test-prompt demo"
+    card that chains envelope -> validate -> fingerprint live.
+
 v0.3.3 — browser playground at /playground:
     A self-contained HTML test console (ptpge_mcp/playground.py) served
     same-origin, whose buttons POST real JSON-RPC tools/call messages to
@@ -123,6 +141,7 @@ from starlette.routing import Mount, Route
 from . import __version__
 from .config import Config
 from .data import VocabularyCache
+from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
 from .playground import PLAYGROUND_HTML
 
 logger = logging.getLogger(__name__)
@@ -288,6 +307,119 @@ TOOL_DESCRIPTORS: list[Tool] = [
         ),
         inputSchema={"type": "object", "properties": {}, "required": []},
     ),
+    Tool(
+        name="ptpge_browse",
+        description=(
+            "Navigate the PTPGE hierarchy. Returns a node and its children "
+            "(id, notation, label, level, elementType, hasChildren). Omit "
+            "id_or_path to get the three top concepts (printing, ordering, "
+            "variables). Use this for systematic exploration instead of "
+            "guessing search keywords."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "id_or_path": {
+                    "type": "string",
+                    "description": "Full URI or path under /v1/. Omit for the top concepts.",
+                },
+                "language": {"type": "string", "default": "en"},
+            },
+            "required": [],
+        },
+    ),
+    Tool(
+        name="ptpge_get_product_envelope",
+        description=(
+            "Return the complete Configuration Envelope of a product class in "
+            "one call: supportsSetupModel, every supports* and "
+            "perSurfaceSupports* predicate with resolved labels, plus "
+            "typical* descriptors. This is the full menu of what can be "
+            "configured for the product — use it before composing a "
+            "configuration, instead of many individual ptpge_get_term calls. "
+            "Absent predicates mean NOT supported (closed semantics)."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "id_or_path": {
+                    "type": "string",
+                    "description": "Product URI or path, e.g. 'ordering/products/buy-online/sheets/brochures'.",
+                },
+                "language": {"type": "string", "default": "en"},
+            },
+            "required": ["id_or_path"],
+        },
+    ),
+    Tool(
+        name="ptpge_validate_config",
+        description=(
+            "Layer 1 envelope validation of a product configuration: checks "
+            "every binding against the product's supports* envelopes, maps "
+            "numeric substrate-weight (gsm) to its weight band via the bands' "
+            "minWeight/maxWeight properties, and returns data-driven "
+            "advisories (e.g. creasing recommended above the scoring "
+            "thresholds). NOTE: this validates the ENVELOPE only — "
+            "cross-variable legality (e.g. valid panel counts per fold "
+            "topology) and vendor capability matching are Layer 2 "
+            "(Configurator) services."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "product": {"type": "string", "description": "Product URI or path."},
+                "bindings": {
+                    "type": "array",
+                    "description": "Variable bindings to validate.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "variable": {"type": "string", "description": "Variable URI or path, e.g. 'variables/dimensional/format'."},
+                            "value": {"description": "URI/path (enum) or number (numeric variables)."},
+                            "values": {"type": "array", "description": "For cardinality-multiple variables."},
+                            "surface": {"type": "string", "description": "Surface slug for surface-scoped bindings (e.g. 'outside')."},
+                        },
+                        "required": ["variable"],
+                    },
+                },
+                "language": {"type": "string", "default": "en"},
+            },
+            "required": ["product", "bindings"],
+        },
+    ),
+    Tool(
+        name="ptpge_fingerprint",
+        description=(
+            "Compute the canonical ptpge-cfs/1 serialization and SHA-256 "
+            "fingerprint of a resolved product configuration (SD-0040) — the "
+            "vendor-neutral identity used as quote/order/cache key. Returns "
+            "both profiles: 'spec' (the manufacturable artifact, commercial "
+            "cluster excluded) and 'offer' (incl. quantity etc.). Input is "
+            "NOT validated against envelopes — call ptpge_validate_config "
+            "first if needed."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "product": {"type": "string", "description": "Product URI or path."},
+                "bindings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "variable": {"type": "string"},
+                            "value": {"description": "URI/path or number."},
+                            "values": {"type": "array"},
+                            "surface": {"type": "string"},
+                            "ordered": {"type": "boolean"},
+                        },
+                        "required": ["variable"],
+                    },
+                },
+            },
+            "required": ["product", "bindings"],
+        },
+    ),
 ]
 
 
@@ -334,6 +466,274 @@ def _term_for_response(term: dict, language: str) -> dict:
             out[f"{key}_all"] = value
         else:
             out[key] = value
+    return out
+
+
+# ---------------------------------------------------------------------------
+# v0.4.0 tool helpers — envelope, validation, browse
+# ---------------------------------------------------------------------------
+
+_BASE = "https://ptpge.org/v1/"
+
+# Variable URI tail -> the product envelope predicate it is constrained by.
+# Variables not listed here either have no Layer 1 envelope (numeric
+# page-count, commercial quantity) or are validated by other means.
+VARIABLE_ENVELOPE = {
+    "variables/structure/setup-model":      ("supportsSetupModel", "product"),
+    "variables/dimensional/format":         ("supportsFormat", "product"),
+    "variables/dimensional/orientation":    ("supportsOrientation", "product"),
+    "variables/structure/fold-direction":   ("supportsFoldDirection", "product"),
+    "variables/structure/fold":             ("supportsFolding", "product"),
+    "variables/structure/binding":          ("supportsBinding", "product"),
+    "variables/substrate/substrate-type":   ("supportsSubstrate", "product"),
+    "variables/substrate/substrate-finish": ("supportsSubstrateFinish", "product"),
+    "variables/substrate/substrate-colour": ("supportsSubstrateColour", "product"),
+    "variables/production/technology":      ("supportsTechnology", "product"),
+    "variables/production/press-type":      ("supportsPressType", "product"),
+    "variables/compliance/certification":   ("supportsCertification", "product"),
+    "variables/compliance/print-standard":  ("supportsPrintStandard", "product"),
+    "variables/color/color-profile":        ("supportsColorProfile", "product"),
+    "variables/color/color-mode":           ("perSurfaceSupportsColorMode", "surface"),
+    "variables/embellishment/embellishment": ("perSurfaceSupportsEmbellishment", "surface"),
+    "variables/embellishment/surface-finish": ("perSurfaceSupportsSurfaceFinish", "surface"),
+    "variables/embellishment/die-cutting":  ("supportsDieCutting", "product"),
+    "variables/embellishment/perforation":  ("supportsPerforation", "product"),
+}
+
+WEIGHT_VARIABLE = "variables/substrate/substrate-weight"
+WEIGHT_ENVELOPE = "supportsSubstrateWeight"
+SCORING_URI = _BASE + "printing/completions/finishing/scoring"
+
+
+def _full_uri(id_or_path: str) -> str:
+    s = str(id_or_path or "").strip()
+    return s if s.startswith("http") else _BASE + s.lstrip("/")
+
+
+def _localized(value, language: str):
+    return _localize(value, language)
+
+
+def _ref(cache: "VocabularyCache", uri: str, language: str) -> dict:
+    """Resolve a URI to a compact reference {id, notation, label, level}."""
+    term = cache.get_term(uri)
+    if term is None:
+        return {"id": uri, "label": uri.rsplit("/", 1)[-1], "resolved": False}
+    return {
+        "id": term.get("id", uri),
+        "notation": term.get("notation") or None,
+        "label": _localized(term.get("label"), language),
+        "level": term.get("level"),
+        "elementType": term.get("elementType") or None,
+    }
+
+
+def _weight_bands(cache: "VocabularyCache") -> list[dict]:
+    """All weight band terms with their numeric range, via the substrate-weight
+    Variable's valueDomain -> narrower walk. Data-driven; nothing hardcoded."""
+    var = cache.get_term(_BASE + WEIGHT_VARIABLE) or {}
+    domain = var.get("valueDomain") or _BASE + "printing/substrates/sheet-materials/paper/paper-weights"
+    parent = cache.get_term(domain) or {}
+    bands = []
+    for u in parent.get("narrower", []) or []:
+        t = cache.get_term(u) or {}
+        p = t.get("properties") or {}
+        if "minWeight" in p:
+            bands.append({
+                "id": t.get("id", u), "notation": t.get("notation"),
+                "minWeight": p.get("minWeight"), "maxWeight": p.get("maxWeight"),
+            })
+    bands.sort(key=lambda b: b["minWeight"])
+    return bands
+
+
+def _band_for_weight(cache: "VocabularyCache", gsm) -> dict | None:
+    for b in _weight_bands(cache):
+        if gsm >= b["minWeight"] and (b.get("maxWeight") is None or gsm <= b["maxWeight"]):
+            return b
+    return None
+
+
+def envelope_payload(cache: "VocabularyCache", id_or_path: str, language: str) -> object:
+    uri = _full_uri(id_or_path)
+    term = cache.get_term(uri)
+    if term is None:
+        return {"error": "not_found", "id_or_path": id_or_path}
+    if term.get("elementType") != "product":
+        return {"error": "not_a_product", "id": term.get("id"),
+                "elementType": term.get("elementType"),
+                "hint": "ptpge_get_product_envelope only applies to elementType=product terms."}
+    out = {
+        "product": _ref(cache, uri, language),
+        "envelope": {},
+        "perSurface": {},
+        "typical": {},
+        "closedSemantics": "Predicates absent from this envelope are NOT supported for this product.",
+    }
+    for key, value in term.items():
+        if key.startswith("perSurfaceSupports") and isinstance(value, list):
+            out["perSurface"][key] = [_ref(cache, u, language) for u in value]
+        elif key.startswith("supports") and isinstance(value, list):
+            out["envelope"][key] = [_ref(cache, u, language) for u in value]
+        elif key in ("typicalUse", "typicalAudience") and isinstance(value, list):
+            out["typical"][key] = [_ref(cache, u, language) for u in value]
+        elif key in ("typicalPageCount", "fulfilmentClass"):
+            out["typical"][key] = value
+    return out
+
+
+def validate_payload(cache: "VocabularyCache", args: dict) -> object:
+    language = args.get("language", "en")
+    uri = _full_uri(args.get("product", ""))
+    product = cache.get_term(uri)
+    if product is None:
+        return {"error": "not_found", "product": args.get("product")}
+    if product.get("elementType") != "product":
+        return {"error": "not_a_product", "id": product.get("id")}
+
+    results, advisories = [], []
+    all_ok = True
+    bound_weight = None
+    for b in args.get("bindings", []) or []:
+        var_uri = _full_uri(b.get("variable", ""))
+        var_tail = var_uri[len(_BASE):]
+        values = b.get("values") if "values" in b else [b.get("value")]
+        entry = {
+            "variable": var_tail,
+            "surface": b.get("surface") or None,
+            "value": b.get("values") if "values" in b else b.get("value"),
+        }
+        # Numeric substrate-weight: map to band, check band against envelope.
+        if var_tail == WEIGHT_VARIABLE and isinstance(values[0], (int, float)):
+            gsm = values[0]
+            bound_weight = gsm
+            band = _band_for_weight(cache, gsm)
+            if band is None:
+                entry.update(status="no_matching_band",
+                             note=f"{gsm} gsm matches no weight band (bands cover 50+).")
+                all_ok = False
+            else:
+                env = product.get(WEIGHT_ENVELOPE)
+                entry["band"] = {"id": band["id"], "notation": band["notation"],
+                                 "range": [band["minWeight"], band.get("maxWeight")]}
+                if env is None:
+                    entry.update(status="not_supported",
+                                 note="Product declares no supportsSubstrateWeight (closed semantics).")
+                    all_ok = False
+                elif band["id"] in env:
+                    entry["status"] = "in_envelope"
+                else:
+                    entry.update(status="not_in_envelope",
+                                 note="Weight band is outside this product's envelope.")
+                    all_ok = False
+            results.append(entry)
+            continue
+        # Envelope-mapped enum variables.
+        mapping = VARIABLE_ENVELOPE.get(var_tail)
+        if mapping is None:
+            scope_note = ("numeric; topology legality is Layer 2"
+                          if var_tail == "variables/structure/page-count"
+                          else "commercial; no Layer 1 envelope"
+                          if var_tail.startswith("variables/commercial/")
+                          else "no Layer 1 envelope mapping for this variable")
+            entry.update(status="not_checked", note=scope_note)
+            results.append(entry)
+            continue
+        env_key, _scope = mapping
+        env = product.get(env_key)
+        if env is None:
+            entry.update(status="not_supported", envelope=env_key,
+                         note=f"Product declares no {env_key} (closed semantics).")
+            all_ok = False
+            results.append(entry)
+            continue
+        bad = [v for v in values if _full_uri(v) not in env]
+        entry["envelope"] = env_key
+        if bad:
+            entry.update(status="not_in_envelope",
+                         offending=[_full_uri(v) for v in bad])
+            all_ok = False
+        else:
+            entry["status"] = "in_envelope"
+        results.append(entry)
+
+    # Data-driven advisory: creasing thresholds from the scoring term (SD: rilling).
+    scoring = cache.get_term(SCORING_URI) or {}
+    sp = scoring.get("properties") or {}
+    if bound_weight is not None and sp.get("recommendedAboveWeight") is not None:
+        if bound_weight > sp.get("standardAboveWeight", 10 ** 9):
+            advisories.append({
+                "type": "creasing_standard",
+                "term": SCORING_URI,
+                "note": f"At {bound_weight} gsm, creasing (rilling) is standard practice "
+                        f"(above {sp['standardAboveWeight']} gsm) when the product is folded.",
+            })
+        elif bound_weight > sp["recommendedAboveWeight"]:
+            advisories.append({
+                "type": "creasing_recommended",
+                "term": SCORING_URI,
+                "note": f"At {bound_weight} gsm, creasing (rilling) is recommended "
+                        f"(above {sp['recommendedAboveWeight']} gsm) when the product is folded.",
+            })
+
+    return {
+        "product": _ref(cache, uri, language),
+        "validInEnvelope": all_ok,
+        "bindings": results,
+        "advisories": advisories,
+        "scope": "Layer 1 envelope validation only. Cross-variable legality "
+                 "(e.g. panel counts per topology) and vendor capability are "
+                 "Layer 2 (Configurator) services.",
+    }
+
+
+def browse_payload(cache: "VocabularyCache", id_or_path: str | None, language: str) -> object:
+    if not id_or_path:
+        roots = [_BASE + "printing", _BASE + "ordering", _BASE + "variables"]
+        return {"node": None, "children": [
+            dict(_ref(cache, u, language),
+                 hasChildren=bool((cache.get_term(u) or {}).get("narrower")))
+            for u in roots
+        ]}
+    uri = _full_uri(id_or_path)
+    term = cache.get_term(uri)
+    if term is None:
+        return {"error": "not_found", "id_or_path": id_or_path}
+    children = []
+    for u in term.get("narrower", []) or []:
+        child = cache.get_term(u) or {}
+        children.append(dict(_ref(cache, u, language),
+                             hasChildren=bool(child.get("narrower"))))
+    return {"node": _ref(cache, uri, language),
+            "broader": term.get("broader") or None,
+            "children": children}
+
+
+def fingerprint_payload(args: dict) -> object:
+    config = {"product": _full_uri(args.get("product", "")),
+              "bindings": []}
+    for b in args.get("bindings", []) or []:
+        nb = {"variable": _full_uri(b.get("variable", ""))}
+        if "values" in b:
+            nb["values"] = [
+                v if isinstance(v, (int, float)) else _full_uri(v)
+                for v in b["values"]
+            ]
+            if "ordered" in b:
+                nb["ordered"] = bool(b["ordered"])
+        else:
+            v = b.get("value")
+            nb["value"] = v if isinstance(v, (int, float)) else _full_uri(v)
+        if b.get("surface"):
+            nb["surface"] = b["surface"]
+        config["bindings"].append(nb)
+    out = {"algorithm": "ptpge-cfs/1", "profiles": {}}
+    for profile in ("spec", "offer"):
+        s = _cfs_canonical(config, profile)
+        h = _cfs_fingerprint(config, profile)
+        out["profiles"][profile] = {"canonical": s, "sha256": h, "short": _cfs_short(h)}
+    out["note"] = ("Input was serialized as given — not validated against the "
+                   "product envelope. Use ptpge_validate_config for that.")
     return out
 
 
@@ -385,6 +785,18 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
         if term is None:
             return {"error": "not_found", "id_or_path": id_or_path}
         return _term_for_response(term, language)
+
+    if name == "ptpge_browse":
+        return browse_payload(cache, args.get("id_or_path"), args.get("language", "en"))
+
+    if name == "ptpge_get_product_envelope":
+        return envelope_payload(cache, args.get("id_or_path", ""), args.get("language", "en"))
+
+    if name == "ptpge_validate_config":
+        return validate_payload(cache, args)
+
+    if name == "ptpge_fingerprint":
+        return fingerprint_payload(args)
 
     raise ValueError(f"Unknown tool: {name}")
 
