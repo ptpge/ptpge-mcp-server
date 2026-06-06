@@ -123,6 +123,16 @@ footer a { color: #2a6045; }
   server, exactly as an agent would call them.</div>
 </div>
 
+<div class="card">
+  <h2>Your own prompt — see what resolves</h2>
+  <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on heavy recycled paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
+  <div class="row" style="margin-top:10px"><button onclick="doResolve()">Resolve phrases</button></div>
+  <div class="hint">A real agent uses an LLM to decompose a prompt intelligently. Here we split on
+  commas and connectors as a rough stand-in, then look each fragment up <em>live</em> — so you
+  see which pieces map to canonical PTPGE terms and which don't. Assembling the hits into a
+  validated, fingerprinted configuration is the agent's job (the demo above shows that step).</div>
+</div>
+
 <div id="meta"></div>
 <div id="out">Results appear here.</div>
 
@@ -213,6 +223,49 @@ const DEMO_BINDINGS = [
     value: "printing/features/colors/black" },
   { variable: "variables/commercial/quantity", value: 500 },
 ];
+// — Free-text prompt: split into phrases, look each up live —
+async function doResolve() {
+  const raw = document.getElementById("prompt").value || "";
+  // Rough decomposition (a real agent uses an LLM): split on commas, semicolons,
+  // newlines and a few connectors; drop tiny/stopword-only fragments.
+  const STOP = new Set(("i want a an the on of with and or in to for it is be " +
+    "jeg vil ha en et på med og eller som").split(/\\s+/));
+  const frags = raw.split(/[,;\\n]|\\band\\b|\\bog\\b|\\bwith\\b|\\bmed\\b/i)
+    .map(s => s.trim().replace(/\\.+$/, ""))
+    .map(s => s.split(/\\s+/).filter(w => !STOP.has(w.toLowerCase())).join(" ").trim())
+    .filter(s => s.length >= 3);
+  if (!frags.length) { render({ note: "No searchable phrases found." }); return; }
+
+  const buttons = document.querySelectorAll("button");
+  buttons.forEach(b => b.disabled = true);
+  document.getElementById("meta").textContent =
+    `resolving ${frags.length} phrase(s) via ptpge_search_terms…`;
+  const lang = document.getElementById("q-lang").value;
+  const out = [];
+  try {
+    for (const phrase of frags) {
+      const { json } = await rpc("tools/call", {
+        name: "ptpge_search_terms", arguments: { query: phrase, limit: 1, language: lang },
+      });
+      let hit = null;
+      try {
+        const p = JSON.parse(json.result.content[0].text);
+        hit = (p.results && p.results[0]) || null;
+      } catch (e) {}
+      out.push(hit
+        ? { phrase, resolved: hit.prefLabel, uri: hit.id, notation: hit.notation || null, score: hit.score }
+        : { phrase, resolved: null, note: "no match — likely Layer 2 (quantity, delivery) or a content gap" });
+    }
+    document.getElementById("meta").textContent =
+      `${frags.length} phrase(s) resolved · ptpge_search_terms × ${frags.length}`;
+    render({ prompt: raw, phrases: out,
+      note: "Each phrase was looked up live. Assembling these into a validated, " +
+            "fingerprinted configuration is the AI agent's job." });
+  } finally {
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
 function doEnvelope()    { callTool("ptpge_get_product_envelope", { id_or_path: DEMO_PRODUCT }); }
 function doValidate()    { callTool("ptpge_validate_config", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }); }
 function doFingerprint() { callTool("ptpge_fingerprint", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }); }
