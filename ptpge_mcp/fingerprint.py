@@ -16,11 +16,11 @@ ALGORITHM = "ptpge-cfs/1"
 
 # Variables whose multi-values are ORDER-SIGNIFICANT (layer stacks).
 KNOWN_ORDERED = {
-    "variables/embellishment/surface-finish",
+    "variables/features/surface-finish",
 }
 
 # `spec` profile excludes the commercial cluster (quantity, ...).
-COMMERCIAL_PREFIX = "variables/commercial/"
+COMMERCIAL_PREFIX = "variables/order/"
 
 _TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9./-]*$")
 _SURFACE_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")

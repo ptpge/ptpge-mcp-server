@@ -1,5 +1,12 @@
 # PTPGE MCP Server — Python dependencies
 # Pinned versions for reproducibility on cPanel Python App
+#
+# IMPORTANT: build the venv with Python 3.11 explicitly — `mcp` requires
+# Python >= 3.10, and `python3` on this machine resolves to 3.9.
+#   python3.11 -m venv venv
+#   source venv/bin/activate
+#   pip install --upgrade pip
+#   pip install -r requirements.txt
 
 # MCP Python SDK — provides tool registration and protocol handling
 mcp>=1.0.0

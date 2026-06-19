@@ -97,9 +97,9 @@ footer a { color: #2a6045; }
     <button onclick="doGet()">Get term</button>
   </div>
   <div class="hint">Tip: click a result <code>id</code> from a search, or try
-  <a onclick="presetUri('ordering/products/configurable/sheets/brochures')">brochures</a> ·
+  <a onclick="presetUri('ordering/products/brochures')">brochures</a> ·
   <a onclick="presetUri('printing/substrates/sheet-materials/paper/paper-weights/medium-paper')">medium-paper</a> ·
-  <a onclick="presetUri('variables/commercial/quantity')">quantity</a></div>
+  <a onclick="presetUri('variables/order/quantity')">quantity</a></div>
 </div>
 
 <div class="card">
@@ -207,21 +207,21 @@ function doGet() {
 function doVersion() { callTool("ptpge_get_version", {}); }
 
 // — Test-prompt demo: the canonical brochure configuration —
-const DEMO_PRODUCT = "ordering/products/configurable/sheets/brochures";
+const DEMO_PRODUCT = "ordering/products/brochures";
 const DEMO_BINDINGS = [
-  { variable: "variables/structure/setup-model",
-    value: "printing/configurations/setup-models/folded-sheet/accordion-fold" },
-  { variable: "variables/structure/page-count", value: 6 },
-  { variable: "variables/dimensional/format",
+  { variable: "variables/configuration/setup-model",
+    value: "printing/configurations/setup-models/folded-sheet" },
+  { variable: "variables/configuration/page-count", value: 6 },
+  { variable: "variables/configuration/format",
     value: "printing/configurations/formats/a-series/a5" },
   { variable: "variables/substrate/substrate-type",
     value: "printing/substrates/sheet-materials/paper" },
   { variable: "variables/substrate/substrate-weight", value: 170 },
-  { variable: "variables/color/color-mode", surface: "outside",
+  { variable: "variables/features/color-mode", surface: "outside",
     value: "printing/features/colors/cmyk" },
-  { variable: "variables/color/color-mode", surface: "inside",
+  { variable: "variables/features/color-mode", surface: "inside",
     value: "printing/features/colors/black" },
-  { variable: "variables/commercial/quantity", value: 500 },
+  { variable: "variables/order/quantity", value: 500 },
 ];
 // — Free-text prompt: split into phrases, look each up live —
 async function doResolve() {

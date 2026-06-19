@@ -25,11 +25,11 @@ TERMS = {
         "id": B + "printing/completions", "level": "group", "notation": "P:CP",
         "label": {"en": "Completions"}, "narrower": []},
     # — product (consolidated Brochure) —
-    B + "ordering/products/configurable/sheets/brochures": {
-        "id": B + "ordering/products/configurable/sheets/brochures",
+    B + "ordering/products/brochures": {
+        "id": B + "ordering/products/brochures",
         "level": "element", "elementType": "product", "notation": "O:PR§BROCHURE",
         "label": {"en": "Brochure", "nb": "Brosjyre"},
-        "supportsSetupModel": [B + "printing/configurations/setup-models/folded-sheet/accordion-fold"],
+        "supportsSetupModel": [B + "printing/configurations/setup-models/folded-sheet"],
         "supportsFormat": [B + "printing/configurations/formats/a-series/a5"],
         "supportsSubstrateWeight": [B + "printing/substrates/sheet-materials/paper/paper-weights/medium-paper"],
         "perSurfaceSupportsColorMode": [B + "printing/features/colors/cmyk",
@@ -37,8 +37,8 @@ TERMS = {
         "typicalPageCount": 6, "fulfilmentClass": "folded",
     },
     # — values —
-    B + "printing/configurations/setup-models/folded-sheet/accordion-fold": {
-        "id": B + "printing/configurations/setup-models/folded-sheet/accordion-fold",
+    B + "printing/configurations/setup-models/folded-sheet": {
+        "id": B + "printing/configurations/setup-models/folded-sheet",
         "level": "element", "elementType": "value", "notation": "P:CF§ACCORDION-FOLD",
         "label": {"en": "Accordion-Fold Setup", "nb": "Trekkspill-fold oppsett"}},
     B + "printing/configurations/formats/a-series/a5": {
@@ -98,7 +98,7 @@ class FakeCache:
         return []
 
 
-PRODUCT = "ordering/products/configurable/sheets/brochures"
+PRODUCT = "ordering/products/brochures"
 
 
 # -------------------- browse --------------------
@@ -143,15 +143,15 @@ def test_envelope_rejects_non_product():
 
 def _bindings_ok():
     return [
-        {"variable": "variables/structure/setup-model",
-         "value": "printing/configurations/setup-models/folded-sheet/accordion-fold"},
-        {"variable": "variables/dimensional/format",
+        {"variable": "variables/configuration/setup-model",
+         "value": "printing/configurations/setup-models/folded-sheet"},
+        {"variable": "variables/configuration/format",
          "value": "printing/configurations/formats/a-series/a5"},
         {"variable": "variables/substrate/substrate-weight", "value": 170},
-        {"variable": "variables/color/color-mode", "surface": "outside",
+        {"variable": "variables/features/color-mode", "surface": "outside",
          "value": "printing/features/colors/cmyk"},
-        {"variable": "variables/structure/page-count", "value": 6},
-        {"variable": "variables/commercial/quantity", "value": 500},
+        {"variable": "variables/configuration/page-count", "value": 6},
+        {"variable": "variables/order/quantity", "value": 500},
     ]
 
 
@@ -163,7 +163,7 @@ def test_validate_all_in_envelope_with_band_mapping_and_advisory():
     w = by_var["variables/substrate/substrate-weight"]
     assert w["status"] == "in_envelope"
     assert w["band"]["notation"] == "P:SB§MEDIUM-PAPER"
-    assert by_var["variables/structure/page-count"]["status"] == "not_checked"
+    assert by_var["variables/configuration/page-count"]["status"] == "not_checked"
     # 170 gsm is NOT above the 170 threshold — no advisory
     assert out["advisories"] == []
 
@@ -185,7 +185,7 @@ def test_validate_weight_advisory_recommended_and_standard():
 def test_validate_rejects_value_outside_envelope():
     out = tool_payload(FakeCache(), "ptpge_validate_config", {
         "product": PRODUCT,
-        "bindings": [{"variable": "variables/dimensional/format",
+        "bindings": [{"variable": "variables/configuration/format",
                       "value": "printing/configurations/formats/a-series/a4"}]})
     assert out["validInEnvelope"] is False
     assert out["bindings"][0]["status"] == "not_in_envelope"
@@ -205,41 +205,41 @@ def test_validate_closed_semantics():
 def test_fingerprint_matches_spec_worked_example():
     """The spec § 9 worked example must reproduce byte-identically."""
     args = {
-        "product": "ordering/products/configurable/sheets/brochures",
+        "product": "ordering/products/brochures",
         "bindings": [
-            {"variable": "variables/structure/setup-model",
-             "value": "printing/configurations/setup-models/folded-sheet/accordion-fold"},
-            {"variable": "variables/structure/page-count", "value": 8},
-            {"variable": "variables/dimensional/format",
+            {"variable": "variables/configuration/setup-model",
+             "value": "printing/configurations/setup-models/folded-sheet"},
+            {"variable": "variables/configuration/page-count", "value": 8},
+            {"variable": "variables/configuration/format",
              "value": "printing/configurations/formats/a-series/a5"},
             {"variable": "variables/substrate/substrate-type",
              "value": "printing/substrates/sheet-materials/paper"},
             {"variable": "variables/substrate/substrate-weight", "value": 170},
-            {"variable": "variables/color/color-mode", "surface": "outside",
+            {"variable": "variables/features/color-mode", "surface": "outside",
              "value": "printing/features/colors/cmyk"},
-            {"variable": "variables/color/color-mode", "surface": "inside",
+            {"variable": "variables/features/color-mode", "surface": "inside",
              "value": "printing/features/colors/black"},
-            {"variable": "variables/embellishment/surface-finish", "surface": "outside",
-             "values": ["printing/completions/finishing/laminations/matte",
+            {"variable": "variables/features/surface-finish", "surface": "outside",
+             "values": ["printing/features/surface-finish/lamination/matte",
                         "printing/features/embellishments/spot-uv-varnish"]},
-            {"variable": "variables/commercial/quantity", "value": 500},
+            {"variable": "variables/order/quantity", "value": 500},
         ],
     }
     out = tool_payload(FakeCache(), "ptpge_fingerprint", args)
     assert out["profiles"]["spec"]["sha256"] == (
-        "ab469f126af8cdd710c153fb8a490b44654dc226adcbf0174c5a085e730f8b54")
+        "004da9828c4ff95f3ae1bc35c7aadb19f486d1da942b03e076617414415b44bc")
     assert out["profiles"]["offer"]["sha256"] == (
-        "e18441aacc2f98515c2377104ab4d6923d1d4062094681428bdab65b6bf936b8")
-    assert out["profiles"]["spec"]["short"] == "ab469f126af8cdd7"
+        "5abe5fa873ec01d32f034738004581f99ed83f86ceef581b87e5ab97e56f8ed0")
+    assert out["profiles"]["spec"]["short"] == "004da9828c4ff95f"
 
 
 def test_fingerprint_deterministic_under_shuffle():
     import random
     args = {"product": PRODUCT, "bindings": [
-        {"variable": "variables/dimensional/format",
+        {"variable": "variables/configuration/format",
          "value": "printing/configurations/formats/a-series/a5"},
         {"variable": "variables/substrate/substrate-weight", "value": 170},
-        {"variable": "variables/commercial/quantity", "value": 500},
+        {"variable": "variables/order/quantity", "value": 500},
     ]}
     ref = tool_payload(FakeCache(), "ptpge_fingerprint", args)
     shuffled = json.loads(json.dumps(args))
@@ -250,8 +250,8 @@ def test_fingerprint_deterministic_under_shuffle():
 
 def test_fingerprint_duplicate_binding_is_tool_error():
     args = {"product": PRODUCT, "bindings": [
-        {"variable": "variables/dimensional/format", "value": "x/a"},
-        {"variable": "variables/dimensional/format", "value": "x/b"},
+        {"variable": "variables/configuration/format", "value": "x/a"},
+        {"variable": "variables/configuration/format", "value": "x/b"},
     ]}
     with pytest.raises(ValueError):
         tool_payload(FakeCache(), "ptpge_fingerprint", args)

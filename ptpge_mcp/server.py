@@ -344,7 +344,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "properties": {
                 "id_or_path": {
                     "type": "string",
-                    "description": "Product URI or path, e.g. 'ordering/products/configurable/sheets/brochures'.",
+                    "description": "Product URI or path, e.g. 'ordering/products/brochures'.",
                 },
                 "language": {"type": "string", "default": "en"},
             },
@@ -374,7 +374,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
                     "items": {
                         "type": "object",
                         "properties": {
-                            "variable": {"type": "string", "description": "Variable URI or path, e.g. 'variables/dimensional/format'."},
+                            "variable": {"type": "string", "description": "Variable URI or path, e.g. 'variables/configuration/format'."},
                             "value": {"description": "URI/path (enum) or number (numeric variables)."},
                             "values": {"type": "array", "description": "For cardinality-multiple variables."},
                             "surface": {"type": "string", "description": "Surface slug for surface-scoped bindings (e.g. 'outside')."},
@@ -479,25 +479,25 @@ _BASE = "https://ptpge.org/v1/"
 # Variables not listed here either have no Layer 1 envelope (numeric
 # page-count, commercial quantity) or are validated by other means.
 VARIABLE_ENVELOPE = {
-    "variables/structure/setup-model":      ("supportsSetupModel", "product"),
-    "variables/dimensional/format":         ("supportsFormat", "product"),
-    "variables/dimensional/orientation":    ("supportsOrientation", "product"),
-    "variables/structure/fold-direction":   ("supportsFoldDirection", "product"),
-    "variables/structure/fold":             ("supportsFolding", "product"),
-    "variables/structure/binding":          ("supportsBinding", "product"),
+    "variables/configuration/setup-model":      ("supportsSetupModel", "product"),
+    "variables/configuration/format":         ("supportsFormat", "product"),
+    "variables/configuration/orientation":    ("supportsOrientation", "product"),
+    "variables/finishing/edge":   ("supportsFoldDirection", "product"),
+    "variables/finishing/folding":             ("supportsFolding", "product"),
+    "variables/finishing/binding":          ("supportsBinding", "product"),
     "variables/substrate/substrate-type":   ("supportsSubstrate", "product"),
     "variables/substrate/substrate-finish": ("supportsSubstrateFinish", "product"),
-    "variables/substrate/substrate-colour": ("supportsSubstrateColour", "product"),
+    "variables/substrate/substrate-color": ("supportsSubstrateColour", "product"),
     "variables/production/technology":      ("supportsTechnology", "product"),
     "variables/production/press-type":      ("supportsPressType", "product"),
     "variables/compliance/certification":   ("supportsCertification", "product"),
     "variables/compliance/print-standard":  ("supportsPrintStandard", "product"),
-    "variables/color/color-profile":        ("supportsColorProfile", "product"),
-    "variables/color/color-mode":           ("perSurfaceSupportsColorMode", "surface"),
-    "variables/embellishment/embellishment": ("perSurfaceSupportsEmbellishment", "surface"),
-    "variables/embellishment/surface-finish": ("perSurfaceSupportsSurfaceFinish", "surface"),
-    "variables/embellishment/die-cutting":  ("supportsDieCutting", "product"),
-    "variables/embellishment/perforation":  ("supportsPerforation", "product"),
+    "variables/compliance/color-profile":        ("supportsColorProfile", "product"),
+    "variables/features/color-mode":           ("perSurfaceSupportsColorMode", "surface"),
+    "variables/features/embellishment": ("perSurfaceSupportsEmbellishment", "surface"),
+    "variables/features/surface-finish": ("perSurfaceSupportsSurfaceFinish", "surface"),
+    "variables/finishing/structural-finishing": ("supportsStructuralFinishing", "product"),
+    "variables/configuration/shape":            ("supportsShape", "product"),
 }
 
 WEIGHT_VARIABLE = "variables/substrate/substrate-weight"
@@ -632,9 +632,9 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
         mapping = VARIABLE_ENVELOPE.get(var_tail)
         if mapping is None:
             scope_note = ("numeric; topology legality is Layer 2"
-                          if var_tail == "variables/structure/page-count"
+                          if var_tail == "variables/configuration/page-count"
                           else "commercial; no Layer 1 envelope"
-                          if var_tail.startswith("variables/commercial/")
+                          if var_tail.startswith("variables/order/")
                           else "no Layer 1 envelope mapping for this variable")
             entry.update(status="not_checked", note=scope_note)
             results.append(entry)
