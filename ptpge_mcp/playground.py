@@ -210,7 +210,7 @@ function doVersion() { callTool("ptpge_get_version", {}); }
 const DEMO_PRODUCT = "ordering/products/brochures";
 const DEMO_BINDINGS = [
   { variable: "variables/configuration/setup-model",
-    value: "printing/configurations/setup-models/folded-sheet" },
+    value: "printing/configurations/setup-models/folded-sheet/single-fold" },
   { variable: "variables/configuration/page-count", value: 6 },
   { variable: "variables/configuration/format",
     value: "printing/configurations/formats/a-series/a5" },

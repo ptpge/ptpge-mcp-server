@@ -29,7 +29,7 @@ TERMS = {
         "id": B + "ordering/products/brochures",
         "level": "element", "elementType": "product", "notation": "O:PR§BROCHURE",
         "label": {"en": "Brochure", "nb": "Brosjyre"},
-        "supportsSetupModel": [B + "printing/configurations/setup-models/folded-sheet"],
+        "supportsSetupModel": [B + "printing/configurations/setup-models/folded-sheet/single-fold"],
         "supportsFormat": [B + "printing/configurations/formats/a-series/a5"],
         "supportsSubstrateWeight": [B + "printing/substrates/sheet-materials/paper/paper-weights/medium-paper"],
         "perSurfaceSupportsColorMode": [B + "printing/features/colors/cmyk",
@@ -37,8 +37,8 @@ TERMS = {
         "typicalPageCount": 6, "fulfilmentClass": "folded",
     },
     # — values —
-    B + "printing/configurations/setup-models/folded-sheet": {
-        "id": B + "printing/configurations/setup-models/folded-sheet",
+    B + "printing/configurations/setup-models/folded-sheet/single-fold": {
+        "id": B + "printing/configurations/setup-models/folded-sheet/single-fold",
         "level": "element", "elementType": "value", "notation": "P:CF§ACCORDION-FOLD",
         "label": {"en": "Accordion-Fold Setup", "nb": "Trekkspill-fold oppsett"}},
     B + "printing/configurations/formats/a-series/a5": {
@@ -144,7 +144,7 @@ def test_envelope_rejects_non_product():
 def _bindings_ok():
     return [
         {"variable": "variables/configuration/setup-model",
-         "value": "printing/configurations/setup-models/folded-sheet"},
+         "value": "printing/configurations/setup-models/folded-sheet/single-fold"},
         {"variable": "variables/configuration/format",
          "value": "printing/configurations/formats/a-series/a5"},
         {"variable": "variables/substrate/substrate-weight", "value": 170},
@@ -208,7 +208,7 @@ def test_fingerprint_matches_spec_worked_example():
         "product": "ordering/products/brochures",
         "bindings": [
             {"variable": "variables/configuration/setup-model",
-             "value": "printing/configurations/setup-models/folded-sheet"},
+             "value": "printing/configurations/setup-models/folded-sheet/single-fold"},
             {"variable": "variables/configuration/page-count", "value": 8},
             {"variable": "variables/configuration/format",
              "value": "printing/configurations/formats/a-series/a5"},
@@ -227,10 +227,10 @@ def test_fingerprint_matches_spec_worked_example():
     }
     out = tool_payload(FakeCache(), "ptpge_fingerprint", args)
     assert out["profiles"]["spec"]["sha256"] == (
-        "004da9828c4ff95f3ae1bc35c7aadb19f486d1da942b03e076617414415b44bc")
+        "ad3f18593fe2547dc9c59ed70d92a22aa59fc4e053881777fc69bda179a3c125")
     assert out["profiles"]["offer"]["sha256"] == (
-        "5abe5fa873ec01d32f034738004581f99ed83f86ceef581b87e5ab97e56f8ed0")
-    assert out["profiles"]["spec"]["short"] == "004da9828c4ff95f"
+        "93c50214d5e1f4be035ab750d632cb35dab2301108e32089e29eba943974632e")
+    assert out["profiles"]["spec"]["short"] == "ad3f18593fe2547d"
 
 
 def test_fingerprint_deterministic_under_shuffle():
