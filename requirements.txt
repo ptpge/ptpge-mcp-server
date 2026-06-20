@@ -23,3 +23,10 @@ httpx>=0.27.0
 # Standard tooling
 pydantic>=2.7.0
 python-dotenv>=1.0.0
+
+# Semantic (embedding) search — OPTIONAL. If these, or the precomputed
+# ptpge_mcp/term_embeddings.npz file, are absent or fail to load at runtime,
+# search degrades gracefully to lexical matching (the service never breaks).
+# Build the vectors with tools/build_embeddings.py.
+fastembed>=0.3.0
+numpy>=1.24.0

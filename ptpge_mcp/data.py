@@ -21,7 +21,13 @@ from typing import Any
 
 import httpx
 
+from . import semantic
 from .config import Config
+
+# Hybrid search weights (used only when semantic embeddings are available).
+_LEX_WEIGHT = 0.35
+_SEM_WEIGHT = 0.65
+_SEM_THRESHOLD = 0.35  # minimum blended score to surface a semantic-only hit
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +182,9 @@ class VocabularyCache:
         groups_filter = set(groups) if groups else None
 
         results: list[tuple[float, dict[str, Any]]] = []
+        # Dense (embedding) similarities, keyed by full term URI; None if the
+        # semantic layer is unavailable (then we fall back to pure lexical).
+        sems = semantic.query_sims(q)
         with self._lock:
             entries = (self._search_index or {}).get("terms", [])
 
@@ -230,7 +239,17 @@ class VocabularyCache:
                         break  # AND semantics: one unmatched token kills the entry
                 score = min(per_token) if per_token else 0.0
 
-            if score > 0:
+            if sems is not None:
+                # Hybrid: keep exact/prefix/notation hits dominant; blend the
+                # rest with the embedding cosine so meaning-based matches
+                # ("round sticker" -> Circle) surface even with zero lexical overlap.
+                sem = sems.get(entry.get("id"), 0.0)
+                hard = score if score >= 0.85 else 0.0
+                blended = _LEX_WEIGHT * score + _SEM_WEIGHT * sem
+                final = max(hard, blended)
+                if final >= _SEM_THRESHOLD:
+                    results.append((final, entry))
+            elif score > 0:
                 results.append((score, entry))
 
         results.sort(key=lambda r: -r[0])
