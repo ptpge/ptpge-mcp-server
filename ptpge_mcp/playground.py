@@ -127,7 +127,7 @@ footer a { color: #2a6045; }
   <h2>Your own prompt — see what resolves</h2>
   <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on heavy recycled paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
   <div class="row" style="margin-top:10px"><button onclick="doResolve()">Resolve phrases</button></div>
-  <div class="hint">A real agent uses an LLM to decompose a prompt intelligently. Here we split on
+  <div class="hint">A real agent uses an LLM to decompose a prompt. This demo approximates that by searching 1–3 word n-grams and greedily keeping the best non-overlapping matches —
   commas and connectors as a rough stand-in, then look each fragment up <em>live</em> — so you
   see which pieces map to canonical PTPGE terms and which don't. Assembling the hits into a
   validated, fingerprinted configuration is the agent's job (the demo above shows that step).</div>
@@ -223,44 +223,61 @@ const DEMO_BINDINGS = [
     value: "printing/features/colors/black" },
   { variable: "variables/order/quantity", value: 500 },
 ];
-// — Free-text prompt: split into phrases, look each up live —
+// — Free-text prompt: greedy non-overlapping n-gram resolution (LLM-free stand-in) —
 async function doResolve() {
   const raw = document.getElementById("prompt").value || "";
-  // Rough decomposition (a real agent uses an LLM): split on commas, semicolons,
-  // newlines and a few connectors; drop tiny/stopword-only fragments.
-  const STOP = new Set(("i want a an the on of with and or in to for it is be " +
-    "jeg vil ha en et på med og eller som").split(/\\s+/));
-  const frags = raw.split(/[,;\\n]|\\band\\b|\\bog\\b|\\bwith\\b|\\bmed\\b/i)
-    .map(s => s.trim().replace(/\\.+$/, ""))
-    .map(s => s.split(/\\s+/).filter(w => !STOP.has(w.toLowerCase())).join(" ").trim())
-    .filter(s => s.length >= 3);
-  if (!frags.length) { render({ note: "No searchable phrases found." }); return; }
-
+  const lang = document.getElementById("q-lang").value;
+  const STOP = new Set(("i want a an the on of with and or in to for it is be both sides side please order printed print copies copy gsm jeg vil ha en et pa med og eller som begge sider").split(" "));
+  const cleaned = raw.toLowerCase().replace(/[^a-z0-9\\s-]/g, " ");
+  const rawWords = cleaned.split(/\\s+/).filter(Boolean);
+  const numbers = rawWords.filter(w => /^[0-9]/.test(w));
+  const words = rawWords.filter(w => !STOP.has(w) && !/^[0-9]/.test(w));
+  if (!words.length) { render({ note: "No searchable words found." }); return; }
+  const cands = [];
+  for (let i = 0; i < words.length; i++)
+    for (let n = 1; n <= 3 && i + n <= words.length; n++)
+      cands.push({ i, n, phrase: words.slice(i, i + n).join(" ") });
   const buttons = document.querySelectorAll("button");
   buttons.forEach(b => b.disabled = true);
   document.getElementById("meta").textContent =
-    `resolving ${frags.length} phrase(s) via ptpge_search_terms…`;
-  const lang = document.getElementById("q-lang").value;
-  const out = [];
+    "resolving \"" + raw + "\" — " + cands.length + " candidate phrases via ptpge_search_terms…";
   try {
-    for (const phrase of frags) {
-      const { json } = await rpc("tools/call", {
-        name: "ptpge_search_terms", arguments: { query: phrase, limit: 1, language: lang },
-      });
-      let hit = null;
+    const THRESH = 0.6;
+    const hits = await Promise.all(cands.map(async c => {
       try {
-        const p = JSON.parse(json.result.content[0].text);
-        hit = (p.results && p.results[0]) || null;
-      } catch (e) {}
-      out.push(hit
-        ? { phrase, resolved: hit.prefLabel, uri: hit.id, notation: hit.notation || null, score: hit.score }
-        : { phrase, resolved: null, note: "no match — likely Layer 2 (quantity, delivery) or a content gap" });
+        const { json } = await rpc("tools/call", {
+          name: "ptpge_search_terms", arguments: { query: c.phrase, limit: 1, language: lang },
+        });
+        const pp = JSON.parse(json.result.content[0].text);
+        const r = (pp.results && pp.results[0]) || null;
+        return (r && r.score >= THRESH) ? { i: c.i, n: c.n, phrase: c.phrase, hit: r } : null;
+      } catch (e) { return null; }
+    }));
+    const ranked = hits.filter(Boolean).sort((a, b) => (b.hit.score - a.hit.score) || (b.n - a.n));
+    const used = new Array(words.length).fill(false);
+    const seenUri = new Set();
+    const chosen = [];
+    for (const c of ranked) {
+      let overlap = false;
+      for (let k = c.i; k < c.i + c.n; k++) if (used[k]) overlap = true;
+      if (overlap || seenUri.has(c.hit.id)) continue;
+      for (let k = c.i; k < c.i + c.n; k++) used[k] = true;
+      seenUri.add(c.hit.id); chosen.push(c);
     }
+    chosen.sort((a, b) => a.i - b.i);
+    const resolved = chosen.map(c => ({
+      phrase: c.phrase, resolved: c.hit.prefLabel, uri: c.hit.id,
+      notation: c.hit.notation || null, score: c.hit.score }));
+    const unresolved = words.filter((w, k) => !used[k]);
     document.getElementById("meta").textContent =
-      `${frags.length} phrase(s) resolved · ptpge_search_terms × ${frags.length}`;
-    render({ prompt: raw, phrases: out,
-      note: "Each phrase was looked up live. Assembling these into a validated, " +
-            "fingerprinted configuration is the AI agent's job." });
+      resolved.length + " attribute(s) resolved · " + cands.length + " lookups · ptpge_search_terms";
+    render({
+      prompt: raw,
+      resolved_attributes: resolved,
+      numeric_or_layer2: numbers.length ? numbers : undefined,
+      unresolved_words: unresolved.length ? unresolved : undefined,
+      note: "Greedy non-overlapping n-gram resolution (the demo's stand-in for an LLM). A real agent assembles these URIs into a validated, fingerprinted configuration; numbers like quantity/weight are Layer 2 / numeric axes.",
+    });
   } finally {
     buttons.forEach(b => b.disabled = false);
   }
