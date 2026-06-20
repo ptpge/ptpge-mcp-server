@@ -14,6 +14,7 @@ Data shapes (verified against dist/v1/ on 2026-05-14):
 """
 
 import logging
+import re
 import threading
 import time
 from typing import Any
@@ -140,7 +141,9 @@ class VocabularyCache:
     ) -> list[dict[str, Any]]:
         """Tokenized, language-agnostic search over the search index (v0.3.2).
 
-        The query is split into whitespace tokens and an entry matches when
+        The query is split into tokens on whitespace and common separators
+        (comma, semicolon, slash, pipe), with surrounding punctuation stripped
+        (internal hyphens kept). An entry matches when
         EVERY token matches somewhere (AND semantics). Matching looks across
         ALL language variants of label/altLabels — not just the requested
         language — so a Norwegian agent searching "trekkspill" finds
@@ -164,7 +167,12 @@ class VocabularyCache:
         q = (query or "").strip().lower()
         if not q:
             return []
-        tokens = q.split()
+        # Split on whitespace AND common separators (comma, semicolon, slash,
+        # pipe) so natural prompt phrasing — "A4, CMYK, saddle-stitch" — tokenizes
+        # cleanly; strip surrounding punctuation per token but keep internal
+        # hyphens (saddle-stitch, fold-binding-edge).
+        tokens = [t.strip(".,;:!?()[]\"'") for t in re.split(r"[\s,;/|]+", q)]
+        tokens = [t for t in tokens if t]
         groups_filter = set(groups) if groups else None
 
         results: list[tuple[float, dict[str, Any]]] = []
