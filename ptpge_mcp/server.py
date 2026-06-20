@@ -483,7 +483,6 @@ VARIABLE_ENVELOPE = {
     "variables/configuration/format":         ("supportsFormat", "product"),
     "variables/configuration/orientation":    ("supportsOrientation", "product"),
     "variables/finishing/edge":   ("supportsFoldDirection", "product"),
-    "variables/finishing/folding":             ("supportsFolding", "product"),
     "variables/finishing/binding":          ("supportsBinding", "product"),
     "variables/substrate/substrate-type":   ("supportsSubstrate", "product"),
     "variables/substrate/substrate-finish": ("supportsSubstrateFinish", "product"),
