@@ -212,13 +212,18 @@ class VocabularyCache:
             else:
                 per_token: list[float] = []
                 for t in tokens:
-                    if any(t in lbl for lbl in labels):
+                    # Plural-aware: also try the singular (strip one trailing 's')
+                    # so "brochures"->"brochure", "stickers"->"sticker", "cards"->"card".
+                    variants = [t]
+                    if len(t) >= 4 and t.endswith("s") and not t.endswith("ss"):
+                        variants.append(t[:-1])
+                    if any(v in lbl for lbl in labels for v in variants):
                         per_token.append(0.70)
-                    elif any(t in a for a in alt_values):
+                    elif any(v in a for a in alt_values for v in variants):
                         per_token.append(0.60)
-                    elif notation and t in notation:
+                    elif notation and any(v in notation for v in variants):
                         per_token.append(0.50)
-                    elif any(t in d for d in definitions):
+                    elif any(v in d for d in definitions for v in variants):
                         per_token.append(0.40)
                     else:
                         per_token = []
