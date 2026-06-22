@@ -240,13 +240,16 @@ class VocabularyCache:
                 score = min(per_token) if per_token else 0.0
 
             if sems is not None:
-                # Hybrid: keep exact/prefix/notation hits dominant; blend the
-                # rest with the embedding cosine so meaning-based matches
-                # ("round sticker" -> Circle) surface even with zero lexical overlap.
+                # Hybrid: the embedding cosine should ADD recall for meaning-based
+                # matches ("round sticker" -> Circle) with little/no lexical overlap,
+                # but must never DRAG DOWN a solid lexical hit. A label/altLabel/
+                # notation match (score >= 0.50) is trustworthy on its own and keeps
+                # its score; weaker definition-only hits (0.40) still need semantic
+                # support to surface.
                 sem = sems.get(entry.get("id"), 0.0)
-                hard = score if score >= 0.85 else 0.0
                 blended = _LEX_WEIGHT * score + _SEM_WEIGHT * sem
-                final = max(hard, blended)
+                floor = score if score >= 0.50 else 0.0
+                final = max(floor, blended)
                 if final >= _SEM_THRESHOLD:
                     results.append((final, entry))
             elif score > 0:
