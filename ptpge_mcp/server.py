@@ -501,7 +501,7 @@ VARIABLE_ENVELOPE = {
 
 WEIGHT_VARIABLE = "variables/substrate/substrate-weight"
 WEIGHT_ENVELOPE = "supportsSubstrateWeight"
-SCORING_URI = _BASE + "printing/completions/finishing/scoring"
+SCORING_URI = _BASE + "printing/completions/structural-finishing/scoring"
 
 
 def _full_uri(id_or_path: str) -> str:

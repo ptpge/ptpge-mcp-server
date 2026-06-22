@@ -110,15 +110,15 @@ footer a { color: #2a6045; }
 <div class="card">
   <h2>Test-prompt demo — the full chain, live</h2>
   <p style="font-size:13px;color:#555;margin:0 0 10px;font-style:italic">
-  "I want a brochure, 6 pages, A5, folded like an accordion, on ivory-toned
-  slightly heavy paper, full colour on one side and black only on the other, 500 copies."</p>
+  "I want a brochure, 6 pages, A5, folded as a Z-fold, on ivory-toned
+  heavy paper, full colour on one side and black only on the other, 500 copies."</p>
   <div class="row">
     <button onclick="doEnvelope()">1 · Envelope</button>
     <button onclick="doValidate()">2 · Validate</button>
     <button onclick="doFingerprint()">3 · Fingerprint</button>
   </div>
   <div class="hint">The interpretation (words → bindings) is pre-scripted here — that is
-  the AI agent's job. The lookups, envelope validation (incl. 170 gsm → weight band and
+  the AI agent's job. The lookups, envelope validation (incl. 250 gsm → weight band and
   the creasing advisory) and the ptpge-cfs/1 fingerprint run <em>live</em> against this
   server, exactly as an agent would call them.</div>
 </div>
@@ -210,13 +210,13 @@ function doVersion() { callTool("ptpge_get_version", {}); }
 const DEMO_PRODUCT = "ordering/products/brochures";
 const DEMO_BINDINGS = [
   { variable: "variables/configuration/setup-model",
-    value: "printing/configurations/setup-models/folded-sheet/single-fold" },
+    value: "printing/configurations/setup-models/folded-sheet/z-fold" },
   { variable: "variables/configuration/page-count", value: 6 },
   { variable: "variables/configuration/format",
     value: "printing/configurations/formats/a-series/a5" },
   { variable: "variables/substrate/substrate-type",
     value: "printing/substrates/sheet-materials/paper" },
-  { variable: "variables/substrate/substrate-weight", value: 170 },
+  { variable: "variables/substrate/substrate-weight", value: 250 },
   { variable: "variables/features/color-mode", surface: "outside",
     value: "printing/features/colors/cmyk" },
   { variable: "variables/features/color-mode", surface: "inside",
