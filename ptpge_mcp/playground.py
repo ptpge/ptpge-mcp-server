@@ -16,6 +16,7 @@ PLAYGROUND_HTML = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4a35'/%3E%3C/svg%3E">
 <title>PTPGE MCP — Playground</title>
 <style>
 * { box-sizing: border-box; }
@@ -243,14 +244,23 @@ async function doResolve() {
     'resolving "' + raw + '" — ' + cands.length + " candidate phrases via ptpge_search_terms…";
   try {
     const THRESH = 0.6;
+    // Skip non-configuration groups (educational guides, audiences, geography)
+    // so a buyer phrase resolves to the configurable VALUE, not a knowledge guide
+    // (e.g. "colour" -> CMYK, not the "Colours & ICC Profiles" guide).
+    const EXCLUDE = new Set(["knowledge", "use-cases", "audiences", "geography"]);
+    const pick = results => {
+      for (const r of (results || []))
+        if (r && r.score >= THRESH && !EXCLUDE.has(r.group)) return r;
+      return null;
+    };
     const hits = await Promise.all(cands.map(async c => {
       try {
         const { json } = await rpc("tools/call", {
-          name: "ptpge_search_terms", arguments: { query: c.phrase, limit: 1, language: lang },
+          name: "ptpge_search_terms", arguments: { query: c.phrase, limit: 5, language: lang },
         });
         const pp = JSON.parse(json.result.content[0].text);
-        const r = (pp.results && pp.results[0]) || null;
-        return (r && r.score >= THRESH) ? { i: c.i, n: c.n, phrase: c.phrase, hit: r } : null;
+        const r = pick(pp.results);
+        return r ? { i: c.i, n: c.n, phrase: c.phrase, hit: r } : null;
       } catch (e) { return null; }
     }));
     const ranked = hits.filter(Boolean).sort((a, b) => (b.hit.score - a.hit.score) || (b.n - a.n));
@@ -268,15 +278,26 @@ async function doResolve() {
     const resolved = chosen.map(c => ({
       phrase: c.phrase, resolved: c.hit.prefLabel, uri: c.hit.id,
       notation: c.hit.notation || null, score: c.hit.score }));
-    const unresolved = words.filter((w, k) => !used[k]);
+    // Tell "redundant" (its meaning was already captured by another word mapping
+    // to the SAME term, e.g. "leaflet" -> the same Folded Sheet Setup as "folded")
+    // apart from words with no match at all ("unresolved").
+    const wordHit = new Array(words.length).fill(null);
+    for (const h of hits) if (h && h.n === 1) wordHit[h.i] = h.hit;
+    const redundant = [], unresolved = [];
+    words.forEach((w, k) => {
+      if (used[k]) return;
+      if (wordHit[k] && seenUri.has(wordHit[k].id)) redundant.push(w);
+      else unresolved.push(w);
+    });
     document.getElementById("meta").textContent =
       resolved.length + " attribute(s) resolved · " + cands.length + " lookups · ptpge_search_terms";
     render({
       prompt: raw,
       resolved_attributes: resolved,
       numeric_or_layer2: numbers.length ? numbers : undefined,
+      redundant_words: redundant.length ? redundant : undefined,
       unresolved_words: unresolved.length ? unresolved : undefined,
-      note: "Greedy non-overlapping n-gram resolution (the demo's stand-in for an LLM). A real agent assembles these URIs into a validated, fingerprinted configuration; numbers like quantity/weight are Layer 2 / numeric axes.",
+      note: "Greedy non-overlapping n-gram resolution (the demo's stand-in for an LLM). 'redundant_words' already map to a term captured via another word (e.g. 'leaflet' -> the same Folded Sheet Setup as 'folded'). A real agent assembles these URIs into a validated, fingerprinted configuration; numbers like quantity/weight are Layer 2 / numeric axes.",
     });
   } finally {
     buttons.forEach(b => b.disabled = false);
