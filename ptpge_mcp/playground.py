@@ -88,7 +88,7 @@ footer a { color: #2a6045; }
   <h2>ptpge_get_term — full context for one term</h2>
   <div class="row">
     <input type="text" id="uri" placeholder="URI or path under /v1/"
-           value="printing/completions/finishing/folding">
+           value="printing/completions/folding">
     <select id="t-lang">
       <option value="en" selected>en</option><option value="nb">nb</option>
       <option value="de">de</option><option value="ja">ja</option>
