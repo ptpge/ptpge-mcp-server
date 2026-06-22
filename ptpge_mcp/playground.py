@@ -240,7 +240,7 @@ async function doResolve() {
   const buttons = document.querySelectorAll("button");
   buttons.forEach(b => b.disabled = true);
   document.getElementById("meta").textContent =
-    "resolving \"" + raw + "\" — " + cands.length + " candidate phrases via ptpge_search_terms…";
+    'resolving "' + raw + '" — ' + cands.length + " candidate phrases via ptpge_search_terms…";
   try {
     const THRESH = 0.6;
     const hits = await Promise.all(cands.map(async c => {
