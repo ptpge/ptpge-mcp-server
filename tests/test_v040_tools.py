@@ -77,8 +77,8 @@ TERMS = {
         "label": {"en": "Heavy Paper (240–309 gsm)"},
         "properties": {"minWeight": 240, "maxWeight": 309, "unit": "gsm"}},
     # — creasing advisory source —
-    B + "printing/completions/finishing/scoring": {
-        "id": B + "printing/completions/finishing/scoring", "level": "element",
+    B + "printing/completions/structural-finishing/scoring": {
+        "id": B + "printing/completions/structural-finishing/scoring", "level": "element",
         "elementType": "value", "notation": "P:CP§SCORING",
         "label": {"en": "Scoring", "nb": "Rilling"},
         "properties": {"recommendedAboveWeight": 170, "standardAboveWeight": 250,
