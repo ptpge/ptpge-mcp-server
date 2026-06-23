@@ -81,7 +81,7 @@ TERMS = {
         "id": B + "printing/completions/structural-finishing/scoring", "level": "element",
         "elementType": "value", "notation": "P:CP§SCORING",
         "label": {"en": "Scoring", "nb": "Rilling"},
-        "properties": {"recommendedAboveWeight": 170, "standardAboveWeight": 250,
+        "properties": {"recommendedFromWeight": 170, "standardFromWeight": 250,
                        "unit": "gsm"}},
 }
 
@@ -164,8 +164,8 @@ def test_validate_all_in_envelope_with_band_mapping_and_advisory():
     assert w["status"] == "in_envelope"
     assert w["band"]["notation"] == "P:SB§MEDIUM-PAPER"
     assert by_var["variables/configuration/page-count"]["status"] == "not_checked"
-    # 170 gsm is NOT above the 170 threshold — no advisory
-    assert out["advisories"] == []
+    # 170 gsm is the inclusive lower bound (>=170) — creasing recommended
+    assert out["advisories"][0]["type"] == "creasing_recommended"
 
 
 def test_validate_weight_advisory_recommended_and_standard():
@@ -177,9 +177,22 @@ def test_validate_weight_advisory_recommended_and_standard():
         "product": PRODUCT,
         "bindings": [{"variable": "variables/substrate/substrate-weight", "value": 300}]})
     # 300 gsm: band heavy-paper is NOT in the product envelope -> invalid,
-    # but the advisory still fires (standard practice above 250).
+    # but the advisory still fires (standard practice at or above 250).
     assert out2["validInEnvelope"] is False
     assert out2["advisories"][0]["type"] == "creasing_standard"
+
+
+def test_validate_weight_advisory_boundaries():
+    """Inclusive rule: 170-249 -> recommended, >=250 -> standard, <170 -> none."""
+    def adv(gsm):
+        out = tool_payload(FakeCache(), "ptpge_validate_config", {
+            "product": PRODUCT,
+            "bindings": [{"variable": "variables/substrate/substrate-weight", "value": gsm}]})
+        return [a["type"] for a in out["advisories"]]
+    assert adv(169) == []                          # below the recommended floor
+    assert adv(170) == ["creasing_recommended"]    # inclusive lower bound
+    assert adv(249) == ["creasing_recommended"]    # just under standard
+    assert adv(250) == ["creasing_standard"]       # inclusive standard bound
 
 
 def test_validate_rejects_value_outside_envelope():
@@ -255,3 +268,23 @@ def test_fingerprint_duplicate_binding_is_tool_error():
     ]}
     with pytest.raises(ValueError):
         tool_payload(FakeCache(), "ptpge_fingerprint", args)
+
+
+# -------------------- data integrity: thresholds must not drift --------------------
+
+def test_scoring_thresholds_match_source_data():
+    """Guard against the source->prod drift we hit once (150 vs the recorded 170).
+
+    The published scoring term must keep the recorded creasing convention
+    (recommended above 170 gsm, standard above 250 gsm), and the FakeCache fixture
+    above must mirror it — otherwise the advisory tests silently test the wrong
+    numbers while production drifts.
+    """
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[2]
+           / "terms/printing/completions/structural-finishing/scoring.jsonld")
+    props = json.loads(src.read_text())["properties"]
+    assert props["recommendedFromWeight"] == 170
+    assert props["standardFromWeight"] == 250
+    fixture = TERMS[B + "printing/completions/structural-finishing/scoring"]["properties"]
+    assert (fixture["recommendedFromWeight"], fixture["standardFromWeight"]) == (170, 250)

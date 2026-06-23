@@ -126,6 +126,7 @@ Deploy on cPanel Passenger:
 import base64
 import json
 import logging
+import os
 import secrets
 
 from mcp.server import Server
@@ -145,6 +146,19 @@ from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs
 from .playground import PLAYGROUND_HTML
 
 logger = logging.getLogger(__name__)
+
+
+def _chat_cors_headers() -> dict:
+    """CORS headers for the /chat AI-panel endpoint. Origin defaults to '*'
+    (the shared token gates cost); set PTPGE_CHAT_ORIGIN to the dashboard
+    origin to lock it down."""
+    return {
+        "Access-Control-Allow-Origin": os.getenv("PTPGE_CHAT_ORIGIN", "*"),
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "content-type, x-ptpge-chat-token",
+        "Access-Control-Max-Age": "86400",
+        "Vary": "Origin",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -659,20 +673,20 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     # Data-driven advisory: creasing thresholds from the scoring term (SD: rilling).
     scoring = cache.get_term(SCORING_URI) or {}
     sp = scoring.get("properties") or {}
-    if bound_weight is not None and sp.get("recommendedAboveWeight") is not None:
-        if bound_weight > sp.get("standardAboveWeight", 10 ** 9):
+    if bound_weight is not None and sp.get("recommendedFromWeight") is not None:
+        if bound_weight >= sp.get("standardFromWeight", 10 ** 9):
             advisories.append({
                 "type": "creasing_standard",
                 "term": SCORING_URI,
                 "note": f"At {bound_weight} gsm, creasing (rilling) is standard practice "
-                        f"(above {sp['standardAboveWeight']} gsm) when the product is folded.",
+                        f"(from {sp['standardFromWeight']} gsm) when the product is folded.",
             })
-        elif bound_weight > sp["recommendedAboveWeight"]:
+        elif bound_weight >= sp["recommendedFromWeight"]:
             advisories.append({
                 "type": "creasing_recommended",
                 "term": SCORING_URI,
                 "note": f"At {bound_weight} gsm, creasing (rilling) is recommended "
-                        f"(above {sp['recommendedAboveWeight']} gsm) when the product is folded.",
+                        f"(from {sp['recommendedFromWeight']} gsm) when the product is folded.",
             })
 
     return {
@@ -1031,6 +1045,91 @@ def build_app() -> Starlette:
             }
         )
 
+    async def chat(request: Request) -> Response:
+        """LLM 'Ask the standard' proxy for the dashboard's AI panel.
+
+        Retrieval-grounded: searches the vocabulary for the question, feeds the
+        matching terms to the model as context, and returns a natural-language
+        answer plus the source terms. Anthropic is called directly over HTTPS
+        (no extra SDK dependency).
+
+        Cost/abuse controls: requires the shared header token PTPGE_CHAT_TOKEN
+        when set, and returns 503 when ANTHROPIC_API_KEY is unset (so the panel
+        gracefully falls back to local search). CORS is opened to the dashboard
+        origin (PTPGE_CHAT_ORIGIN) so the cross-origin fetch from
+        dashboard.ptpge.org works on the open mirror.
+        """
+        cors = _chat_cors_headers()
+        if request.method == "OPTIONS":
+            return Response(status_code=204, headers=cors)
+
+        token = os.getenv("PTPGE_CHAT_TOKEN")
+        if token and request.headers.get("x-ptpge-chat-token") != token:
+            return JSONResponse({"error": "unauthorized"}, status_code=401, headers=cors)
+
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            return JSONResponse(
+                {"error": "chat_unconfigured",
+                 "message": "ANTHROPIC_API_KEY is not set on this server."},
+                status_code=503, headers=cors)
+
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "bad_request"}, status_code=400, headers=cors)
+        question = (body.get("question") or "").strip()
+        if not question:
+            return JSONResponse({"error": "empty_question"}, status_code=400, headers=cors)
+
+        # Retrieval grounding: top vocabulary hits + their definitions.
+        ctx_lines, sources = [], []
+        for h in cache.search(question, limit=8):
+            term = cache.get_term(h["id"]) or {}
+            defn = term.get("definition") or {}
+            d = (defn.get("en") or defn.get("nb") or "").strip()
+            ctx_lines.append(f"- {h.get('notation') or ''} {h.get('prefLabel') or ''}: {d}".strip())
+            sources.append({"notation": h.get("notation"), "label": h.get("prefLabel"), "url": h["id"]})
+        context = "\n".join(ctx_lines) or "(no matching PTPGE terms found)"
+
+        system = (
+            "You are the PTPGE assistant for the open print-industry vocabulary "
+            "(Periodic Table of Print & Graphic Elements). Answer the user's "
+            "question using ONLY the PTPGE terms in the provided context. Be "
+            "concise and practical. Cite term notations (e.g. P:CP§SCORING) "
+            "where relevant. If the context does not contain the answer, say so "
+            "plainly and point to the closest related terms. Reply in the user's "
+            "language (Norwegian Bokmål or English)."
+        )
+        payload = {
+            "model": os.getenv("PTPGE_CHAT_MODEL", "claude-opus-4-20250514"),
+            "max_tokens": 800,
+            "system": system,
+            "messages": [{"role": "user",
+                          "content": f"Context (PTPGE terms):\n{context}\n\nQuestion: {question}"}],
+        }
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                r = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={"x-api-key": api_key,
+                             "anthropic-version": "2023-06-01",
+                             "content-type": "application/json"},
+                    json=payload,
+                )
+            if r.status_code != 200:
+                return JSONResponse({"error": "upstream", "status": r.status_code,
+                                     "detail": r.text[:300]}, status_code=502, headers=cors)
+            data = r.json()
+            answer = "".join(b.get("text", "") for b in data.get("content", [])
+                             if b.get("type") == "text").strip()
+        except Exception as exc:  # network / parse
+            return JSONResponse({"error": "upstream_exception", "detail": str(exc)[:300]},
+                                status_code=502, headers=cors)
+
+        return JSONResponse({"answer": answer, "sources": sources}, headers=cors)
+
     middleware = [
         Middleware(NoIndexHeaderMiddleware),  # outermost: header on 401s too
         Middleware(
@@ -1054,6 +1153,7 @@ def build_app() -> Starlette:
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
+            Route("/chat", endpoint=chat, methods=["POST", "OPTIONS"]),
             Route("/health", endpoint=health, methods=["GET"]),
             # Streamable HTTP (recommended). GET/DELETE answered with 405
             # inside the handler — stateless servers open no streams.
