@@ -867,7 +867,7 @@ def handle_jsonrpc_message(cache: "VocabularyCache", msg: object) -> dict | None
             "capabilities": {"tools": {"listChanged": False}},
             "serverInfo": {
                 "name": "ptpge-mcp",
-                "title": "PTPGE Standard",
+                "title": "PTPGE Standard MCP",
                 "version": __version__,
             },
             "instructions": SERVER_INSTRUCTIONS,
@@ -1025,7 +1025,7 @@ def build_app() -> Starlette:
         v = cache.version.get("version") if cache.version else None
         return JSONResponse(
             {
-                "service": "PTPGE MCP Server",
+                "service": "PTPGE Standard MCP",
                 "description": "Model Context Protocol server for the PTPGE Standard vocabulary.",
                 "server_version": __version__,
                 "data_version": v,
@@ -1034,7 +1034,7 @@ def build_app() -> Starlette:
                     "playground": "/playground",
                     "sse": "/sse" if config.sse_enabled else None,
                     "messages": "/mcp/messages/" if config.sse_enabled else None,
-                    "health": "/health",
+                    "health": "/healthz",
                 },
                 "transport": {
                     "recommended": "streamable-http (/mcp, stateless JSON)",
@@ -1155,6 +1155,7 @@ def build_app() -> Starlette:
             Route("/playground", endpoint=playground, methods=["GET"]),
             Route("/chat", endpoint=chat, methods=["POST", "OPTIONS"]),
             Route("/health", endpoint=health, methods=["GET"]),
+            Route("/healthz", endpoint=health, methods=["GET"]),  # standard alias (matches the commercial side)
             # Streamable HTTP (recommended). GET/DELETE answered with 405
             # inside the handler — stateless servers open no streams.
             Route("/mcp", endpoint=handle_mcp_http, methods=["POST", "GET", "DELETE"]),
