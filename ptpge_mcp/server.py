@@ -128,6 +128,9 @@ import json
 import logging
 import os
 import secrets
+import time
+
+import httpx
 
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
@@ -944,12 +947,16 @@ class CapabilityTokenMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, tokens_file: str | None = None,
                  static_tokens: list[str] | None = None,
                  allow_anon: bool = True,
-                 protected_paths: tuple[str, ...] = ("/mcp",)) -> None:
+                 protected_paths: tuple[str, ...] = ("/mcp",),
+                 strict_paths: tuple[str, ...] = ("/vision",)) -> None:
         super().__init__(app)
         self._tokens_file = tokens_file
         self._static = [t for t in (static_tokens or []) if t]
         self._allow_anon = allow_anon
         self._protected = protected_paths
+        # strict paths cost money per call (AI vision) — the migration
+        # grace (allow_anon) never applies to them.
+        self._strict = strict_paths
         self._file_tokens: list[str] = []
         self._mtime: float | None = None
         self._enabled = bool(tokens_file or self._static)
@@ -987,7 +994,13 @@ class CapabilityTokenMiddleware(BaseHTTPMiddleware):
         return ok
 
     async def dispatch(self, request, call_next):
-        if not self._enabled or not any(request.url.path.startswith(p) for p in self._protected):
+        strict = any(request.url.path.startswith(p) for p in self._strict)
+        gated = strict or any(request.url.path.startswith(p) for p in self._protected)
+        if not self._enabled or not gated:
+            if request.method == "OPTIONS":  # CORS preflights carry no token
+                return await call_next(request)
+            return await call_next(request)
+        if request.method == "OPTIONS":
             return await call_next(request)
         self._load_file_tokens()
         presented = request.query_params.get("t") or request.headers.get("x-ptpge-token") or ""
@@ -999,7 +1012,7 @@ class CapabilityTokenMiddleware(BaseHTTPMiddleware):
                  "detail": "This PTPGE connector token is not valid (it may have been revoked). "
                            "Apply at https://register.ptpge.org/ for access."},
                 status_code=401)
-        if self._allow_anon:
+        if self._allow_anon and not strict:
             return await call_next(request)
         return JSONResponse(
             {"error": "token_required",
@@ -1016,6 +1029,111 @@ class NoIndexHeaderMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
         return response
+
+
+def make_vision_endpoint():
+    """Factory for the /vision handler — module-level so tests can mount it
+    without building the full app (which loads the vocabulary cache)."""
+
+    async def vision(request: Request) -> Response:
+        """AI-vision extraction for the Mapping-to-Standard v2 flow.
+
+        Takes a screenshot of a print e-commerce product page (Vistaprint,
+        Helloprint, Flyeralarm, Onlineprinters, Cloudprinter, ...) and returns
+        a structured extraction that separates what is SELECTED (highlighted
+        tile, filled radio, summary line) from what is merely OFFERED — the
+        distinction OCR cannot see. The client then maps values to Standard
+        terms with the deterministic matcher, so the fingerprint stays
+        verifiable; the model only reads the page.
+
+        Cost control: this route is on the token middleware's STRICT list —
+        a valid personal capability token is always required, so every call
+        is attributable and revocable. Requires ANTHROPIC_API_KEY; model via
+        PTPGE_VISION_MODEL (default claude-haiku-4-5).
+        """
+        cors = _chat_cors_headers()
+        cors["Access-Control-Allow-Headers"] = "content-type, x-ptpge-token, x-ptpge-chat-token"
+        if request.method == "OPTIONS":
+            return Response(status_code=204, headers=cors)
+
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            return JSONResponse(
+                {"error": "vision_unavailable",
+                 "message": "ANTHROPIC_API_KEY is not set on this server."},
+                status_code=503, headers=cors)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "bad_request"}, status_code=400, headers=cors)
+        image_b64 = (body.get("image") or "").strip()
+        media_type = (body.get("media_type") or "image/jpeg").strip()
+        if media_type not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+            return JSONResponse({"error": "bad_media_type"}, status_code=400, headers=cors)
+        if not image_b64 or len(image_b64) < 100:
+            return JSONResponse({"error": "empty_image"}, status_code=400, headers=cors)
+        if len(image_b64) > 8_000_000:  # ~6 MB decoded — plenty after client downscale
+            return JSONResponse({"error": "image_too_large",
+                                 "detail": "Downscale the screenshot before upload (max ~6 MB)."},
+                                status_code=413, headers=cors)
+
+        system = (
+            "You extract print-product configurations from e-commerce screenshots "
+            "(Vistaprint, Helloprint, Flyeralarm, Onlineprinters, Cloudprinter and similar). "
+            "Respond with ONLY a JSON object, no prose, using exactly this shape:\n"
+            '{"page_language":"<bcp47>","vendor":"<name or null>","product":"<page product name>",'
+            '"selected":[{"label":"<attribute>","value":"<selected value>"}],'
+            '"offered":[{"label":"<attribute>","values":["<option>","..."]}],'
+            '"quantity":"<selected print run or null>","notes":"<ambiguities or empty>"}\n'
+            "Rules: An option is SELECTED only if the UI shows it chosen — highlighted/bordered "
+            "tile, filled radio, checked box, or a summary line like 'Material: 135 gsm gloss'. "
+            "A 'RECOMMENDED' badge is NOT selection. Every visible alternative goes under "
+            "'offered'. Keep values verbatim in the page language, including units (gsm, mm). "
+            "Ignore prices, delivery dates and reviews."
+        )
+        payload = {
+            "model": os.getenv("PTPGE_VISION_MODEL", "claude-haiku-4-5"),
+            "max_tokens": 1500,
+            "system": system,
+            "messages": [{"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": media_type,
+                                              "data": image_b64}},
+                {"type": "text", "text": "Extract the configuration from this screenshot."},
+            ]}],
+        }
+        t0 = time.monotonic()
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                r = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={"x-api-key": api_key,
+                             "anthropic-version": "2023-06-01",
+                             "content-type": "application/json"},
+                    json=payload,
+                )
+            if r.status_code != 200:
+                return JSONResponse({"error": "upstream", "status": r.status_code,
+                                     "detail": r.text[:300]}, status_code=502, headers=cors)
+            data = r.json()
+            text = "".join(b.get("text", "") for b in data.get("content", [])
+                           if b.get("type") == "text").strip()
+        except Exception as exc:
+            return JSONResponse({"error": "upstream_exception", "detail": str(exc)[:300]},
+                                status_code=502, headers=cors)
+        ms = int((time.monotonic() - t0) * 1000)
+        # Strip a ```json fence if the model added one, then parse.
+        cleaned = text
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        try:
+            extraction = json.loads(cleaned)
+        except Exception:
+            # Give the client the raw text so it can fall back to OCR-style parsing.
+            return JSONResponse({"raw": text, "ms": ms}, headers=cors)
+        return JSONResponse({"extraction": extraction, "ms": ms}, headers=cors)
+
+
+    return vision
 
 
 def build_app() -> Starlette:
@@ -1200,7 +1318,6 @@ def build_app() -> Starlette:
                           "content": f"Context (PTPGE terms):\n{context}\n\nQuestion: {question}"}],
         }
         try:
-            import httpx
             async with httpx.AsyncClient(timeout=60.0) as client:
                 r = await client.post(
                     "https://api.anthropic.com/v1/messages",
@@ -1220,6 +1337,8 @@ def build_app() -> Starlette:
                                 status_code=502, headers=cors)
 
         return JSONResponse({"answer": answer, "sources": sources}, headers=cors)
+
+    vision = make_vision_endpoint()
 
     middleware = [
         Middleware(NoIndexHeaderMiddleware),  # outermost: header on 401s too
@@ -1256,6 +1375,7 @@ def build_app() -> Starlette:
             Route("/", endpoint=root, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
             Route("/chat", endpoint=chat, methods=["POST", "OPTIONS"]),
+            Route("/vision", endpoint=vision, methods=["POST", "OPTIONS"]),
             Route("/health", endpoint=health, methods=["GET"]),
             Route("/healthz", endpoint=health, methods=["GET"]),  # standard alias (matches the commercial side)
             # Streamable HTTP (recommended). GET/DELETE answered with 405
