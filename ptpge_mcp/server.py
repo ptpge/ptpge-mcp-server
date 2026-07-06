@@ -918,6 +918,97 @@ def handle_jsonrpc_message(cache: "VocabularyCache", msg: object) -> dict | None
 # noindex middleware — Stealth Mode hygiene, parity with api/internal
 # ---------------------------------------------------------------------------
 
+class CapabilityTokenMiddleware(BaseHTTPMiddleware):
+    """Per-tester capability tokens for the OPEN mirror's /mcp endpoint.
+
+    Web connectors (claude.ai, ChatGPT) cannot send Basic Auth, so the open
+    mirror runs without transport auth — this middleware adds a revocable,
+    attributable capability instead: the connector URL carries a personal
+    token (`?t=glxt_...`, or header `X-PTPGE-Token`).
+
+    Tokens come from two sources, merged:
+      - a JSON users file (the register server's beta-users.json): every
+        record with status == "active" and a non-empty "mcp_token" counts.
+        The file is re-read when its mtime changes, so approving or
+        suspending a tester in the register admin panel takes effect
+        immediately — no restart.
+      - PTPGE_MCP_TOKENS (comma-separated static tokens, internal use).
+
+    Only the configured paths are gated (default: /mcp) — /playground,
+    /healthz and the landing page stay open. While `allow_anon` is True
+    (migration grace) tokenless requests pass through; invalid (wrong)
+    tokens are always rejected, so a revoked tester cannot keep using a
+    stale URL even during the grace period.
+    """
+
+    def __init__(self, app, tokens_file: str | None = None,
+                 static_tokens: list[str] | None = None,
+                 allow_anon: bool = True,
+                 protected_paths: tuple[str, ...] = ("/mcp",)) -> None:
+        super().__init__(app)
+        self._tokens_file = tokens_file
+        self._static = [t for t in (static_tokens or []) if t]
+        self._allow_anon = allow_anon
+        self._protected = protected_paths
+        self._file_tokens: list[str] = []
+        self._mtime: float | None = None
+        self._enabled = bool(tokens_file or self._static)
+
+    def _load_file_tokens(self) -> None:
+        if not self._tokens_file:
+            return
+        try:
+            mtime = os.path.getmtime(self._tokens_file)
+        except OSError:
+            self._file_tokens = []
+            self._mtime = None
+            return
+        if mtime == self._mtime:
+            return
+        try:
+            with open(self._tokens_file, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            users = data.get("users", data) if isinstance(data, dict) else data
+            tokens = []
+            for u in users if isinstance(users, list) else []:
+                if isinstance(u, dict) and u.get("status") == "active" and u.get("mcp_token"):
+                    tokens.append(str(u["mcp_token"]))
+            self._file_tokens = tokens
+            self._mtime = mtime
+        except Exception as exc:  # malformed file must not lock the server
+            logger.warning("token file unreadable (%s): %s", self._tokens_file, exc)
+
+    def _valid(self, presented: str) -> bool:
+        ok = False
+        for t in self._file_tokens + self._static:
+            # constant-time compare against every token — no early exit
+            if secrets.compare_digest(presented, t):
+                ok = True
+        return ok
+
+    async def dispatch(self, request, call_next):
+        if not self._enabled or not any(request.url.path.startswith(p) for p in self._protected):
+            return await call_next(request)
+        self._load_file_tokens()
+        presented = request.query_params.get("t") or request.headers.get("x-ptpge-token") or ""
+        if presented:
+            if self._valid(presented):
+                return await call_next(request)
+            return JSONResponse(
+                {"error": "invalid_token",
+                 "detail": "This PTPGE connector token is not valid (it may have been revoked). "
+                           "Apply at https://register.ptpge.org/ for access."},
+                status_code=401)
+        if self._allow_anon:
+            return await call_next(request)
+        return JSONResponse(
+            {"error": "token_required",
+             "detail": "This endpoint uses personal connector URLs. Use the URL from your "
+                       "welcome email (https://open.mcp.ptpge.org/mcp?t=...), or apply at "
+                       "https://register.ptpge.org/."},
+            status_code=401)
+
+
 class NoIndexHeaderMiddleware(BaseHTTPMiddleware):
     """Add X-Robots-Tag: noindex to every response (including 401s)."""
 
@@ -1136,6 +1227,12 @@ def build_app() -> Starlette:
             BasicAuthMiddleware,
             credentials=config.credentials,
         ),
+        Middleware(
+            CapabilityTokenMiddleware,
+            tokens_file=config.tokens_file,
+            static_tokens=config.tokens_static,
+            allow_anon=config.token_allow_anon,
+        ),
     ]
 
     if config.credentials:
@@ -1146,6 +1243,11 @@ def build_app() -> Starlette:
             logger.info("Basic Auth ENABLED for all routes (Stealth Mode, %d credential pairs)", n)
     else:
         logger.warning("Basic Auth NOT configured - server is open. Set PTPGE_MCP_AUTH_USERS or PTPGE_MCP_AUTH_USER/_PASS to enable.")
+
+    if config.tokens_file or config.tokens_static:
+        mode = "grace (anon allowed)" if config.token_allow_anon else "required"
+        logger.info("Capability tokens ENABLED on /mcp — mode: %s, file: %s, static: %d",
+                    mode, config.tokens_file or "-", len(config.tokens_static))
 
     return Starlette(
         debug=False,

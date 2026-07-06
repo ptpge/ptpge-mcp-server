@@ -138,6 +138,24 @@ class Config:
     # backwards compatibility on the stealth server.
     sse_enabled: bool = True
 
+    # v0.5.0: capability tokens for the OPEN mirror (open.mcp.ptpge.org).
+    # Web connectors (claude.ai, ChatGPT) cannot send Basic Auth, so the
+    # open mirror stays transport-anonymous — but each tester gets a
+    # personal, revocable token carried in the connector URL itself:
+    #     https://open.mcp.ptpge.org/mcp?t=glxt_...
+    # Tokens are read from the register server's users file (records with
+    # status == "active" and a non-empty mcp_token), so approving /
+    # suspending a tester in the register admin panel immediately grants /
+    # revokes MCP access. PTPGE_MCP_TOKENS adds static tokens (comma-
+    # separated) for internal use. While PTPGE_MCP_TOKEN_ALLOW_ANON=1
+    # (the default, for the migration grace period) requests WITHOUT a
+    # token are still allowed; flip to 0 once every tester has switched
+    # to their personal URL. Token gating only activates at all when a
+    # tokens file or static tokens are configured.
+    tokens_file: str | None = None
+    tokens_static: list[str] = field(default_factory=list)
+    token_allow_anon: bool = True
+
     @classmethod
     def from_env(cls) -> "Config":
         """Build a Config from environment variables.
@@ -170,4 +188,7 @@ class Config:
             log_level=os.getenv("PTPGE_LOG_LEVEL", "INFO"),
             credentials=credentials,
             sse_enabled=os.getenv("PTPGE_MCP_SSE", "1").strip().lower() not in ("0", "false", "off"),
+            tokens_file=os.getenv("PTPGE_MCP_TOKENS_FILE") or None,
+            tokens_static=[t.strip() for t in os.getenv("PTPGE_MCP_TOKENS", "").split(",") if t.strip()],
+            token_allow_anon=os.getenv("PTPGE_MCP_TOKEN_ALLOW_ANON", "1").strip().lower() not in ("0", "false", "off"),
         )
