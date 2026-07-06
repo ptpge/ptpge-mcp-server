@@ -150,7 +150,10 @@ async function rpc(method, params) {
   const body = { jsonrpc: "2.0", id: ++rpcId, method: method };
   if (params) body.params = params;
   const t0 = performance.now();
-  const res = await fetch("/mcp", {
+  // Personal capability token: /playground?t=glxt_... forwards to /mcp, so
+  // the playground keeps working after the anonymous door closes.
+  const _tok = new URLSearchParams(location.search).get("t");
+  const res = await fetch("/mcp" + (_tok ? "?t=" + encodeURIComponent(_tok) : ""), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -325,7 +328,8 @@ document.getElementById("uri").addEventListener("keydown", e => { if (e.key === 
     document.getElementById("status").innerHTML =
       `connected · server <b>${init.json.result.serverInfo.version}</b> · data <b>${payload.dataVersion}</b> · ${payload.termsTotal} terms`;
   } catch (e) {
-    document.getElementById("status").textContent = "could not reach /mcp — " + e;
+    document.getElementById("status").textContent = "could not reach /mcp — " + e +
+      (_tok ? "" : " (tip: if tokens are required, open /playground?t=YOUR_TOKEN from your welcome email)");
   }
 })();
 </script>
