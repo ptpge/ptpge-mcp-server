@@ -1087,6 +1087,8 @@ def make_vision_endpoint():
             '"quantity":"<selected print run or null>","notes":"<ambiguities or empty>"}\n'
             "Rules: An option is SELECTED only if the UI shows it chosen — highlighted/bordered "
             "tile, filled radio, checked box, or a summary line like 'Material: 135 gsm gloss'. "
+            "For folded products, a size written 'A4 folded to A5' means FINISHED size A5 — "
+            "report the finished size as the value (keep the full tile text in notes). "
             "A 'RECOMMENDED' badge is NOT selection. Every visible alternative goes under "
             "'offered'. Keep values verbatim in the page language, including units (gsm, mm). "
             "Ignore prices, delivery dates and reviews."
