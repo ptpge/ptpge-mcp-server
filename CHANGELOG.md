@@ -7,6 +7,16 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.5.0 — 2026-07-10
+
+- **`ptpge_fingerprint` returns the full identity set.** Every profile now
+  carries `resolverUrl` (the permanent `ptpge.org/f/{hash}` permalink,
+  SD-0052). With the new `visuals: true` flag the tool also returns
+  `markSvg` — the canonical `ptpge-mark/1` recognition mark (SD-0053) in
+  brand green — and `qrSvg`, a scannable QR encoding the resolver permalink
+  (white tile, quiet zone). Off by default to keep agent payloads small.
+- New optional dependency `qrcode` (tool degrades gracefully without it).
+
 ## 0.4.0 — 2026-06-06
 
 - **Streamable HTTP transport** at `/mcp` (stateless JSON), the current MCP

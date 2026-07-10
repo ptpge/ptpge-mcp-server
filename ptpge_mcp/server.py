@@ -144,6 +144,7 @@ from starlette.routing import Mount, Route
 
 from . import __version__
 from .config import Config
+from . import fingermark as _fm
 from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
 from .playground import PLAYGROUND_HTML
@@ -432,6 +433,14 @@ TOOL_DESCRIPTORS: list[Tool] = [
                         },
                         "required": ["variable"],
                     },
+                },
+                "visuals": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Also return markSvg (the ptpge-mark/1 "
+                        "recognition mark) and qrSvg (QR encoding the resolver "
+                        "permalink) per profile. Off by default to keep "
+                        "payloads small.",
                 },
             },
             "required": ["product", "bindings"],
@@ -744,10 +753,20 @@ def fingerprint_payload(args: dict) -> object:
             nb["surface"] = b["surface"]
         config["bindings"].append(nb)
     out = {"algorithm": "ptpge-cfs/1", "profiles": {}}
+    visuals = bool(args.get("visuals"))
     for profile in ("spec", "offer"):
         s = _cfs_canonical(config, profile)
         h = _cfs_fingerprint(config, profile)
-        out["profiles"][profile] = {"canonical": s, "sha256": h, "short": _cfs_short(h)}
+        entry = {"canonical": s, "sha256": h, "short": _cfs_short(h),
+                 "resolverUrl": "https://ptpge.org/f/" + h}
+        if visuals:
+            entry["markSvg"] = _fm.mark_svg(h)
+            qr = _fm.qr_svg(entry["resolverUrl"])
+            if qr:
+                entry["qrSvg"] = qr
+            else:
+                entry["qrNote"] = "qrcode package not installed on server — QR omitted"
+        out["profiles"][profile] = entry
     out["note"] = ("Input was serialized as given — not validated against the "
                    "product envelope. Use ptpge_validate_config for that.")
     return out

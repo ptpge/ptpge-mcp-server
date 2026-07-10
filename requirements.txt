@@ -20,6 +20,10 @@ a2wsgi>=1.10.0  # ASGI → WSGI bridge for Passenger
 # HTTP client for fetching data from api.ptpge.org
 httpx>=0.27.0
 
+# QR for ptpge_fingerprint visuals (resolver permalink). Optional at runtime:
+# if absent the tool omits qrSvg and keeps working.
+qrcode>=7.4
+
 # Standard tooling
 pydantic>=2.7.0
 python-dotenv>=1.0.0
