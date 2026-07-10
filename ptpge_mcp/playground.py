@@ -186,13 +186,32 @@ async function callTool(name, args) {
 }
 
 function render(obj) {
+  let strip = "";
+  try {
+    if (obj && obj.profiles && obj.profiles.spec && obj.profiles.spec.markSvg) {
+      obj = JSON.parse(JSON.stringify(obj));
+      strip = '<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin:0 0 14px">';
+      for (const prof of ["spec", "offer"]) {
+        const pr = obj.profiles[prof]; if (!pr || !pr.markSvg) continue;
+        strip += '<div style="text-align:center;font-size:11px;color:#7fae97">' + pr.markSvg +
+                 '<br>' + prof + ' · ' + pr.short + '</div>';
+        if (pr.qrSvg) {
+          strip += '<div style="text-align:center;font-size:11px;color:#7fae97">' + pr.qrSvg +
+                   '<br><a href="' + pr.resolverUrl + '" target="_blank" rel="noopener" style="color:#37d98a">resolver ↗</a></div>';
+        }
+        pr.markSvg = "(rendered above)";
+        if (pr.qrSvg) { pr.qrSvg = "(rendered above)"; }
+      }
+      strip += "</div>";
+    }
+  } catch (e) { strip = ""; }
   const text = JSON.stringify(obj, null, 2);
   const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const colored = esc
     .replace(/("(?:[^"\\\\]|\\\\.)*")(\\s*:)/g, '<span class="k">$1</span>$2')
     .replace(/: ("(?:[^"\\\\]|\\\\.)*")/g, ': <span class="s">$1</span>')
     .replace(/: (-?\\d+(?:\\.\\d+)?)/g, ': <span class="n">$1</span>');
-  document.getElementById("out").innerHTML = colored;
+  document.getElementById("out").innerHTML = strip + colored;
 }
 
 function doSearch() {
@@ -309,7 +328,7 @@ async function doResolve() {
 
 function doEnvelope()    { callTool("ptpge_get_product_envelope", { id_or_path: DEMO_PRODUCT }); }
 function doValidate()    { callTool("ptpge_validate_config", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }); }
-function doFingerprint() { callTool("ptpge_fingerprint", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }); }
+function doFingerprint() { callTool("ptpge_fingerprint", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS, visuals: true }); }
 function preset(v) { document.getElementById("q").value = v; doSearch(); }
 function presetUri(v) { document.getElementById("uri").value = v; doGet(); }
 

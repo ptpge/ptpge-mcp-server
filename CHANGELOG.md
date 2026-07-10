@@ -7,6 +7,11 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.5.1 — 2026-07-10
+
+- Playground: the Fingerprint button now requests `visuals: true` and renders
+  the mark + QR above the JSON (SVG fields collapsed in the JSON view).
+
 ## 0.5.0 — 2026-07-10
 
 - **`ptpge_fingerprint` returns the full identity set.** Every profile now
