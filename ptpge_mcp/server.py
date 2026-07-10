@@ -760,7 +760,7 @@ def fingerprint_payload(args: dict) -> object:
         entry = {"canonical": s, "sha256": h, "short": _cfs_short(h),
                  "resolverUrl": "https://ptpge.org/f/" + h}
         if visuals:
-            entry["markSvg"] = _fm.mark_svg(h)
+            entry["markSvg"] = _fm.mark_svg(h, frame="square" if profile == "spec" else "round")
             qr = _fm.qr_svg(entry["resolverUrl"])
             if qr:
                 entry["qrSvg"] = qr

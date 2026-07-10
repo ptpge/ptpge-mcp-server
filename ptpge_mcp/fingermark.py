@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover
 BRAND_INK = "#046A38"
 
 
-def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK) -> str:
+def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "round") -> str:
     """Render the canonical fingerprint mark (ptpge-mark/1) as an SVG string."""
     h = "".join(c for c in str(hexstr).lower() if c in "0123456789abcdef")
     b = [int(h[i:i + 2], 16) for i in range(0, len(h) - 1, 2)] or [0]
@@ -36,12 +36,15 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK) -> str:
             rr = radius + a1 * (0.5 + radius / 50) * math.sin(k1 * th + ph) + a2 * math.sin(k2 * th + p2)
             d += ("L" if i else "M") + f"{50 + rr * math.cos(th):.2f} {50 + rr * math.sin(th):.2f}"
         paths += f'<path d="{d}Z" fill="none" stroke="{ink}" stroke-width="2"/>'
+    frame_svg = (f'<rect x="11" y="11" width="78" height="78" fill="none" stroke="{ink}" stroke-width="1.8"/>'
+                 if frame == "square" else
+                 f'<circle cx="50" cy="50" r="38" fill="none" stroke="{ink}" stroke-width="1.8"/>')
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
         f'viewBox="0 0 100 100" role="img" aria-label="PTPGE fingerprint mark">'
         f'<defs><clipPath id="fmclip"><circle cx="50" cy="50" r="37"/></clipPath></defs>'
         f'<g clip-path="url(#fmclip)">{paths}</g>'
-        f'<circle cx="50" cy="50" r="38" fill="none" stroke="{ink}" stroke-width="1.8"/>'
+        f'{frame_svg}'
         f'<line x1="50" y1="6" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
         f'<line x1="6" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.5"/></svg>'
     )

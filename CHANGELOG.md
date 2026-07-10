@@ -7,6 +7,12 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.5.2 — 2026-07-10
+
+- Profile framing (`ptpge-mark/1.1`): the mark's registration frame now encodes
+  the profile — **square = spec**, **round = offer**. Presentation only; the
+  frozen byte→form contour algorithm is unchanged.
+
 ## 0.5.1 — 2026-07-10
 
 - Playground: the Fingerprint button now requests `visuals: true` and renders
