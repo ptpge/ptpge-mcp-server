@@ -42,8 +42,8 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "r
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
         f'viewBox="0 0 100 100" role="img" aria-label="PTPGE fingerprint mark">'
-        f'<defs><clipPath id="fmclip"><circle cx="50" cy="50" r="37"/></clipPath></defs>'
-        f'<g clip-path="url(#fmclip)">{paths}</g>'
+        f'<defs><clipPath id="fmclip"><circle cx="50" cy="50" r="34"/></clipPath></defs>'
+        f'<g clip-path="url(#fmclip)"><g transform="translate(50 50) scale(.88) translate(-50 -50)">{paths}</g></g>'
         f'{frame_svg}'
         f'<line x1="50" y1="6" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
         f'<line x1="6" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.5"/></svg>'

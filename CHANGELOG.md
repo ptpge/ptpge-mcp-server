@@ -7,6 +7,9 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.5.3 — 2026-07-12
+- ptpge-mark/1.2: breathing room — contour group scaled .88 about centre, clip radius 37 → 34. Identity (byte→form) unchanged; presentation-only, in line with Amendment 1.1 framing rules.
+
 ## 0.5.2 — 2026-07-10
 
 - Profile framing (`ptpge-mark/1.1`): the mark's registration frame now encodes
