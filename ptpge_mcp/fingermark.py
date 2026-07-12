@@ -36,6 +36,13 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "r
             rr = radius + a1 * (0.5 + radius / 50) * math.sin(k1 * th + ph) + a2 * math.sin(k2 * th + p2)
             d += ("L" if i else "M") + f"{50 + rr * math.cos(th):.2f} {50 + rr * math.sin(th):.2f}"
         paths += f'<path d="{d}Z" fill="none" stroke="{ink}" stroke-width="2"/>'
+    def _r0(th):
+        return (9 + a1 * (0.5 + 9 / 50) * math.sin(k1 * th + p1) + a2 * math.sin(k2 * th + p2)) * 0.88
+    _rt, _rr, _rb, _rl = _r0(3 * math.pi / 2), _r0(0.0), _r0(math.pi / 2), _r0(math.pi)
+    cross_svg = (f'<line x1="50" y1="6" x2="50" y2="{50 - _rt:.1f}" stroke="{ink}" stroke-width="1.5"/>'
+                 f'<line x1="50" y1="{50 + _rb:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
+                 f'<line x1="6" y1="50" x2="{50 - _rl:.1f}" y2="50" stroke="{ink}" stroke-width="1.5"/>'
+                 f'<line x1="{50 + _rr:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.5"/>')
     if frame == "square":
         frame_svg = f'<rect x="11" y="11" width="78" height="78" fill="none" stroke="{ink}" stroke-width="1.8"/>'
     elif frame == "corners":
@@ -48,8 +55,7 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "r
         f'<defs><clipPath id="fmclip"><circle cx="50" cy="50" r="34"/></clipPath></defs>'
         f'<g clip-path="url(#fmclip)"><g transform="translate(50 50) scale(.88) translate(-50 -50)">{paths}</g></g>'
         f'{frame_svg}'
-        f'<line x1="50" y1="6" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
-        f'<line x1="6" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.5"/></svg>'
+        f'{cross_svg}</svg>'
     )
 
 
