@@ -9,6 +9,8 @@ See SD-0044 for the versioning & changelog policy.
 
 ## 0.5.3 — 2026-07-12
 - ptpge-mark/1.2: breathing room — contour group scaled .88 about centre, clip radius 37 → 34. Identity (byte→form) unchanged; presentation-only, in line with Amendment 1.1 framing rules.
+- ptpge-mark/1.2: frame parity — round frame r 38 → 39, the exact inscribed circle of the 78×78 square; identical footprint, identical ring size in both frames.
+- ptpge-mark/1.3: job frame — four crop-mark corner brackets on the shared 78×78 footprint; profile→frame map spec→square, offer→round, job→corners.
 
 ## 0.5.2 — 2026-07-10
 
