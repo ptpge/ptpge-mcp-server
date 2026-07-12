@@ -37,7 +37,7 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "r
             d += ("L" if i else "M") + f"{50 + rr * math.cos(th):.2f} {50 + rr * math.sin(th):.2f}"
         paths += f'<path d="{d}Z" fill="none" stroke="{ink}" stroke-width="2"/>'
     def _r0(th):
-        return (9 + a1 * (0.5 + 9 / 50) * math.sin(k1 * th + p1) + a2 * math.sin(k2 * th + p2)) * 0.88
+        return (33 + a1 * (0.5 + 33 / 50) * math.sin(k1 * th + p1 + 0.24) + a2 * math.sin(k2 * th + p2)) * 0.88
     _rt, _rr, _rb, _rl = _r0(3 * math.pi / 2), _r0(0.0), _r0(math.pi / 2), _r0(math.pi)
     cross_svg = (f'<line x1="50" y1="6" x2="50" y2="{50 - _rt:.1f}" stroke="{ink}" stroke-width="1.5"/>'
                  f'<line x1="50" y1="{50 + _rb:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
