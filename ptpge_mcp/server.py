@@ -143,6 +143,7 @@ from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 
 from . import __version__
+from . import registerclient as _reg
 from .config import Config
 from . import fingermark as _fm
 from .data import VocabularyCache
@@ -759,6 +760,7 @@ def fingerprint_payload(args: dict) -> object:
         h = _cfs_fingerprint(config, profile)
         entry = {"canonical": s, "sha256": h, "short": _cfs_short(h),
                  "resolverUrl": "https://ptpge.org/f/" + h}
+        _reg.register_async(h, s)
         if visuals:
             entry["markSvg"] = _fm.mark_svg(h, frame=profile if profile in ("spec", "offer", "job") else "offer")
             qr = _fm.qr_svg(entry["resolverUrl"])
@@ -769,6 +771,9 @@ def fingerprint_payload(args: dict) -> object:
         out["profiles"][profile] = entry
     out["note"] = ("Input was serialized as given — not validated against the "
                    "product envelope. Use ptpge_validate_config for that.")
+    out["registration"] = ("Fingerprints are auto-registered with the public resolver "
+                           "(best-effort, self-verifying) — the resolverUrl becomes a "
+                           "permanent page within seconds.")
     return out
 
 
