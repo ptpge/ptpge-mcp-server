@@ -7,6 +7,9 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.6.1 — 2026-07-13
+- Playground: free-text prompts can now go all the way — "Fingerprint this" button performs a heuristic assembly (URI-path -> variable map + quantity/page-count/gsm number rules) and calls ptpge_fingerprint with visuals, so custom prompts end in mark + QR + resolver link (which 0.6.0 self-registers). Unmapped terms are listed honestly; a real agent assembles via the envelope.
+
 ## 0.6.0 — 2026-07-13
 - Self-registering fingerprints (SD-0058): every fingerprint computed by ptpge_fingerprint is POSTed (best-effort, daemon thread, stdlib urllib, 4 s timeout, process-lifetime dedupe) to the resolver's register endpoint, which writes the permanent page only when sha256(canonical) == hash. The resolverUrl in the payload becomes live within seconds of first computation. Disable with PTPGE_RESOLVER_REGISTER_URL="".
 - fingerprint payload gains a "registration" note.

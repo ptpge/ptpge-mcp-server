@@ -127,7 +127,7 @@ footer a { color: #2a6045; }
 <div class="card">
   <h2>Your own prompt — see what resolves</h2>
   <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on heavy recycled paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
-  <div class="row" style="margin-top:10px"><button onclick="doResolve()">Resolve phrases</button></div>
+  <div class="row" style="margin-top:10px"><button onclick="doResolve()">Resolve phrases</button><button id="fpassemble" style="display:none" onclick="assembleFingerprint()">Fingerprint this &rarr; mark + QR</button></div>
   <div class="hint">A real agent uses an LLM to decompose a prompt. This demo approximates that by searching 1–3 word n-grams and greedily keeping the best non-overlapping matches —
   commas and connectors as a rough stand-in, then look each fragment up <em>live</em> — so you
   see which pieces map to canonical PTPGE terms and which don't. Assembling the hits into a
@@ -313,6 +313,8 @@ async function doResolve() {
     });
     document.getElementById("meta").textContent =
       resolved.length + " attribute(s) resolved · " + cands.length + " lookups · ptpge_search_terms";
+    LAST_RESOLVE = { resolved: resolved, numbers: numbers, raw: raw };
+    document.getElementById("fpassemble").style.display = resolved.length ? "" : "none";
     render({
       prompt: raw,
       resolved_attributes: resolved,
@@ -326,6 +328,52 @@ async function doResolve() {
   }
 }
 
+let LAST_RESOLVE = null;
+// Heuristic assembly (v1): URI-path -> variable. A real agent does this with
+// the envelope; this is the demo's stand-in so free text reaches the mark+QR.
+const VAR_MAP = [
+  ["/configurations/formats/",      "variables/configuration/format"],
+  ["/configurations/setup-models/", "variables/configuration/setup-model"],
+  ["/features/colors/",             "variables/features/color-mode"],
+  ["/paper-surfaces/",              "variables/substrate/substrate-finish"],
+  ["/paper-weights/",               "variables/substrate/substrate-weight"],
+  ["/laminations/",                 "variables/features/lamination"],
+  ["/substrates/",                  "variables/substrate/substrate-type"],
+];
+function assembleFingerprint() {
+  if (!LAST_RESOLVE) return;
+  const rel = u => u.replace("https://ptpge.org/v1/", "");
+  let product = null; const bindings = []; const skipped = [];
+  for (const r of LAST_RESOLVE.resolved) {
+    const u = rel(r.uri);
+    if (u.indexOf("ordering/products/") === 0) { if (!product) product = u; continue; }
+    let mapped = null;
+    for (const [frag, v] of VAR_MAP) if (u.indexOf(frag) !== -1) { mapped = v; break; }
+    if (mapped) bindings.push({ variable: mapped, value: u });
+    else skipped.push(r.resolved + " (" + u + ")");
+  }
+  const raw = (LAST_RESOLVE.raw || "").toLowerCase();
+  const nums = (LAST_RESOLVE.numbers || []).map(x => parseInt(x, 10)).filter(n => !isNaN(n));
+  const qty = nums.filter(n => n >= 25).sort((a, b) => b - a)[0];
+  if (qty) bindings.push({ variable: "variables/order/quantity", value: qty });
+  if (/\b(page|pages|pp|sider)\b/.test(raw)) {
+    const pc = nums.filter(n => n >= 2 && n <= 96 && n !== qty)[0];
+    if (pc) bindings.push({ variable: "variables/configuration/page-count", value: pc });
+  }
+  if (/gsm/.test(raw)) {
+    const w = nums.filter(n => n >= 40 && n <= 600 && n !== qty)[0];
+    if (w) bindings.push({ variable: "variables/substrate/substrate-weight", value: w });
+  }
+  if (!product) {
+    render({ note: "No product recognised in the prompt — include a product word (labels, poster, brochure, business card …). Heuristic assembly needs one." });
+    return;
+  }
+  document.getElementById("meta").textContent =
+    "heuristic assembly: " + product + " + " + bindings.length + " binding(s)" +
+    (skipped.length ? " · not mapped: " + skipped.join(", ") : "") +
+    " · an agent would assemble via the envelope — then ptpge_fingerprint(visuals)";
+  callTool("ptpge_fingerprint", { product: product, bindings: bindings, visuals: true });
+}
 function doEnvelope()    { callTool("ptpge_get_product_envelope", { id_or_path: DEMO_PRODUCT }); }
 function doValidate()    { callTool("ptpge_validate_config", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }); }
 function doFingerprint() { callTool("ptpge_fingerprint", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS, visuals: true }); }
