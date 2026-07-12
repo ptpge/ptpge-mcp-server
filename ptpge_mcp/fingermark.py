@@ -38,7 +38,7 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "r
         paths += f'<path d="{d}Z" fill="none" stroke="{ink}" stroke-width="2"/>'
     frame_svg = (f'<rect x="11" y="11" width="78" height="78" fill="none" stroke="{ink}" stroke-width="1.8"/>'
                  if frame == "square" else
-                 f'<circle cx="50" cy="50" r="38" fill="none" stroke="{ink}" stroke-width="1.8"/>')
+                 f'<circle cx="50" cy="50" r="39" fill="none" stroke="{ink}" stroke-width="1.8"/>')
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
         f'viewBox="0 0 100 100" role="img" aria-label="PTPGE fingerprint mark">'
