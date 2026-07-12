@@ -7,6 +7,9 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.5.4 — 2026-07-12
+- ptpge-mark/2 (SD-0056): turbo anatomy — rings 3–5, symmetry 2–7, fixed centre-dot fiducial (r=1.4, unscaled), print scaled .85, cross terminates at outermost ring. Add-on species grammar: brand (dot+rings) · spec (+cross, no frame) · offer (+circle r39) · job (+crop-mark corners). Square frame retired; legacy square/round/corners map to spec/offer/job. Supersedes ptpge-mark/1.
+
 ## 0.5.3 — 2026-07-12
 - ptpge-mark/1.2: breathing room — contour group scaled .88 about centre, clip radius 37 → 34. Identity (byte→form) unchanged; presentation-only, in line with Amendment 1.1 framing rules.
 - ptpge-mark/1.2: frame parity — round frame r 38 → 39, the exact inscribed circle of the 78×78 square; identical footprint, identical ring size in both frames.

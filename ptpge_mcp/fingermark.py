@@ -18,46 +18,54 @@ except ImportError:  # pragma: no cover
 BRAND_INK = "#046A38"
 
 
-def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "round") -> str:
-    """Render the canonical fingerprint mark (ptpge-mark/1) as an SVG string."""
+def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "spec") -> str:
+    """Render the canonical fingerprint mark (ptpge-mark/2, SD-0056).
+
+    frame/variant: "brand" | "spec" | "offer" | "job"
+    (legacy: "square"->spec, "round"->offer, "corners"->job)
+    """
+    variant = {"square": "spec", "round": "offer", "corners": "job"}.get(frame, frame)
     h = "".join(c for c in str(hexstr).lower() if c in "0123456789abcdef")
     b = [int(h[i:i + 2], 16) for i in range(0, len(h) - 1, 2)] or [0]
-    two = math.pi * 2
     n = len(b)
-    k1, k2 = 2 + b[0] % 3, 3 + b[3 % n] % 3
+    two = math.pi * 2
+    rings = 3 + b[8 % n] % 3
+    k1, k2 = 2 + b[0] % 6, 3 + b[3 % n] % 3
     p1, p2 = (b[4 % n] / 255) * two, (b[5 % n] / 255) * two
-    a1, a2 = 1.7 + (b[6 % n] / 255) * 1.9, 0.9 + (b[7 % n] / 255) * 1.3
+    a1 = (1.7 + (b[6 % n] / 255) * 1.9) * 1.35
+    a2 = (0.9 + (b[7 % n] / 255) * 1.3) * 0.8
+    step = 24 / (rings - 1)
     paths = ""
-    for ri in range(4):
-        radius, ph = 9 + ri * 8, p1 + ri * 0.08
+    for ri in range(rings):
+        R, ph = 9 + ri * step, p1 + ri * 0.08
         d = ""
-        for i in range(85):
-            th = (i / 84) * two
-            rr = radius + a1 * (0.5 + radius / 50) * math.sin(k1 * th + ph) + a2 * math.sin(k2 * th + p2)
+        for i in range(91):
+            th = (i / 90) * two
+            rr = R + a1 * (0.5 + R / 50) * math.sin(k1 * th + ph) + a2 * math.sin(k2 * th + p2)
             d += ("L" if i else "M") + f"{50 + rr * math.cos(th):.2f} {50 + rr * math.sin(th):.2f}"
-        paths += f'<path d="{d}Z" fill="none" stroke="{ink}" stroke-width="2"/>'
-    def _r0(th):
-        return (33 + a1 * (0.5 + 33 / 50) * math.sin(k1 * th + p1 + 0.24) + a2 * math.sin(k2 * th + p2)) * 0.88
-    _rt, _rr, _rb, _rl = _r0(3 * math.pi / 2), _r0(0.0), _r0(math.pi / 2), _r0(math.pi)
-    cross_svg = (f'<line x1="50" y1="6" x2="50" y2="{50 - _rt:.1f}" stroke="{ink}" stroke-width="1.5"/>'
-                 f'<line x1="50" y1="{50 + _rb:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
-                 f'<line x1="6" y1="50" x2="{50 - _rl:.1f}" y2="50" stroke="{ink}" stroke-width="1.5"/>'
-                 f'<line x1="{50 + _rr:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.5"/>')
-    if frame == "square":
-        frame_svg = f'<rect x="11" y="11" width="78" height="78" fill="none" stroke="{ink}" stroke-width="1.8"/>'
-    elif frame == "corners":
-        frame_svg = (f'<path d="M11 24V11H24" fill="none" stroke="{ink}" stroke-width="1.8"/><path d="M76 11H89V24" fill="none" stroke="{ink}" stroke-width="1.8"/><path d="M89 76V89H76" fill="none" stroke="{ink}" stroke-width="1.8"/><path d="M24 89H11V76" fill="none" stroke="{ink}" stroke-width="1.8"/>')
-    else:
-        frame_svg = f'<circle cx="50" cy="50" r="39" fill="none" stroke="{ink}" stroke-width="1.8"/>'
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
-        f'viewBox="0 0 100 100" role="img" aria-label="PTPGE fingerprint mark">'
-        f'<defs><clipPath id="fmclip"><circle cx="50" cy="50" r="34"/></clipPath></defs>'
-        f'<g clip-path="url(#fmclip)"><g transform="translate(50 50) scale(.88) translate(-50 -50)">{paths}</g></g>'
-        f'{frame_svg}'
-        f'{cross_svg}</svg>'
-    )
+        paths += f'<path d="{d}Z" fill="none" stroke="{ink}" stroke-width="2.2"/>'
+    body = (f'<circle cx="50" cy="50" r="1.4" fill="{ink}"/>'
+            f'<g transform="translate(50 50) scale(.85) translate(-50 -50)">{paths}</g>')
+    if variant != "brand":
+        phE = p1 + (rings - 1) * 0.08
 
+        def _re(th):
+            return (33 + a1 * (0.5 + 33 / 50) * math.sin(k1 * th + phE) + a2 * math.sin(k2 * th + p2)) * 0.85
+
+        rt, rr_, rb, rl = _re(3 * math.pi / 2), _re(0.0), _re(math.pi / 2), _re(math.pi)
+        body += (f'<line x1="50" y1="6" x2="50" y2="{50 - rt:.1f}" stroke="{ink}" stroke-width="1.5"/>'
+                 f'<line x1="50" y1="{50 + rb:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
+                 f'<line x1="6" y1="50" x2="{50 - rl:.1f}" y2="50" stroke="{ink}" stroke-width="1.5"/>'
+                 f'<line x1="{50 + rr_:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.5"/>')
+    if variant == "offer":
+        body += f'<circle cx="50" cy="50" r="39" fill="none" stroke="{ink}" stroke-width="1.8"/>'
+    elif variant == "job":
+        body += (f'<path d="M11 24V11H24" fill="none" stroke="{ink}" stroke-width="1.8"/>'
+                 f'<path d="M76 11H89V24" fill="none" stroke="{ink}" stroke-width="1.8"/>'
+                 f'<path d="M89 76V89H76" fill="none" stroke="{ink}" stroke-width="1.8"/>'
+                 f'<path d="M24 89H11V76" fill="none" stroke="{ink}" stroke-width="1.8"/>')
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 100 100" '
+            f'role="img" aria-label="PTPGE fingerprint mark">{body}</svg>')
 
 def qr_svg(url: str, px: int = 168) -> str | None:
     """QR for the resolver URL — white tile with quiet zone, dark modules."""
