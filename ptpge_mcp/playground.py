@@ -282,10 +282,15 @@ async function doResolve() {
         });
         const pp = JSON.parse(json.result.content[0].text);
         const r = pick(pp.results);
-        return r ? { i: c.i, n: c.n, phrase: c.phrase, hit: r } : null;
+        let prod = null;
+        for (const x of (pp.results || []))
+          if (x && x.id && x.id.indexOf("ordering/products/") !== -1 && x.score >= 0.45) { prod = x; break; }
+        return (r || prod) ? { i: c.i, n: c.n, phrase: c.phrase, hit: r || null, prod: prod } : null;
       } catch (e) { return null; }
     }));
-    const ranked = hits.filter(Boolean).sort((a, b) => (b.hit.score - a.hit.score) || (b.n - a.n));
+    let productFallback = null;
+    for (const h of hits) if (h && h.prod && (!productFallback || h.prod.score > productFallback.score)) productFallback = h.prod;
+    const ranked = hits.filter(h => h && h.hit).sort((a, b) => (b.hit.score - a.hit.score) || (b.n - a.n));
     const used = new Array(words.length).fill(false);
     const seenUri = new Set();
     const chosen = [];
@@ -313,7 +318,7 @@ async function doResolve() {
     });
     document.getElementById("meta").textContent =
       resolved.length + " attribute(s) resolved · " + cands.length + " lookups · ptpge_search_terms";
-    LAST_RESOLVE = { resolved: resolved, numbers: numbers, raw: raw };
+    LAST_RESOLVE = { resolved: resolved, numbers: numbers, raw: raw, productFallback: productFallback };
     document.getElementById("fpassemble").style.display = resolved.length ? "" : "none";
     render({
       prompt: raw,
@@ -364,12 +369,18 @@ function assembleFingerprint() {
     const w = nums.filter(n => n >= 40 && n <= 600 && n !== qty)[0];
     if (w) bindings.push({ variable: "variables/substrate/substrate-weight", value: w });
   }
+  let prodNote = "";
+  if (!product && LAST_RESOLVE.productFallback) {
+    product = rel(LAST_RESOLVE.productFallback.id);
+    prodNote = " · product inferred: " + LAST_RESOLVE.productFallback.prefLabel +
+               " (score " + LAST_RESOLVE.productFallback.score + ")";
+  }
   if (!product) {
-    render({ note: "No product recognised in the prompt — include a product word (labels, poster, brochure, business card …). Heuristic assembly needs one." });
+    render({ note: "No product recognised in the prompt — include a product word (labels, poster, brochure, business card …). Heuristic assembly needs one. (Steward note: if a common word like this SHOULD name a product, that is an altLabel proposal for the Standard.)" });
     return;
   }
   document.getElementById("meta").textContent =
-    "heuristic assembly: " + product + " + " + bindings.length + " binding(s)" +
+    "heuristic assembly: " + product + " + " + bindings.length + " binding(s)" + prodNote +
     (skipped.length ? " · not mapped: " + skipped.join(", ") : "") +
     " · an agent would assemble via the envelope — then ptpge_fingerprint(visuals)";
   callTool("ptpge_fingerprint", { product: product, bindings: bindings, visuals: true });
