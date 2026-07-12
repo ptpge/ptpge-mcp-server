@@ -36,9 +36,12 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "r
             rr = radius + a1 * (0.5 + radius / 50) * math.sin(k1 * th + ph) + a2 * math.sin(k2 * th + p2)
             d += ("L" if i else "M") + f"{50 + rr * math.cos(th):.2f} {50 + rr * math.sin(th):.2f}"
         paths += f'<path d="{d}Z" fill="none" stroke="{ink}" stroke-width="2"/>'
-    frame_svg = (f'<rect x="11" y="11" width="78" height="78" fill="none" stroke="{ink}" stroke-width="1.8"/>'
-                 if frame == "square" else
-                 f'<circle cx="50" cy="50" r="39" fill="none" stroke="{ink}" stroke-width="1.8"/>')
+    if frame == "square":
+        frame_svg = f'<rect x="11" y="11" width="78" height="78" fill="none" stroke="{ink}" stroke-width="1.8"/>'
+    elif frame == "corners":
+        frame_svg = (f'<path d="M11 24V11H24" fill="none" stroke="{ink}" stroke-width="1.8"/><path d="M76 11H89V24" fill="none" stroke="{ink}" stroke-width="1.8"/><path d="M89 76V89H76" fill="none" stroke="{ink}" stroke-width="1.8"/><path d="M24 89H11V76" fill="none" stroke="{ink}" stroke-width="1.8"/>')
+    else:
+        frame_svg = f'<circle cx="50" cy="50" r="39" fill="none" stroke="{ink}" stroke-width="1.8"/>'
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
         f'viewBox="0 0 100 100" role="img" aria-label="PTPGE fingerprint mark">'
