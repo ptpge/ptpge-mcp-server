@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover
 BRAND_INK = "#046A38"
 
 
-def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "spec") -> str:
+def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "spec", scan_frame: bool = False) -> str:
     """Render the canonical fingerprint mark (ptpge-mark/2, SD-0056).
 
     frame/variant: "brand" | "spec" | "offer" | "job"
@@ -53,10 +53,10 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "s
             return (33 + a1 * (0.5 + 33 / 50) * math.sin(k1 * th + phE) + a2 * math.sin(k2 * th + p2)) * 0.85
 
         rt, rr_, rb, rl = _re(3 * math.pi / 2), _re(0.0), _re(math.pi / 2), _re(math.pi)
-        body += (f'<line x1="50" y1="6" x2="50" y2="{50 - rt:.1f}" stroke="{ink}" stroke-width="1.5"/>'
-                 f'<line x1="50" y1="{50 + rb:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="1.5"/>'
-                 f'<line x1="6" y1="50" x2="{50 - rl:.1f}" y2="50" stroke="{ink}" stroke-width="1.5"/>'
-                 f'<line x1="{50 + rr_:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.5"/>')
+        body += (f'<line x1="50" y1="6" x2="50" y2="{50 - rt:.1f}" stroke="{ink}" stroke-width="1.47"/>'
+                 f'<line x1="50" y1="{50 + rb:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="1.47"/>'
+                 f'<line x1="6" y1="50" x2="{50 - rl:.1f}" y2="50" stroke="{ink}" stroke-width="1.47"/>'
+                 f'<line x1="{50 + rr_:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.47"/>')
     if variant == "offer":
         body += f'<circle cx="50" cy="50" r="39" fill="none" stroke="{ink}" stroke-width="1.8"/>'
     elif variant == "job":
@@ -64,6 +64,12 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "s
                  f'<path d="M76 11H89V24" fill="none" stroke="{ink}" stroke-width="1.8"/>'
                  f'<path d="M89 76V89H76" fill="none" stroke="{ink}" stroke-width="1.8"/>'
                  f'<path d="M24 89H11V76" fill="none" stroke="{ink}" stroke-width="1.8"/>')
+    if scan_frame:
+        # Amendment 2.1 - register dots (scan frame). BL dot = orientation anchor (press origin).
+        body += (f'<circle cx="6" cy="94" r="3.6" fill="{ink}"/>'
+                 f'<circle cx="6" cy="6" r="2.6" fill="{ink}"/>'
+                 f'<circle cx="94" cy="6" r="2.6" fill="{ink}"/>'
+                 f'<circle cx="94" cy="94" r="2.6" fill="{ink}"/>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 100 100" '
             f'role="img" aria-label="PTPGE fingerprint mark">{body}</svg>')
 
