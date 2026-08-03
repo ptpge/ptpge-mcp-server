@@ -148,6 +148,7 @@ from .config import Config
 from . import fingermark as _fm
 from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
+from .htpasswd import HtpasswdVerifier
 from .playground import PLAYGROUND_HTML
 
 logger = logging.getLogger(__name__)
@@ -196,20 +197,23 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
     # smart-punctuation gets caught at import, not at the first 401.
     _REALM = "PTPGE MCP Stealth Mode"
 
-    def __init__(self, app, credentials: list[tuple[str, str]] | None = None) -> None:
+    def __init__(self, app, credentials: list[tuple[str, str]] | None = None,
+                 htpasswd_file: str | None = None) -> None:
         super().__init__(app)
         credentials = credentials or []
-        self._enabled = bool(credentials)
         self._expected_tokens: list[str] = []
         for username, password in credentials:
             if not username or not password:
                 continue
             token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
             self._expected_tokens.append(f"Basic {token}")
-        # If credentials were provided but all dropped during validation,
-        # disable auth rather than locking the server with an empty list.
-        if not self._expected_tokens:
-            self._enabled = False
+        # v0.8.0: shared htpasswd file (register-provisioned per-user
+        # credentials — same file as gutenlex.org/preview and api /v1).
+        # Checked after the env pairs in dispatch().
+        self._htpasswd = HtpasswdVerifier(htpasswd_file) if htpasswd_file else None
+        # Auth is on if EITHER source is configured; if both collapse to
+        # nothing, run open rather than locking the server out.
+        self._enabled = bool(self._expected_tokens) or self._htpasswd is not None
         # Fail loudly if anyone later edits the realm with non-ASCII text.
         try:
             self._REALM.encode("ascii")
@@ -232,6 +236,8 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         for token in self._expected_tokens:
             if secrets.compare_digest(provided, token):
                 match = True
+        if not match and self._htpasswd is not None:
+            match = self._try_htpasswd(provided)
         if not match:
             return Response(
                 content="Unauthorized\n",
@@ -243,6 +249,20 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": f'Basic realm="{self._REALM}"'},
             )
         return await call_next(request)
+
+    def _try_htpasswd(self, provided: str) -> bool:
+        """Decode a `Basic <b64>` header and verify against the shared
+        htpasswd file. Fail closed on any malformed input."""
+        if not provided.startswith("Basic "):
+            return False
+        try:
+            raw = base64.b64decode(provided[6:], validate=True).decode("utf-8")
+            username, _, password = raw.partition(":")
+        except (ValueError, UnicodeDecodeError):
+            return False
+        if not username or not password:
+            return False
+        return self._htpasswd.verify(username, password)
 
 
 # ---------------------------------------------------------------------------
@@ -1371,6 +1391,7 @@ def build_app() -> Starlette:
         Middleware(
             BasicAuthMiddleware,
             credentials=config.credentials,
+            htpasswd_file=config.htpasswd_file,
         ),
         Middleware(
             CapabilityTokenMiddleware,
@@ -1386,8 +1407,11 @@ def build_app() -> Starlette:
             logger.info("Basic Auth ENABLED for all routes (Stealth Mode, 1 credential pair)")
         else:
             logger.info("Basic Auth ENABLED for all routes (Stealth Mode, %d credential pairs)", n)
-    else:
+    elif not config.htpasswd_file:
         logger.warning("Basic Auth NOT configured - server is open. Set PTPGE_MCP_AUTH_USERS or PTPGE_MCP_AUTH_USER/_PASS to enable.")
+    if config.htpasswd_file:
+        logger.info("Basic Auth shared htpasswd ENABLED: %s (register-provisioned per-user credentials)",
+                    config.htpasswd_file)
 
     if config.tokens_file or config.tokens_static:
         mode = "grace (anon allowed)" if config.token_allow_anon else "required"

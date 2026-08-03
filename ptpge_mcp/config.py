@@ -129,6 +129,15 @@ class Config:
     # entirely and the server runs open (used at public launch).
     credentials: list[tuple[str, str]] = field(default_factory=list)
 
+    # v0.8.0: shared htpasswd file (path 4) — PTPGE_MCP_HTPASSWD points at
+    # the register-provisioned Apache htpasswd that also guards
+    # gutenlex.org/preview and api.ptpge.org /v1. Every beta user's
+    # personal username/password then works here too ("one login, three
+    # doors" per the welcome email). Checked AFTER the env pairs, so the
+    # internal pair keeps working. mtime-cached; register changes apply
+    # without restart.
+    htpasswd_file: str | None = None
+
     # v0.3.0: SSE transport toggle. The legacy SSE transport holds one HTTP
     # connection open per client for the lifetime of the session — behind
     # cPanel/Passenger every such connection occupies a scarce worker
@@ -187,6 +196,7 @@ class Config:
             refresh_seconds=int(os.getenv("PTPGE_REFRESH_SECONDS", "900")),
             log_level=os.getenv("PTPGE_LOG_LEVEL", "INFO"),
             credentials=credentials,
+            htpasswd_file=os.getenv("PTPGE_MCP_HTPASSWD") or None,
             sse_enabled=os.getenv("PTPGE_MCP_SSE", "1").strip().lower() not in ("0", "false", "off"),
             tokens_file=os.getenv("PTPGE_MCP_TOKENS_FILE") or None,
             tokens_static=[t.strip() for t in os.getenv("PTPGE_MCP_TOKENS", "").split(",") if t.strip()],
