@@ -54,19 +54,59 @@ button:disabled { background: #aaa; cursor: wait; }
 #status b { color: #1f4a35; }
 footer { text-align: center; color: #999; font-size: 12px; padding: 18px; }
 footer a { color: #2a6045; }
+/* — v2: convergence demo + language switcher — */
+#ui-lang { float: right; margin-top: -34px; }
+.conv .langrow button { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35; }
+.conv .langrow button:hover { background: #eef4f0; }
+.conv .langrow button.on { background: #1f4a35; color: #fff; }
+.stage { border-left: 3px solid #e0e0dd; margin: 14px 0 0; padding: 2px 0 2px 14px; }
+.stage .slbl { font-size: 11px; letter-spacing: .6px; text-transform: uppercase;
+               color: #777; font-weight: 700; }
+.stage .slbl .num { color: #1f4a35; margin-right: 6px; }
+.stage .tag { display: inline-block; font-size: 10px; background: #f0ede2; color: #8a6d00;
+              border-radius: 100px; padding: 1px 8px; margin-left: 8px; vertical-align: 1px; }
+.stage .mono { font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+               word-break: break-all; }
+.stage table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-top: 4px; }
+.stage td { padding: 3px 10px 3px 0; vertical-align: top; }
+.stage td.ph { color: #555; font-style: italic; }
+.stage .lng { display: inline-block; font-size: 10px; background: #e8f2ed; color: #1f4a35;
+              border-radius: 4px; padding: 0 5px; margin-left: 6px; font-style: normal; }
+#conv-hist table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+#conv-hist td { padding: 4px 10px 4px 0; border-top: 1px solid #eee; }
+#conv-hist .fp { font-family: ui-monospace, Menlo, monospace; }
+#conv-hist .same { color: #1f7a3d; font-weight: 700; }
 </style>
 </head>
 <body>
 <header>
+  <select id="ui-lang" onchange="setLang(this.value)"></select>
   <h1>PTPGE MCP — Playground <span class="badge">LIVE</span></h1>
-  <div class="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
-  Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.
+  <div class="sub"><span data-i="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
+  Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span>
   <span id="status">connecting…</span></div>
 </header>
 <main>
 
+<div class="card conv">
+  <h2 data-i="t_conv">Same product · any language · one fingerprint</h2>
+  <p style="font-size:13px;color:#555;margin:0 0 10px" data-i="i_conv">The reference brochure
+  — A5, accordion fold, 8 pages, 170 gsm, colour outside / black inside, matte lamination
+  with spot UV — phrased in six languages. Pick one and watch the same identity emerge.</p>
+  <div class="row langrow" id="conv-btns"></div>
+  <div id="conv-out"></div>
+  <div class="hint" data-i="h_conv">The interpretation (words → bindings) is pre-scripted per
+  language — that is the AI agent's job in production. The term labels, envelope validation
+  and the ptpge-cfs/1 fingerprint run <em>live</em> against this server. The hash is a
+  deterministic function, not a model output.</div>
+  <div id="conv-hist" style="display:none;margin-top:14px">
+    <div class="stage"><span class="slbl" data-i="hist">Run history — same product, different languages</span>
+    <table id="conv-hist-t"></table></div>
+  </div>
+</div>
+
 <div class="card">
-  <h2>ptpge_search_terms — free-text search</h2>
+  <h2 data-i="t_search">ptpge_search_terms — free-text search</h2>
   <div class="row">
     <input type="text" id="q" placeholder="e.g. brochure · accordion fold · ivory paper · full colour · copies" value="brochure">
     <select id="q-lang">
@@ -74,10 +114,10 @@ footer a { color: #2a6045; }
       <option value="de">de</option><option value="ja">ja</option>
       <option value="es">es</option><option value="zh-Hans">zh-Hans</option>
     </select>
-    <button onclick="doSearch()">Search</button>
+    <button onclick="doSearch()" data-i="b_search">Search</button>
   </div>
-  <div class="hint">Search is tokenized and language-agnostic — buyer phrases in any
-  supported language hit the canonical terms. Try:
+  <div class="hint"><span data-i="h_search">Search is tokenized and language-agnostic — buyer phrases in any
+  supported language hit the canonical terms.</span> <span data-i="try">Try:</span>
   <a onclick="preset('ivory paper')">ivory paper</a> ·
   <a onclick="preset('black only')">black only</a> ·
   <a onclick="preset('accordion fold')">accordion fold</a> ·
@@ -86,7 +126,7 @@ footer a { color: #2a6045; }
 </div>
 
 <div class="card">
-  <h2>ptpge_get_term — full context for one term</h2>
+  <h2 data-i="t_get">ptpge_get_term — full context for one term</h2>
   <div class="row">
     <input type="text" id="uri" placeholder="URI or path under /v1/"
            value="printing/completions/folding">
@@ -95,21 +135,21 @@ footer a { color: #2a6045; }
       <option value="de">de</option><option value="ja">ja</option>
       <option value="es">es</option><option value="zh-Hans">zh-Hans</option>
     </select>
-    <button onclick="doGet()">Get term</button>
+    <button onclick="doGet()" data-i="b_get">Get term</button>
   </div>
-  <div class="hint">Tip: click a result <code>id</code> from a search, or try
+  <div class="hint"><span data-i="h_get">Tip: click a result <code>id</code> from a search, or try</span>
   <a onclick="presetUri('ordering/products/brochures')">brochures</a> ·
   <a onclick="presetUri('printing/substrates/sheet-materials/paper/paper-weights/medium-paper')">medium-paper</a> ·
   <a onclick="presetUri('variables/order/quantity')">quantity</a></div>
 </div>
 
 <div class="card">
-  <h2>ptpge_get_version — dataset &amp; server version</h2>
-  <div class="row"><button onclick="doVersion()">Get version</button></div>
+  <h2 data-i="t_ver">ptpge_get_version — dataset &amp; server version</h2>
+  <div class="row"><button onclick="doVersion()" data-i="b_ver">Get version</button></div>
 </div>
 
 <div class="card">
-  <h2>Test-prompt demo — the full chain, live</h2>
+  <h2 data-i="t_chain">Test-prompt demo — the full chain, live</h2>
   <p style="font-size:13px;color:#555;margin:0 0 10px;font-style:italic">
   "I want a brochure, 6 pages, A5, folded as a Z-fold, on ivory-toned
   heavy paper, full colour on one side and black only on the other, 500 copies."</p>
@@ -118,16 +158,16 @@ footer a { color: #2a6045; }
     <button onclick="doValidate()">2 · Validate</button>
     <button onclick="doFingerprint()">3 · Fingerprint</button>
   </div>
-  <div class="hint">The interpretation (words → bindings) is pre-scripted here — that is
+  <div class="hint" data-i="h_chain">The interpretation (words → bindings) is pre-scripted here — that is
   the AI agent's job. The lookups, envelope validation (incl. 250 gsm → weight band and
   the creasing advisory) and the ptpge-cfs/1 fingerprint run <em>live</em> against this
   server, exactly as an agent would call them.</div>
 </div>
 
 <div class="card">
-  <h2>Your own prompt — see what resolves</h2>
+  <h2 data-i="t_own">Your own prompt — see what resolves</h2>
   <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on heavy recycled paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
-  <div class="row" style="margin-top:10px"><button onclick="doResolve()">Resolve phrases</button><button id="fpassemble" style="display:none" onclick="assembleFingerprint()">Fingerprint this &rarr; mark + QR</button></div>
+  <div class="row" style="margin-top:10px"><button onclick="doResolve()" data-i="b_resolve">Resolve phrases</button><button id="fpassemble" style="display:none" onclick="assembleFingerprint()" data-i="b_fp">Fingerprint this &rarr; mark + QR</button></div>
   <div class="hint">A real agent uses an LLM to decompose a prompt. This demo approximates that by searching 1–3 word n-grams and greedily keeping the best non-overlapping matches —
   commas and connectors as a rough stand-in, then look each fragment up <em>live</em> — so you
   see which pieces map to canonical PTPGE terms and which don't. Assembling the hits into a
@@ -393,6 +433,369 @@ function presetUri(v) { document.getElementById("uri").value = v; doGet(); }
 
 document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 document.getElementById("uri").addEventListener("keydown", e => { if (e.key === "Enter") doGet(); });
+
+// ————— v2: convergence demo — the reference brochure in six languages —————
+const REF_PRODUCT = "ordering/products/brochures";
+const REF_ROWS = [
+  ["variables/configuration/format",        null,      "printing/configurations/formats/a-series/a5"],
+  ["variables/configuration/page-count",    null,      8],
+  ["variables/configuration/setup-model",   null,      "printing/configurations/setup-models/folded-sheet/accordion-fold"],
+  ["variables/features/color-mode",         "outside", "printing/features/colors/cmyk"],
+  ["variables/features/color-mode",         "inside",  "printing/features/colors/black"],
+  ["variables/features/surface-finish",     "outside", ["printing/features/surface-finish/lamination/matte",
+                                                        "printing/features/embellishments/spot-uv-varnish"]],
+  ["variables/substrate/substrate-type",    null,      "printing/substrates/sheet-materials/paper"],
+  ["variables/substrate/substrate-weight",  null,      170],
+  ["variables/order/quantity",              null,      500],
+];
+function refBindings() {
+  return REF_ROWS.map(r => {
+    const b = { variable: r[0] };
+    if (r[1]) b.surface = r[1];
+    if (Array.isArray(r[2])) { b.values = r[2]; b.ordered = true; } else { b.value = r[2]; }
+    return b;
+  });
+}
+const CONV = [
+  { code: "en", label: "English",
+    phrase: "brochure, A5, accordion fold, 8 pages, 170 gsm paper, full colour outside, black only inside, matte lamination with spot UV outside, 500 copies",
+    m: ["A5", "8 pages", "accordion fold", "full colour outside", "black only inside",
+        "matte lamination with spot UV", "paper", "170 gsm", "500 copies"] },
+  { code: "nb", label: "Norsk",
+    phrase: "brosjyre, A5, leporello-fals, 8 sider, 170 g papir, full farge utvendig, kun sort innvendig, matt laminat med spot-UV utvendig, 500 eksemplarer",
+    m: ["A5", "8 sider", "leporello-fals", "full farge utvendig", "kun sort innvendig",
+        "matt laminat med spot-UV", "papir", "170 g", "500 eksemplarer"] },
+  { code: "de", label: "Deutsch",
+    phrase: "Broschüre, A5, Leporellofalz, 8 Seiten, 170 g Papier, außen 4-farbig, innen nur schwarz, außen Mattlaminat mit partiellem UV-Lack, 500 Exemplare",
+    m: ["A5", "8 Seiten", "Leporellofalz", "außen 4-farbig", "innen nur schwarz",
+        "Mattlaminat mit partiellem UV-Lack", "Papier", "170 g", "500 Exemplare"] },
+  { code: "es", label: "Español",
+    phrase: "folleto, A5, plegado en acordeón, 8 páginas, papel de 170 g, exterior a todo color, interior solo negro, laminado mate con barniz UV selectivo, 500 ejemplares",
+    m: ["A5", "8 páginas", "plegado en acordeón", "exterior a todo color", "interior solo negro",
+        "laminado mate con barniz UV selectivo", "papel", "170 g", "500 ejemplares"] },
+  { code: "ja", label: "日本語",
+    phrase: "パンフレット、A5、蛇腹折り、8ページ、170gsm用紙、表面フルカラー、内側モノクロ、表面マットPP+スポットUV、500部",
+    m: ["A5", "8ページ", "蛇腹折り", "表面フルカラー", "内側モノクロ",
+        "マットPP+スポットUV", "用紙", "170gsm", "500部"] },
+  { code: "zh-Hans", label: "中文",
+    phrase: "宣传册，A5，风琴折，8页，170克纸张，外面四色，里面单黑，外面哑膜加局部UV，500份",
+    m: ["A5", "8页", "风琴折", "外面四色", "里面单黑", "哑膜加局部UV", "纸张", "170克", "500份"] },
+];
+let CONV_HISTORY = [];
+
+async function toolQ(name, args) {
+  const { json } = await rpc("tools/call", { name: name, arguments: args });
+  if (json.error) { throw new Error(json.error.message || "RPC error"); }
+  return JSON.parse(json.result.content[0].text);
+}
+function escH(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+async function convRun(idx) {
+  const L = CONV[idx];
+  document.querySelectorAll("#conv-btns button").forEach((b, i) =>
+    b.classList.toggle("on", i === idx));
+  const out = document.getElementById("conv-out");
+  const t = key => (UI[CUR_LANG] && UI[CUR_LANG][key]) || UI.en[key];
+  out.innerHTML =
+    '<div class="stage"><span class="slbl"><span class="num">01</span>' + t("s01") +
+    ' <span class="lng">' + L.code + '</span></span>' +
+    '<div class="mono">&quot;' + escH(L.phrase) + '&quot;</div></div>' +
+    '<div id="cv2"></div><div id="cv3"></div><div id="cv4"></div><div id="cv5"></div>';
+  // 02 — matched terms, labels fetched LIVE in the chosen language
+  const uris = [];
+  REF_ROWS.forEach(r => {
+    if (Array.isArray(r[2])) { r[2].forEach(u => uris.push(u)); }
+    else if (typeof r[2] === "string") { uris.push(r[2]); }
+  });
+  const labels = {};
+  await Promise.all(uris.map(async u => {
+    try {
+      const p = await toolQ("ptpge_get_term", { id_or_path: u, language: L.code });
+      labels[u] = p.label || p.prefLabel || u.split("/").pop();
+    } catch (e) { labels[u] = u.split("/").pop(); }
+  }));
+  let rows = "";
+  REF_ROWS.forEach((r, i) => {
+    const axis = r[0].split("/").pop() + (r[1] ? "@" + r[1] : "");
+    let canon;
+    if (Array.isArray(r[2])) {
+      canon = r[2].map(u => escH(labels[u])).join(" &gt; ");
+    } else if (typeof r[2] === "string") {
+      canon = escH(labels[r[2]]);
+    } else { canon = String(r[2]); }
+    rows += '<tr><td class="mono">' + axis + '</td><td class="ph">&quot;' + escH(L.m[i]) +
+            '&quot;<span class="lng">' + L.code + '</span></td><td>&rarr; ' + canon + '</td></tr>';
+  });
+  document.getElementById("cv2").innerHTML =
+    '<div class="stage"><span class="slbl"><span class="num">02</span>' + t("s02") +
+    '<span class="tag">' + t("tag02") + '</span></span><table>' + rows + '</table></div>';
+  // Fingerprint — LIVE. Visuals stay off: the offer MARK belongs to a
+  // vendor identity (mark/3), which is exactly what stays outside this
+  // demo — the official mark lives on the register page one click away.
+  const fp = await toolQ("ptpge_fingerprint", { product: REF_PRODUCT, bindings: refBindings(), visuals: false });
+  const spec = fp.profiles.spec, offer = fp.profiles.offer;
+  document.getElementById("cv3").innerHTML =
+    '<div class="stage"><span class="slbl"><span class="num">03</span>' + t("s03") +
+    '<span class="tag">ptpge-cfs/1</span></span><div class="mono" style="color:#555">' +
+    escH(spec.canonical) + '</div></div>';
+  document.getElementById("cv4").innerHTML =
+    '<div class="stage"><span class="slbl"><span class="num">04</span>SHA-256' +
+    '<span class="tag">' + t("tag04") + '</span></span><div class="mono">' + spec.sha256 + '</div></div>';
+  document.getElementById("cv5").innerHTML =
+    '<div class="stage"><span class="slbl"><span class="num">05</span>' + t("s05") + '</span>' +
+    '<div style="margin-top:6px"><div class="mono" style="font-size:17px;font-weight:700">' + spec.short + '</div>' +
+    '<a href="' + spec.resolverUrl + '" target="_blank" rel="noopener">' + t("resolver") + '</a>' +
+    '<div class="hint">offer (+ quantity): <span class="mono">' + offer.short +
+    '</span> · <a href="' + offer.resolverUrl + '" target="_blank" rel="noopener">/f/…</a></div></div></div>';
+  // history — convergence proof
+  CONV_HISTORY.push({ label: L.label, code: L.code, spec: spec.short });
+  const first = CONV_HISTORY[0].spec;
+  document.getElementById("conv-hist").style.display = "";
+  document.getElementById("conv-hist-t").innerHTML = CONV_HISTORY.map(h =>
+    '<tr><td>' + h.label + ' <span class="lng">' + h.code + '</span></td>' +
+    '<td class="fp">' + h.spec + '</td>' +
+    '<td>' + (h.spec === first && CONV_HISTORY.length > 1 ? '<span class="same">= ' + t("same") + '</span>' : '') +
+    '</td></tr>').join("");
+}
+document.getElementById("conv-btns").innerHTML = CONV.map((L, i) =>
+  '<button onclick="convRun(' + i + ')">' + L.label + '</button>').join("");
+
+// ————— v2: 13-language UI (same set as gutenlex.org) —————
+const LANG_NAMES = [["en","English"],["de","Deutsch"],["nb","Norsk"],["nl","Nederlands"],
+  ["sv","Svenska"],["da","Dansk"],["fi","Suomi"],["is","Íslenska"],["fr","Français"],
+  ["pl","Polski"],["es","Español"],["ja","日本語"],["zh","中文"]];
+let CUR_LANG = "en";
+const UI = {
+en: { s01:"Raw specification", s02:"Matched against the vocabulary",
+  tag02:"pre-scripted — the agent's job", s03:"Canonical form", tag04:"deterministic function, not the model",
+  s05:"Identity", live:"checked live", resolver:"resolves on the public register ↗",
+  same:"same identity", "try":"Try:" },
+de: { sub:"Jeder Button sendet einen echten MCP-<code>tools/call</code> (JSON-RPC über Streamable HTTP) an <code>/mcp</code> — genau wie ein KI-Agent.",
+  t_conv:"Gleiches Produkt · jede Sprache · ein Fingerprint",
+  i_conv:"Die Referenzbroschüre — A5, Leporellofalz, 8 Seiten, 170 g, außen farbig / innen schwarz, Mattlaminat mit partiellem UV-Lack — in sechs Sprachen formuliert. Wählen Sie eine und sehen Sie dieselbe Identität entstehen.",
+  h_conv:"Die Interpretation (Worte → Bindings) ist hier pro Sprache vorbereitet — in Produktion die Aufgabe des KI-Agenten. Begriffe, Envelope-Validierung und der ptpge-cfs/1-Fingerprint laufen <em>live</em> gegen diesen Server. Der Hash ist eine deterministische Funktion, kein Modell-Output.",
+  hist:"Verlauf — gleiches Produkt, verschiedene Sprachen",
+  s01:"Rohe Spezifikation", s02:"Gegen das Vokabular aufgelöst", tag02:"vorbereitet — Aufgabe des Agenten",
+  s03:"Kanonische Form", tag04:"deterministische Funktion, kein Modell", s05:"Identität",
+  live:"live geprüft", resolver:"löst im öffentlichen Register auf ↗", same:"gleiche Identität",
+  t_search:"ptpge_search_terms — Freitextsuche",
+  h_search:"Die Suche ist tokenisiert und sprachunabhängig — Käuferphrasen in jeder unterstützten Sprache treffen die kanonischen Begriffe.", "try":"Beispiele:",
+  t_get:"ptpge_get_term — voller Kontext eines Begriffs", h_get:"Tipp: eine <code>id</code> aus einer Suche anklicken, oder:",
+  t_ver:"ptpge_get_version — Daten- &amp; Serverversion", b_ver:"Version abrufen",
+  t_chain:"Test-Prompt — die volle Kette, live",
+  h_chain:"Die Interpretation (Worte → Bindings) ist hier vorbereitet — das ist die Aufgabe des KI-Agenten. Lookups, Envelope-Validierung und der ptpge-cfs/1-Fingerprint laufen <em>live</em> gegen diesen Server.",
+  t_own:"Ihr eigener Prompt — was löst sich auf?",
+  h_own:"Ein echter Agent zerlegt den Prompt mit einem LLM; die Demo nähert das mit N-Gramm-Suchen an — jedes Fragment wird <em>live</em> nachgeschlagen.",
+  b_search:"Suchen", b_get:"Begriff abrufen", b_resolve:"Phrasen auflösen", b_fp:"Fingerprint → Marke + QR" },
+nb: { sub:"Hver knapp sender et ekte MCP-<code>tools/call</code> (JSON-RPC over Streamable HTTP) til <code>/mcp</code> — akkurat som en KI-agent.",
+  t_conv:"Samme produkt · alle språk · ett fingerprint",
+  i_conv:"Referansebrosjyren — A5, leporello-fals, 8 sider, 170 g, farger utvendig / sort innvendig, matt laminat med spot-UV — formulert på seks språk. Velg ett og se samme identitet vokse frem.",
+  h_conv:"Tolkningen (ord → bindings) er forhåndsskrevet per språk — det er KI-agentens jobb i produksjon. Termoppslag, envelope-validering og ptpge-cfs/1-fingerprintet kjører <em>live</em> mot denne serveren. Hashen er en deterministisk funksjon, ikke modell-output.",
+  hist:"Kjørehistorikk — samme produkt, ulike språk",
+  s01:"Rå spesifikasjon", s02:"Matchet mot vokabularet", tag02:"forhåndsskrevet — agentens jobb",
+  s03:"Kanonisk form", tag04:"deterministisk funksjon, ikke modellen", s05:"Identitet",
+  live:"sjekket live", resolver:"slår opp i det offentlige registeret ↗", same:"samme identitet",
+  t_search:"ptpge_search_terms — fritekstsøk",
+  h_search:"Søket er tokenisert og språkuavhengig — kjøperfraser på alle støttede språk treffer de kanoniske termene.", "try":"Prøv:",
+  t_get:"ptpge_get_term — full kontekst for én term", h_get:"Tips: klikk en <code>id</code> fra et søk, eller prøv:",
+  t_ver:"ptpge_get_version — data- og serverversjon", b_ver:"Hent versjon",
+  t_chain:"Test-prompt — hele kjeden, live",
+  h_chain:"Tolkningen (ord → bindings) er forhåndsskrevet her — det er KI-agentens jobb. Oppslag, envelope-validering og ptpge-cfs/1-fingerprintet kjører <em>live</em> mot denne serveren.",
+  t_own:"Din egen prompt — se hva som løses",
+  h_own:"En ekte agent dekomponerer prompten med en LLM; demoen tilnærmer det med n-gram-søk — hvert fragment slås opp <em>live</em>.",
+  b_search:"Søk", b_get:"Hent term", b_resolve:"Løs opp fraser", b_fp:"Fingerprint → merke + QR" },
+nl: { sub:"Elke knop stuurt een echte MCP-<code>tools/call</code> (JSON-RPC over Streamable HTTP) naar <code>/mcp</code> — precies wat een AI-agent doet.",
+  t_conv:"Zelfde product · elke taal · één fingerprint",
+  i_conv:"De referentiebrochure — A5, leporellovouw, 8 pagina's, 170 g, kleur buiten / zwart binnen, matlaminaat met spot-UV — in zes talen. Kies er één en zie dezelfde identiteit ontstaan.",
+  h_conv:"De interpretatie (woorden → bindings) is per taal voorbereid — in productie het werk van de AI-agent. Termen, envelope-validatie en de ptpge-cfs/1-fingerprint draaien <em>live</em> tegen deze server. De hash is een deterministische functie, geen modeloutput.",
+  hist:"Geschiedenis — zelfde product, verschillende talen",
+  s01:"Ruwe specificatie", s02:"Gematcht met het vocabulaire", tag02:"voorbereid — het werk van de agent",
+  s03:"Canonieke vorm", tag04:"deterministische functie, niet het model", s05:"Identiteit",
+  live:"live gecontroleerd", resolver:"lost op in het openbare register ↗", same:"zelfde identiteit",
+  t_search:"ptpge_search_terms — vrije-tekst zoeken",
+  h_search:"Zoeken is getokeniseerd en taalonafhankelijk — koperszinnen in elke ondersteunde taal raken de canonieke termen.", "try":"Probeer:",
+  t_get:"ptpge_get_term — volledige context van één term", h_get:"Tip: klik een <code>id</code> uit een zoekopdracht, of probeer:",
+  t_ver:"ptpge_get_version — data- &amp; serverversie", b_ver:"Versie ophalen",
+  t_chain:"Test-prompt — de volledige keten, live",
+  h_chain:"De interpretatie (woorden → bindings) is hier voorbereid — dat is het werk van de AI-agent. Lookups, envelope-validatie en de ptpge-cfs/1-fingerprint draaien <em>live</em> tegen deze server.",
+  t_own:"Uw eigen prompt — zie wat er oplost",
+  h_own:"Een echte agent ontleedt de prompt met een LLM; de demo benadert dat met n-gram-zoekopdrachten — elk fragment wordt <em>live</em> opgezocht.",
+  b_search:"Zoeken", b_get:"Term ophalen", b_resolve:"Zinnen oplossen", b_fp:"Fingerprint → merk + QR" },
+sv: { sub:"Varje knapp skickar ett äkta MCP-<code>tools/call</code> (JSON-RPC över Streamable HTTP) till <code>/mcp</code> — precis som en AI-agent.",
+  t_conv:"Samma produkt · alla språk · ett fingerprint",
+  i_conv:"Referensbroschyren — A5, leporellofals, 8 sidor, 170 g, färg utsida / svart insida, mattlaminat med spot-UV — formulerad på sex språk. Välj ett och se samma identitet växa fram.",
+  h_conv:"Tolkningen (ord → bindings) är förskriven per språk — i produktion agentens jobb. Termuppslag, envelope-validering och ptpge-cfs/1-fingerprintet körs <em>live</em> mot denna server. Hashen är en deterministisk funktion, inte modelloutput.",
+  hist:"Körhistorik — samma produkt, olika språk",
+  s01:"Rå specifikation", s02:"Matchad mot vokabulären", tag02:"förskriven — agentens jobb",
+  s03:"Kanonisk form", tag04:"deterministisk funktion, inte modellen", s05:"Identitet",
+  live:"kontrollerad live", resolver:"slås upp i det offentliga registret ↗", same:"samma identitet",
+  t_search:"ptpge_search_terms — fritextsökning",
+  h_search:"Sökningen är tokeniserad och språkoberoende — köparfraser på alla stödda språk träffar de kanoniska termerna.", "try":"Prova:",
+  t_get:"ptpge_get_term — full kontext för en term", h_get:"Tips: klicka en <code>id</code> från en sökning, eller prova:",
+  t_ver:"ptpge_get_version — data- och serverversion", b_ver:"Hämta version",
+  t_chain:"Test-prompt — hela kedjan, live",
+  h_chain:"Tolkningen (ord → bindings) är förskriven här — det är AI-agentens jobb. Uppslag, envelope-validering och ptpge-cfs/1-fingerprintet körs <em>live</em> mot denna server.",
+  t_own:"Din egen prompt — se vad som löses upp",
+  h_own:"En riktig agent bryter ner prompten med en LLM; demon approximerar det med n-gram-sökningar — varje fragment slås upp <em>live</em>.",
+  b_search:"Sök", b_get:"Hämta term", b_resolve:"Lös upp fraser", b_fp:"Fingerprint → märke + QR" },
+da: { sub:"Hver knap sender et ægte MCP-<code>tools/call</code> (JSON-RPC over Streamable HTTP) til <code>/mcp</code> — præcis som en AI-agent.",
+  t_conv:"Samme produkt · alle sprog · ét fingerprint",
+  i_conv:"Referencebrochuren — A5, leporellofals, 8 sider, 170 g, farve udvendig / sort indvendig, matlaminat med spot-UV — formuleret på seks sprog. Vælg ét og se den samme identitet opstå.",
+  h_conv:"Fortolkningen (ord → bindings) er forberedt pr. sprog — i produktion agentens job. Termopslag, envelope-validering og ptpge-cfs/1-fingerprintet kører <em>live</em> mod denne server. Hashen er en deterministisk funktion, ikke modeloutput.",
+  hist:"Kørselshistorik — samme produkt, forskellige sprog",
+  s01:"Rå specifikation", s02:"Matchet mod vokabularet", tag02:"forberedt — agentens job",
+  s03:"Kanonisk form", tag04:"deterministisk funktion, ikke modellen", s05:"Identitet",
+  live:"tjekket live", resolver:"slår op i det offentlige register ↗", same:"samme identitet",
+  t_search:"ptpge_search_terms — fritekstsøgning",
+  h_search:"Søgningen er tokeniseret og sproguafhængig — køberfraser på alle understøttede sprog rammer de kanoniske termer.", "try":"Prøv:",
+  t_get:"ptpge_get_term — fuld kontekst for én term", h_get:"Tip: klik et <code>id</code> fra en søgning, eller prøv:",
+  t_ver:"ptpge_get_version — data- og serverversion", b_ver:"Hent version",
+  t_chain:"Test-prompt — hele kæden, live",
+  h_chain:"Fortolkningen (ord → bindings) er forberedt her — det er AI-agentens job. Opslag, envelope-validering og ptpge-cfs/1-fingerprintet kører <em>live</em> mod denne server.",
+  t_own:"Din egen prompt — se hvad der løses",
+  h_own:"En rigtig agent nedbryder prompten med en LLM; demoen tilnærmer det med n-gram-søgninger — hvert fragment slås op <em>live</em>.",
+  b_search:"Søg", b_get:"Hent term", b_resolve:"Opløs fraser", b_fp:"Fingerprint → mærke + QR" },
+fi: { sub:"Jokainen painike lähettää aidon MCP-<code>tools/call</code>-kutsun (JSON-RPC, Streamable HTTP) osoitteeseen <code>/mcp</code> — täsmälleen kuten tekoälyagentti.",
+  t_conv:"Sama tuote · kaikki kielet · yksi sormenjälki",
+  i_conv:"Referenssiesite — A5, haitaritaitto, 8 sivua, 170 g, värit ulkopuolella / musta sisällä, mattalaminointi ja kohde-UV — kuudella kielellä. Valitse yksi ja katso saman identiteetin syntyvän.",
+  h_conv:"Tulkinta (sanat → sidonnat) on ennalta kirjoitettu kielittäin — tuotannossa se on agentin työ. Termihaut, envelope-validointi ja ptpge-cfs/1-sormenjälki ajetaan <em>live</em> tätä palvelinta vasten. Hash on deterministinen funktio, ei mallin tuotos.",
+  hist:"Ajohistoria — sama tuote, eri kielet",
+  s01:"Raaka spesifikaatio", s02:"Sovitettu sanastoon", tag02:"ennalta kirjoitettu — agentin työ",
+  s03:"Kanoninen muoto", tag04:"deterministinen funktio, ei malli", s05:"Identiteetti",
+  live:"tarkistettu live", resolver:"ratkeaa julkisessa rekisterissä ↗", same:"sama identiteetti",
+  t_search:"ptpge_search_terms — vapaatekstihaku",
+  h_search:"Haku on tokenisoitu ja kieliriippumaton — ostajan fraasit kaikilla tuetuilla kielillä osuvat kanonisiin termeihin.", "try":"Kokeile:",
+  t_get:"ptpge_get_term — yhden termin koko konteksti", h_get:"Vinkki: napsauta <code>id</code> hakutuloksesta, tai kokeile:",
+  t_ver:"ptpge_get_version — data- ja palvelinversio", b_ver:"Hae versio",
+  t_chain:"Testikehote — koko ketju, live",
+  h_chain:"Tulkinta (sanat → sidonnat) on ennalta kirjoitettu — se on agentin työ. Haut, envelope-validointi ja ptpge-cfs/1-sormenjälki ajetaan <em>live</em> tätä palvelinta vasten.",
+  t_own:"Oma kehotteesi — katso mikä ratkeaa",
+  h_own:"Oikea agentti purkaa kehotteen LLM:llä; demo approksimoi sen n-grammihauilla — jokainen fragmentti haetaan <em>live</em>.",
+  b_search:"Hae", b_get:"Hae termi", b_resolve:"Ratkaise fraasit", b_fp:"Sormenjälki → merkki + QR" },
+is: { sub:"Hver hnappur sendir ekta MCP-<code>tools/call</code> (JSON-RPC yfir Streamable HTTP) á <code>/mcp</code> — nákvæmlega eins og gervigreindarfulltrúi.",
+  t_conv:"Sama vara · öll tungumál · eitt fingrafar",
+  i_conv:"Viðmiðunarbæklingurinn — A5, harmonikubrot, 8 síður, 170 g, litur að utan / svart að innan, matt lagskipting með stað-UV — orðaður á sex tungumálum. Veldu eitt og sjáðu sömu auðkenni verða til.",
+  h_conv:"Túlkunin (orð → bindingar) er fyrirfram skrifuð fyrir hvert tungumál — í framleiðslu er það verk fulltrúans. Hugtakauppflettingar, envelope-staðfesting og ptpge-cfs/1-fingrafarið keyra <em>live</em> gegn þessum þjóni. Hashið er deterministískt fall, ekki líkansútkoma.",
+  hist:"Keyrslusaga — sama vara, ólík tungumál",
+  s01:"Hrá forskrift", s02:"Parað við orðaforðann", tag02:"fyrirfram skrifað — verk fulltrúans",
+  s03:"Kanónískt form", tag04:"deterministískt fall, ekki líkanið", s05:"Auðkenni",
+  live:"staðfest live", resolver:"flettist upp í opinberu skránni ↗", same:"sama auðkenni",
+  t_search:"ptpge_search_terms — frjáls textaleit",
+  h_search:"Leitin er tókuð og tungumálaóháð — orðalag kaupanda á öllum studdum tungumálum hittir kanónísku hugtökin.", "try":"Prófaðu:",
+  t_get:"ptpge_get_term — allt samhengi eins hugtaks", h_get:"Ábending: smelltu á <code>id</code> úr leit, eða prófaðu:",
+  t_ver:"ptpge_get_version — gagna- og þjónsútgáfa", b_ver:"Sækja útgáfu",
+  t_chain:"Prufuskipun — öll keðjan, live",
+  h_chain:"Túlkunin (orð → bindingar) er fyrirfram skrifuð hér — það er verk fulltrúans. Uppflettingar, envelope-staðfesting og ptpge-cfs/1-fingrafarið keyra <em>live</em> gegn þessum þjóni.",
+  t_own:"Þín eigin skipun — sjáðu hvað leysist",
+  h_own:"Alvöru fulltrúi brýtur skipunina niður með LLM; sýnidæmið nálgast það með n-gramma leit — hvert brot er flett upp <em>live</em>.",
+  b_search:"Leita", b_get:"Sækja hugtak", b_resolve:"Leysa orðalag", b_fp:"Fingrafar → merki + QR" },
+fr: { sub:"Chaque bouton envoie un vrai <code>tools/call</code> MCP (JSON-RPC sur Streamable HTTP) vers <code>/mcp</code> — exactement comme un agent IA.",
+  t_conv:"Même produit · toutes les langues · une empreinte",
+  i_conv:"La brochure de référence — A5, pli accordéon, 8 pages, 170 g, couleur à l'extérieur / noir à l'intérieur, pelliculage mat avec vernis UV sélectif — formulée en six langues. Choisissez-en une et regardez la même identité émerger.",
+  h_conv:"L'interprétation (mots → liaisons) est pré-écrite par langue — en production, c'est le travail de l'agent IA. Les termes, la validation d'enveloppe et l'empreinte ptpge-cfs/1 s'exécutent <em>en direct</em> sur ce serveur. Le hash est une fonction déterministe, pas une sortie de modèle.",
+  hist:"Historique — même produit, langues différentes",
+  s01:"Spécification brute", s02:"Résolue contre le vocabulaire", tag02:"pré-écrit — le travail de l'agent",
+  s03:"Forme canonique", tag04:"fonction déterministe, pas le modèle", s05:"Identité",
+  live:"vérifié en direct", resolver:"se résout dans le registre public ↗", same:"même identité",
+  t_search:"ptpge_search_terms — recherche en texte libre",
+  h_search:"La recherche est tokenisée et indépendante de la langue — les phrases d'acheteur dans toute langue prise en charge atteignent les termes canoniques.", "try":"Essayez :",
+  t_get:"ptpge_get_term — contexte complet d'un terme", h_get:"Astuce : cliquez un <code>id</code> d'une recherche, ou essayez :",
+  t_ver:"ptpge_get_version — version des données &amp; du serveur", b_ver:"Obtenir la version",
+  t_chain:"Prompt de test — la chaîne complète, en direct",
+  h_chain:"L'interprétation (mots → liaisons) est pré-écrite ici — c'est le travail de l'agent IA. Les recherches, la validation d'enveloppe et l'empreinte ptpge-cfs/1 s'exécutent <em>en direct</em> sur ce serveur.",
+  t_own:"Votre propre prompt — voyez ce qui se résout",
+  h_own:"Un vrai agent décompose le prompt avec un LLM ; la démo l'approxime par recherches n-grammes — chaque fragment est résolu <em>en direct</em>.",
+  b_search:"Rechercher", b_get:"Obtenir le terme", b_resolve:"Résoudre les phrases", b_fp:"Empreinte → marque + QR" },
+pl: { sub:"Każdy przycisk wysyła prawdziwe MCP-<code>tools/call</code> (JSON-RPC przez Streamable HTTP) do <code>/mcp</code> — dokładnie jak agent AI.",
+  t_conv:"Ten sam produkt · każdy język · jeden odcisk",
+  i_conv:"Broszura referencyjna — A5, składanie harmonijkowe, 8 stron, 170 g, kolor na zewnątrz / czerń wewnątrz, laminat matowy z lakierem UV wybiórczym — sformułowana w sześciu językach. Wybierz jeden i zobacz, jak wyłania się ta sama tożsamość.",
+  h_conv:"Interpretacja (słowa → powiązania) jest przygotowana per język — w produkcji to zadanie agenta AI. Terminy, walidacja envelope i odcisk ptpge-cfs/1 działają <em>na żywo</em> na tym serwerze. Hash to funkcja deterministyczna, nie wynik modelu.",
+  hist:"Historia — ten sam produkt, różne języki",
+  s01:"Surowa specyfikacja", s02:"Dopasowana do słownika", tag02:"przygotowane — zadanie agenta",
+  s03:"Forma kanoniczna", tag04:"funkcja deterministyczna, nie model", s05:"Tożsamość",
+  live:"sprawdzone na żywo", resolver:"rozwiązuje się w publicznym rejestrze ↗", same:"ta sama tożsamość",
+  t_search:"ptpge_search_terms — wyszukiwanie pełnotekstowe",
+  h_search:"Wyszukiwanie jest tokenizowane i niezależne od języka — frazy kupującego w każdym obsługiwanym języku trafiają w terminy kanoniczne.", "try":"Wypróbuj:",
+  t_get:"ptpge_get_term — pełny kontekst jednego terminu", h_get:"Wskazówka: kliknij <code>id</code> z wyników, albo wypróbuj:",
+  t_ver:"ptpge_get_version — wersja danych i serwera", b_ver:"Pobierz wersję",
+  t_chain:"Prompt testowy — pełny łańcuch, na żywo",
+  h_chain:"Interpretacja (słowa → powiązania) jest tu przygotowana — to zadanie agenta AI. Wyszukiwania, walidacja envelope i odcisk ptpge-cfs/1 działają <em>na żywo</em> na tym serwerze.",
+  t_own:"Twój własny prompt — zobacz, co się rozwiązuje",
+  h_own:"Prawdziwy agent rozkłada prompt przy użyciu LLM; demo przybliża to wyszukiwaniami n-gramów — każdy fragment jest sprawdzany <em>na żywo</em>.",
+  b_search:"Szukaj", b_get:"Pobierz termin", b_resolve:"Rozwiąż frazy", b_fp:"Odcisk → znak + QR" },
+es: { sub:"Cada botón envía un <code>tools/call</code> MCP real (JSON-RPC sobre Streamable HTTP) a <code>/mcp</code> — exactamente lo que hace un agente de IA.",
+  t_conv:"Mismo producto · cualquier idioma · una huella",
+  i_conv:"El folleto de referencia — A5, plegado en acordeón, 8 páginas, 170 g, color por fuera / negro por dentro, laminado mate con barniz UV selectivo — formulado en seis idiomas. Elija uno y vea emerger la misma identidad.",
+  h_conv:"La interpretación (palabras → vínculos) está preescrita por idioma — en producción es trabajo del agente de IA. Los términos, la validación de envelope y la huella ptpge-cfs/1 se ejecutan <em>en vivo</em> contra este servidor. El hash es una función determinista, no salida de un modelo.",
+  hist:"Historial — mismo producto, idiomas distintos",
+  s01:"Especificación en bruto", s02:"Resuelta contra el vocabulario", tag02:"preescrito — trabajo del agente",
+  s03:"Forma canónica", tag04:"función determinista, no el modelo", s05:"Identidad",
+  live:"verificado en vivo", resolver:"se resuelve en el registro público ↗", same:"misma identidad",
+  t_search:"ptpge_search_terms — búsqueda de texto libre",
+  h_search:"La búsqueda está tokenizada y es independiente del idioma — las frases del comprador en cualquier idioma soportado alcanzan los términos canónicos.", "try":"Pruebe:",
+  t_get:"ptpge_get_term — contexto completo de un término", h_get:"Consejo: haga clic en un <code>id</code> de una búsqueda, o pruebe:",
+  t_ver:"ptpge_get_version — versión de datos y servidor", b_ver:"Obtener versión",
+  t_chain:"Prompt de prueba — la cadena completa, en vivo",
+  h_chain:"La interpretación (palabras → vínculos) está preescrita aquí — es trabajo del agente de IA. Las búsquedas, la validación de envelope y la huella ptpge-cfs/1 se ejecutan <em>en vivo</em> contra este servidor.",
+  t_own:"Su propio prompt — vea qué se resuelve",
+  h_own:"Un agente real descompone el prompt con un LLM; la demo lo aproxima con búsquedas de n-gramas — cada fragmento se consulta <em>en vivo</em>.",
+  b_search:"Buscar", b_get:"Obtener término", b_resolve:"Resolver frases", b_fp:"Huella → marca + QR" },
+ja: { sub:"各ボタンは本物のMCP <code>tools/call</code>（Streamable HTTP上のJSON-RPC）を<code>/mcp</code>に送信します — AIエージェントの動作そのものです。",
+  t_conv:"同じ製品 · どの言語でも · ひとつのフィンガープリント",
+  i_conv:"リファレンスパンフレット — A5、蛇腹折り、8ページ、170g、表面カラー／内側モノクロ、マットPP+スポットUV — を6言語で表現。ひとつ選んで、同じアイデンティティが現れるのをご覧ください。",
+  h_conv:"解釈（言葉 → バインディング）は言語ごとに事前定義 — 本番ではAIエージェントの仕事です。用語参照、envelope検証、ptpge-cfs/1フィンガープリントはこのサーバーで<em>ライブ</em>実行。ハッシュは決定的関数であり、モデルの出力ではありません。",
+  hist:"実行履歴 — 同じ製品、異なる言語",
+  s01:"元の仕様", s02:"語彙とのマッチング", tag02:"事前定義 — エージェントの仕事",
+  s03:"正規形", tag04:"決定的関数（モデルではない）", s05:"アイデンティティ",
+  live:"ライブ検証済み", resolver:"公開レジストリで解決 ↗", same:"同一アイデンティティ",
+  t_search:"ptpge_search_terms — フリーテキスト検索",
+  h_search:"検索はトークン化され言語非依存 — 対応言語の購買者フレーズが正規の用語にヒットします。", "try":"例：",
+  t_get:"ptpge_get_term — 用語の完全なコンテキスト", h_get:"ヒント：検索結果の<code>id</code>をクリック、または：",
+  t_ver:"ptpge_get_version — データ＆サーバーバージョン", b_ver:"バージョン取得",
+  t_chain:"テストプロンプト — 全チェーン、ライブ",
+  h_chain:"解釈（言葉 → バインディング）はここでは事前定義 — それがAIエージェントの仕事です。参照、envelope検証、ptpge-cfs/1フィンガープリントはこのサーバーで<em>ライブ</em>実行されます。",
+  t_own:"自分のプロンプト — 何が解決されるか",
+  h_own:"実際のエージェントはLLMでプロンプトを分解します。デモはn-gram検索で近似 — 各フラグメントを<em>ライブ</em>で照会します。",
+  b_search:"検索", b_get:"用語取得", b_resolve:"フレーズを解決", b_fp:"フィンガープリント → マーク + QR" },
+zh: { sub:"每个按钮都会向 <code>/mcp</code> 发送真实的 MCP <code>tools/call</code>（基于 Streamable HTTP 的 JSON-RPC）— 与 AI 智能体的行为完全一致。",
+  t_conv:"同一产品 · 任何语言 · 一个指纹",
+  i_conv:"参考宣传册 — A5、风琴折、8页、170克、外面彩色／里面单黑、哑膜加局部UV — 用六种语言表述。选择一种，看同一身份如何呈现。",
+  h_conv:"解释（词语 → 绑定）按语言预先编写 — 在生产中这是 AI 智能体的工作。术语查询、envelope 验证和 ptpge-cfs/1 指纹在此服务器上<em>实时</em>运行。哈希是确定性函数，不是模型输出。",
+  hist:"运行历史 — 同一产品，不同语言",
+  s01:"原始规格", s02:"与词汇表匹配", tag02:"预先编写 — 智能体的工作",
+  s03:"规范形式", tag04:"确定性函数，非模型", s05:"身份",
+  live:"实时验证", resolver:"在公共注册表中解析 ↗", same:"同一身份",
+  t_search:"ptpge_search_terms — 自由文本搜索",
+  h_search:"搜索经过分词且与语言无关 — 任何受支持语言的买家用语都能命中规范术语。", "try":"试试：",
+  t_get:"ptpge_get_term — 单个术语的完整上下文", h_get:"提示：点击搜索结果中的 <code>id</code>，或试试：",
+  t_ver:"ptpge_get_version — 数据与服务器版本", b_ver:"获取版本",
+  t_chain:"测试提示 — 完整链路，实时",
+  h_chain:"解释（词语 → 绑定）在此预先编写 — 那是 AI 智能体的工作。查询、envelope 验证和 ptpge-cfs/1 指纹在此服务器上<em>实时</em>运行。",
+  t_own:"你自己的提示 — 看看能解析出什么",
+  h_own:"真正的智能体用 LLM 分解提示；演示用 n-gram 搜索近似 — 每个片段都<em>实时</em>查询。",
+  b_search:"搜索", b_get:"获取术语", b_resolve:"解析短语", b_fp:"指纹 → 标记 + QR" },
+};
+const _EN_DEFAULTS = {};
+function setLang(l) {
+  CUR_LANG = l;
+  document.querySelectorAll("[data-i]").forEach(el => {
+    const k = el.getAttribute("data-i");
+    if (!(k in _EN_DEFAULTS)) _EN_DEFAULTS[k] = el.innerHTML;
+    const d = UI[l] || {};
+    el.innerHTML = (l !== "en" && d[k]) ? d[k] : _EN_DEFAULTS[k];
+  });
+  document.documentElement.lang = l;
+  try { localStorage.setItem("ptpge-playground-lang", l); } catch (e) {}
+  const sel = document.getElementById("ui-lang");
+  if (sel && sel.value !== l) sel.value = l;
+}
+(function initLang() {
+  const sel = document.getElementById("ui-lang");
+  sel.innerHTML = LANG_NAMES.map(p => '<option value="' + p[0] + '">' + p[1] + '</option>').join("");
+  let l = new URLSearchParams(location.search).get("lang");
+  if (!l) { try { l = localStorage.getItem("ptpge-playground-lang"); } catch (e) {} }
+  if (l && (l === "en" || UI[l])) setLang(l); else setLang("en");
+})();
 
 // On load: real MCP handshake (initialize) + version — shows liveness in the header.
 (async () => {
