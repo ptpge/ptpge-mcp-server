@@ -55,9 +55,10 @@ button:disabled { background: #aaa; cursor: wait; }
 footer { text-align: center; color: #999; font-size: 12px; padding: 18px; }
 footer a { color: #2a6045; }
 /* — v2: convergence demo + language switcher — */
-header { position: relative; }
-#hdr-tools { position: absolute; top: 16px; right: 28px; display: flex; gap: 10px;
-             align-items: center; }
+.hdr-row { display: flex; align-items: center; justify-content: space-between;
+           gap: 14px; flex-wrap: wrap; }
+.hdr-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.hdr-row h1 { margin: 0; }
 .pill { border: 1px solid #e0e0dd; background: #fff; border-radius: 999px;
         padding: 9px 18px; font-size: 14px; font-weight: 600; color: #1a1a1a;
         text-decoration: none; display: inline-flex; align-items: center;
@@ -109,16 +110,18 @@ header { position: relative; }
 </head>
 <body>
 <header>
-  <div id="hdr-tools">
-    <span class="pill" id="langbtn" onclick="langMenu(event)">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.7-3.8 9s1.3 6.4 3.8 9"/></svg>
-      <b id="langcode">EN</b> <span class="car">▼</span>
-      <span id="langlist"></span>
-    </span>
-    <a class="pill" href="https://gutenlex.org/preview/">← GutenLex</a>
+  <div class="hdr-row">
+    <div class="hdr-left">
+      <h1>PTPGE MCP — Playground <span class="badge">LIVE</span></h1>
+      <span class="pill" id="langbtn" onclick="langMenu(event)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.7-3.8 9s1.3 6.4 3.8 9"/></svg>
+        <b id="langcode">EN</b> <span class="car">▼</span>
+        <span id="langlist"></span>
+      </span>
+    </div>
+    <a class="pill" href="https://gutenlex.org/preview/">← GutenLex Standard</a>
   </div>
-  <h1>PTPGE MCP — Playground <span class="badge">LIVE</span></h1>
-  <div class="sub"><span data-i="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
+  <div class="sub" style="margin-top:8px"><span data-i="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
   Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span>
   <span id="status">connecting…</span></div>
 </header>
