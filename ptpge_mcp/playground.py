@@ -56,7 +56,24 @@ footer { text-align: center; color: #999; font-size: 12px; padding: 18px; }
 footer a { color: #2a6045; }
 /* — v2: convergence demo + language switcher — */
 header { position: relative; }
-#ui-lang { position: absolute; top: 18px; right: 28px; }
+#hdr-tools { position: absolute; top: 16px; right: 28px; display: flex; gap: 10px;
+             align-items: center; }
+.pill { border: 1px solid #e0e0dd; background: #fff; border-radius: 999px;
+        padding: 7px 16px; font-size: 13px; font-weight: 600; color: #1a1a1a;
+        text-decoration: none; display: inline-flex; align-items: center;
+        gap: 7px; cursor: pointer; white-space: nowrap; }
+.pill:hover { border-color: #1f4a35; }
+#langbtn { position: relative; }
+#langbtn .car { font-size: 10px; color: #777; }
+#langlist { position: absolute; top: 40px; right: -6px; background: #fff;
+            border: 1px solid #e0e0dd; border-radius: 12px; padding: 6px;
+            display: none; min-width: 150px; max-height: 340px; overflow: auto;
+            box-shadow: 0 6px 24px rgba(0,0,0,.08); z-index: 5; }
+#langlist a { display: block; padding: 7px 12px; border-radius: 8px;
+              color: #1a1a1a; text-decoration: none; font-size: 14px;
+              font-weight: 400; cursor: pointer; }
+#langlist a:hover { background: #f0f4f1; }
+#langlist a.on { color: #1f4a35; font-weight: 700; }
 .conv .langrow button { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35; }
 .conv .langrow button:hover { background: #eef4f0; }
 .conv .langrow button.on { background: #1f4a35; color: #fff; }
@@ -82,7 +99,14 @@ header { position: relative; }
 </head>
 <body>
 <header>
-  <select id="ui-lang" onchange="setLang(this.value)"></select>
+  <div id="hdr-tools">
+    <span class="pill" id="langbtn" onclick="langMenu(event)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.7-3.8 9s1.3 6.4 3.8 9"/></svg>
+      <b id="langcode">EN</b> <span class="car">▼</span>
+      <span id="langlist"></span>
+    </span>
+    <a class="pill" href="https://gutenlex.org/preview/">← GutenLex</a>
+  </div>
   <h1>PTPGE MCP — Playground <span class="badge">LIVE</span></h1>
   <div class="sub"><span data-i="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
   Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span>
@@ -813,12 +837,24 @@ function setLang(l) {
   document.documentElement.lang = l;
   if (typeof convTglLabel === "function") convTglLabel();
   try { localStorage.setItem("ptpge-playground-lang", l); } catch (e) {}
-  const sel = document.getElementById("ui-lang");
-  if (sel && sel.value !== l) sel.value = l;
+  document.getElementById("langcode").textContent = l.toUpperCase();
+  document.querySelectorAll("#langlist a").forEach(a =>
+    a.classList.toggle("on", a.getAttribute("data-l") === l));
 }
+function langMenu(e) {
+  if (e) e.stopPropagation();
+  const m = document.getElementById("langlist");
+  m.style.display = (m.style.display === "block") ? "none" : "block";
+}
+document.addEventListener("click", () => {
+  const m = document.getElementById("langlist");
+  if (m) m.style.display = "none";
+});
 (function initLang() {
-  const sel = document.getElementById("ui-lang");
-  sel.innerHTML = LANG_NAMES.map(p => '<option value="' + p[0] + '">' + p[1] + '</option>').join("");
+  document.getElementById("langlist").innerHTML = LANG_NAMES.map(p =>
+    '<a data-l="' + p[0] + '">' + p[1] + '</a>').join("");
+  document.querySelectorAll("#langlist a").forEach(a =>
+    a.addEventListener("click", () => setLang(a.getAttribute("data-l"))));
   let l = new URLSearchParams(location.search).get("lang");
   if (!l) { try { l = localStorage.getItem("ptpge-playground-lang"); } catch (e) {} }
   if (l && (l === "en" || UI[l])) setLang(l); else setLang("en");
