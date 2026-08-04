@@ -59,7 +59,7 @@ header { position: relative; }
 #hdr-tools { position: absolute; top: 16px; right: 28px; display: flex; gap: 10px;
              align-items: center; }
 .pill { border: 1px solid #e0e0dd; background: #fff; border-radius: 999px;
-        padding: 7px 16px; font-size: 13px; font-weight: 600; color: #1a1a1a;
+        padding: 9px 18px; font-size: 14px; font-weight: 600; color: #1a1a1a;
         text-decoration: none; display: inline-flex; align-items: center;
         gap: 7px; cursor: pointer; white-space: nowrap; }
 .pill:hover { border-color: #1f4a35; }
@@ -77,6 +77,10 @@ header { position: relative; }
 .conv .langrow button { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35; }
 .conv .langrow button:hover { background: #eef4f0; }
 .conv .langrow button.on { background: #1f4a35; color: #fff; }
+.conv .prodrow button { border-radius: 999px; background: #eef4f0; color: #1f4a35;
+  border: 1.5px solid transparent; padding: 8px 20px; }
+.conv .prodrow button:hover { border-color: #1f4a35; background: #eef4f0; }
+.conv .prodrow button.on { background: #1f4a35; color: #fff; }
 .stage { border-left: 3px solid #e0e0dd; margin: 14px 0 0; padding: 2px 0 2px 14px; }
 .stage .slbl { font-size: 11px; letter-spacing: .6px; text-transform: uppercase;
                color: #777; font-weight: 700; }
@@ -120,7 +124,7 @@ header { position: relative; }
   three different setup models — a brochure (folded sheet), business cards (flat sheet) and
   a booklet (multi-page) — each phrased in six languages. Pick a product, then a language,
   and watch the same identity emerge.</p>
-  <div class="row langrow" id="prod-btns" style="margin-bottom:10px"></div>
+  <div class="row prodrow" id="prod-btns" style="margin-bottom:12px"></div>
   <div class="row langrow" style="align-items:center">
     <span id="conv-btns" style="display:contents"></span>
     <span id="conv-tgl" style="display:none;margin-left:auto"><a
@@ -524,57 +528,66 @@ const BC_ROWS = [
   ["variables/features/color-mode",        "back",  "printing/features/colors/black"],
   ["variables/substrate/substrate-type",   null,    "printing/substrates/sheet-materials/paper"],
   ["variables/substrate/substrate-weight", null,    350],
-  ["variables/order/quantity",             null,    500],
+  ["variables/order/quantity",             null,    100],
 ];
 const BC_LANGS = [
   { code:"en", label:"English",
-    phrase:"business cards, EU size, flat sheet, full colour front, black on the back, card stock 350 gsm, 500 pcs",
-    m:["EU size","flat sheet","full colour front","black on the back","card stock","350 gsm","500 pcs"] },
+    phrase:"business cards, EU size, flat sheet, full colour front, black on the back, card stock 350 gsm, 100 pcs",
+    m:["EU size","flat sheet","full colour front","black on the back","card stock","350 gsm","100 pcs"] },
   { code:"nb", label:"Norsk",
-    phrase:"visittkort, EU-format, flatt ark, full farge foran, sort bak, kartong 350 g, 500 stk",
-    m:["EU-format","flatt ark","full farge foran","sort bak","kartong","350 g","500 stk"] },
+    phrase:"visittkort, EU-format, flatt ark, full farge foran, sort bak, kartong 350 g, 100 stk",
+    m:["EU-format","flatt ark","full farge foran","sort bak","kartong","350 g","100 stk"] },
   { code:"de", label:"Deutsch",
-    phrase:"Visitenkarten, EU-Format, Planobogen, vorne 4-farbig, hinten schwarz, Karton 350 g, 500 Stück",
-    m:["EU-Format","Planobogen","vorne 4-farbig","hinten schwarz","Karton","350 g","500 Stück"] },
+    phrase:"Visitenkarten, EU-Format, Planobogen, vorne 4-farbig, hinten schwarz, Karton 350 g, 100 Stück",
+    m:["EU-Format","Planobogen","vorne 4-farbig","hinten schwarz","Karton","350 g","100 Stück"] },
   { code:"es", label:"Español",
-    phrase:"tarjetas de visita, formato UE, hoja plana, color por delante, negro por detrás, cartulina 350 g, 500 uds",
-    m:["formato UE","hoja plana","color por delante","negro por detrás","cartulina","350 g","500 uds"] },
+    phrase:"tarjetas de visita, formato UE, hoja plana, color por delante, negro por detrás, cartulina 350 g, 100 uds",
+    m:["formato UE","hoja plana","color por delante","negro por detrás","cartulina","350 g","100 uds"] },
   { code:"ja", label:"日本語",
-    phrase:"名刺、EUサイズ、平判、表フルカラー、裏モノクロ、カード紙350gsm、500枚",
-    m:["EUサイズ","平判","表フルカラー","裏モノクロ","カード紙","350gsm","500枚"] },
+    phrase:"名刺、EUサイズ、平判、表フルカラー、裏モノクロ、カード紙350gsm、100枚",
+    m:["EUサイズ","平判","表フルカラー","裏モノクロ","カード紙","350gsm","100枚"] },
   { code:"zh-Hans", label:"中文",
-    phrase:"名片，EU尺寸，平张，正面四色，背面单黑，卡纸350克，500张",
-    m:["EU尺寸","平张","正面四色","背面单黑","卡纸","350克","500张"] },
+    phrase:"名片，EU尺寸，平张，正面四色，背面单黑，卡纸350克，100张",
+    m:["EU尺寸","平张","正面四色","背面单黑","卡纸","350克","100张"] },
 ];
-// Booklet — multi-page setup (inside-pages surface)
+// Booklet — multi-page setup (cover + inside surfaces, saddle-stitched).
+// NB: separate cover stock (250 g gloss) is a per-PART binding — reserved
+// for compound products (SD-0037); v1 has a single implicit part, so the
+// cover paper stays out of the fingerprint until cfs supports @part.surface.
 const BK_ROWS = [
   ["variables/configuration/format",       null, "printing/configurations/formats/a-series/a5"],
   ["variables/configuration/page-count",   null, 16],
   ["variables/configuration/setup-model",  null, "printing/configurations/setup-models/multi-page"],
-  ["variables/features/color-mode",        "inside-pages", "printing/features/colors/cmyk"],
+  ["variables/features/color-mode",        "inside-pages",      "printing/features/colors/black"],
+  ["variables/features/color-mode",        "front-cover",       "printing/features/colors/cmyk"],
+  ["variables/features/color-mode",        "back-cover",        "printing/features/colors/cmyk"],
+  ["variables/features/color-mode",        "inside-front-cover","printing/features/colors/black"],
+  ["variables/features/color-mode",        "inside-back-cover", "printing/features/colors/black"],
   ["variables/substrate/substrate-type",   null, "printing/substrates/sheet-materials/paper"],
+  ["variables/substrate/substrate-finish", null, "printing/substrates/sheet-materials/paper/paper-surfaces/matte-paper"],
   ["variables/substrate/substrate-weight", null, 130],
+  ["variables/finishing/binding",          null, "printing/completions/binding/saddle-stitching"],
   ["variables/order/quantity",             null, 250],
 ];
 const BK_LANGS = [
   { code:"en", label:"English",
-    phrase:"booklet, A5, multi-page, 16 pages, full colour inside pages, 130 gsm paper, 250 copies",
-    m:["A5","16 pages","multi-page","full colour inside pages","paper","130 gsm","250 copies"] },
+    phrase:"booklet, A5, 16 pages, black only on both sides inside, matte paper 130 gsm, cover full colour outside and black inside, folded and saddle-stitched, 250 copies",
+    m:["A5","16 pages","booklet","black on both sides inside","cover full colour outside","cover full colour outside","cover black inside","cover black inside","paper","matte","130 gsm","folded and saddle-stitched","250 copies"] },
   { code:"nb", label:"Norsk",
-    phrase:"hefte, A5, flersidig, 16 sider, full farge på innsidene, 130 g papir, 250 eksemplarer",
-    m:["A5","16 sider","flersidig","full farge på innsidene","papir","130 g","250 eksemplarer"] },
+    phrase:"hefte, A5, 16 sider, sort på begge sider innvendig, matt papir 130 g, omslag med fullfarge utvendig og sort innvendig, falset og stiftet, 250 eksemplarer",
+    m:["A5","16 sider","hefte","sort på begge sider innvendig","omslag fullfarge utvendig","omslag fullfarge utvendig","omslag sort innvendig","omslag sort innvendig","papir","matt","130 g","falset og stiftet","250 eksemplarer"] },
   { code:"de", label:"Deutsch",
-    phrase:"Heft, A5, mehrseitig, 16 Seiten, Innenseiten 4-farbig, 130 g Papier, 250 Exemplare",
-    m:["A5","16 Seiten","mehrseitig","Innenseiten 4-farbig","Papier","130 g","250 Exemplare"] },
+    phrase:"Heft, A5, 16 Seiten, innen beidseitig schwarz, mattes Papier 130 g, Umschlag außen 4-farbig und innen schwarz, gefalzt und drahtgeheftet, 250 Exemplare",
+    m:["A5","16 Seiten","Heft","innen beidseitig schwarz","Umschlag außen 4-farbig","Umschlag außen 4-farbig","Umschlag innen schwarz","Umschlag innen schwarz","Papier","matt","130 g","gefalzt und drahtgeheftet","250 Exemplare"] },
   { code:"es", label:"Español",
-    phrase:"cuadernillo, A5, multipágina, 16 páginas, interior a todo color, papel de 130 g, 250 ejemplares",
-    m:["A5","16 páginas","multipágina","interior a todo color","papel","130 g","250 ejemplares"] },
+    phrase:"cuadernillo, A5, 16 páginas, interior en negro a dos caras, papel mate de 130 g, cubierta a todo color por fuera y negro por dentro, plegado y grapado a caballete, 250 ejemplares",
+    m:["A5","16 páginas","cuadernillo","interior en negro a dos caras","cubierta a todo color por fuera","cubierta a todo color por fuera","cubierta negro por dentro","cubierta negro por dentro","papel","mate","130 g","plegado y grapado a caballete","250 ejemplares"] },
   { code:"ja", label:"日本語",
-    phrase:"冊子、A5、多ページ、16ページ、本文フルカラー、130gsm用紙、250部",
-    m:["A5","16ページ","多ページ","本文フルカラー","用紙","130gsm","250部"] },
+    phrase:"冊子、A5、16ページ、本文両面モノクロ、マット紙130gsm、表紙は外側フルカラー・内側モノクロ、折り加工と中綴じ、250部",
+    m:["A5","16ページ","冊子","本文両面モノクロ","表紙外側フルカラー","表紙外側フルカラー","表紙内側モノクロ","表紙内側モノクロ","用紙","マット","130gsm","折り加工と中綴じ","250部"] },
   { code:"zh-Hans", label:"中文",
-    phrase:"小册子，A5，多页，16页，内页四色，130克纸张，250份",
-    m:["A5","16页","多页","内页四色","纸张","130克","250份"] },
+    phrase:"小册子，A5，16页，内页双面单黑，哑光纸130克，封面外侧四色、内侧单黑，折页并骑马钉，250份",
+    m:["A5","16页","小册子","内页双面单黑","封面外侧四色","封面外侧四色","封面内侧单黑","封面内侧单黑","纸张","哑光","130克","折页并骑马钉","250份"] },
 ];
 const PRODUCTS = [
   { product: REF_PRODUCT,                        rows: REF_ROWS, langs: null },  // langs settes under (CONV)
