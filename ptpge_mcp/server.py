@@ -782,7 +782,15 @@ def fingerprint_payload(args: dict) -> object:
                  "resolverUrl": "https://ptpge.org/f/" + h}
         _reg.register_async(h, s)
         if visuals:
-            entry["markSvg"] = _fm.mark_svg(h, frame=profile if profile in ("spec", "offer", "job") else "offer")
+            try:
+                entry["markSvg"] = _fm.mark_svg(h, frame=profile if profile in ("spec", "offer", "job") else "offer")
+            except ValueError as exc:
+                # mark/3: the offer species carries a vendor's breath in the
+                # rings — without a vendor identity there is nothing to draw.
+                # Degrade gracefully instead of failing the whole call: the
+                # hashes and resolver URLs above remain authoritative, and
+                # the official mark lives on the register page.
+                entry["markNote"] = str(exc) + " — mark omitted; see resolverUrl"
             qr = _fm.qr_svg(entry["resolverUrl"])
             if qr:
                 entry["qrSvg"] = qr

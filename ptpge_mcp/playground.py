@@ -76,6 +76,7 @@ footer a { color: #2a6045; }
 #conv-hist td { padding: 4px 10px 4px 0; border-top: 1px solid #eee; }
 #conv-hist .fp { font-family: ui-monospace, Menlo, monospace; }
 #conv-hist .same { color: #1f7a3d; font-weight: 700; }
+.stage .vis svg { width: 100%; height: auto; display: block; }
 </style>
 </head>
 <body>
@@ -529,10 +530,11 @@ async function convRun(idx) {
   document.getElementById("cv2").innerHTML =
     '<div class="stage"><span class="slbl"><span class="num">02</span>' + t("s02") +
     '<span class="tag">' + t("tag02") + '</span></span><table>' + rows + '</table></div>';
-  // Fingerprint — LIVE. Visuals stay off: the offer MARK belongs to a
-  // vendor identity (mark/3), which is exactly what stays outside this
-  // demo — the official mark lives on the register page one click away.
-  const fp = await toolQ("ptpge_fingerprint", { product: REF_PRODUCT, bindings: refBindings(), visuals: false });
+  // Fingerprint — LIVE, with visuals: the spec mark + QR complete the
+  // trinity (hash for systems, QR for the camera, mark for the eye).
+  // The offer MARK is deliberately absent — it belongs to a vendor
+  // identity (mark/3), and the tool now omits it gracefully.
+  const fp = await toolQ("ptpge_fingerprint", { product: REF_PRODUCT, bindings: refBindings(), visuals: true });
   const spec = fp.profiles.spec, offer = fp.profiles.offer;
   document.getElementById("cv3").innerHTML =
     '<div class="stage"><span class="slbl"><span class="num">03</span>' + t("s03") +
@@ -543,10 +545,13 @@ async function convRun(idx) {
     '<span class="tag">' + t("tag04") + '</span></span><div class="mono">' + spec.sha256 + '</div></div>';
   document.getElementById("cv5").innerHTML =
     '<div class="stage"><span class="slbl"><span class="num">05</span>' + t("s05") + '</span>' +
-    '<div style="margin-top:6px"><div class="mono" style="font-size:17px;font-weight:700">' + spec.short + '</div>' +
+    '<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:8px">' +
+    (spec.markSvg ? '<div class="vis" style="width:88px">' + spec.markSvg + '</div>' : '') +
+    (spec.qrSvg ? '<div class="vis" style="width:88px">' + spec.qrSvg + '</div>' : '') +
+    '<div><div class="mono" style="font-size:17px;font-weight:700">' + spec.short + '</div>' +
     '<a href="' + spec.resolverUrl + '" target="_blank" rel="noopener">' + t("resolver") + '</a>' +
     '<div class="hint">offer (+ quantity): <span class="mono">' + offer.short +
-    '</span> · <a href="' + offer.resolverUrl + '" target="_blank" rel="noopener">/f/…</a></div></div></div>';
+    '</span> · <a href="' + offer.resolverUrl + '" target="_blank" rel="noopener">/f/…</a></div></div></div></div>';
   // history — convergence proof
   CONV_HISTORY.push({ label: L.label, code: L.code, spec: spec.short });
   const first = CONV_HISTORY[0].spec;
