@@ -119,10 +119,12 @@ header { position: relative; }
   <p style="font-size:13px;color:#555;margin:0 0 10px" data-i="i_conv">The reference brochure
   — A5, accordion fold, 8 pages, 170 gsm, colour outside / black inside, matte lamination
   with spot UV — phrased in six languages. Pick one and watch the same identity emerge.</p>
-  <div class="row langrow" id="conv-btns"></div>
-  <div id="conv-tgl" style="display:none;text-align:right;margin-top:8px"><a
-    style="cursor:pointer;color:#2a6045;font-size:12px;text-decoration:underline"
-    onclick="convToggle()"></a></div>
+  <div class="row langrow" style="align-items:center">
+    <span id="conv-btns" style="display:contents"></span>
+    <span id="conv-tgl" style="display:none;margin-left:auto"><a
+      style="cursor:pointer;color:#2a6045;font-size:12px;text-decoration:underline"
+      onclick="convToggle()"></a></span>
+  </div>
   <div id="conv-out"></div>
   <div class="hint" data-i="h_conv">The interpretation (words → bindings) is pre-scripted per
   language — that is the AI agent's job in production. The term labels, envelope validation
