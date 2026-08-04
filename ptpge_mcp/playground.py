@@ -55,7 +55,8 @@ button:disabled { background: #aaa; cursor: wait; }
 footer { text-align: center; color: #999; font-size: 12px; padding: 18px; }
 footer a { color: #2a6045; }
 /* — v2: convergence demo + language switcher — */
-#ui-lang { float: right; margin-top: -34px; }
+header { position: relative; }
+#ui-lang { position: absolute; top: 18px; right: 28px; }
 .conv .langrow button { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35; }
 .conv .langrow button:hover { background: #eef4f0; }
 .conv .langrow button.on { background: #1f4a35; color: #fff; }
