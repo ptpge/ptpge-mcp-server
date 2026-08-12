@@ -7,6 +7,40 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.7.0 (surface updates) — 2026-08-11
+
+- Playground v3/v3.1 (deployed 2026-08-11, within server 0.7.0): every tool
+  card is a `<details>` accordion with a plain-language explainer in the
+  header; responses render inline in the card you clicked; the bottom
+  console is now a collapsed **session transcript** with a live call
+  counter — entries numbered with timestamps. 9 new i18n keys × 12
+  languages. No server/tool changes (commits 320337f, 15a28c3).
+
+## 0.7.0 (surface updates) — 2026-08-04
+
+- Playground v2 — the convergence demo: three real products (brochure /
+  business cards / booklet), each phrased in six languages, stepping
+  through raw phrase → live labels → canonical cfs/1 → SHA-256 → same
+  identity, with run history. 13-language UI switcher; editable canonical
+  form recomputing SHA-256 live in the browser (commits d889580 … 322fdf6).
+- Fingerprint visuals degrade gracefully without a vendor hash: spec mark +
+  QR still delivered, offer mark omitted with a note — the mark/3 rule
+  stands (4018730).
+
+## 0.7.0 — 2026-07-15
+
+- `ptpge-mark/3` per SD-0060: 2×2 species grammar, vendor minutiae,
+  equal-dot scan frame, origin dot 2.94, unscaled rings — version bump to
+  0.7.0 (966d859).
+- Basic Auth path 4 (2026-08-03, 35b638c): shared htpasswd via
+  `PTPGE_MCP_HTPASSWD` — register-provisioned beta credentials now work on
+  the gated MCP («one login, three doors»).
+
+## 0.6.3 — 2026-07-14
+
+- Fingermark scanFrame option (register dots, BL anchor — spec amendment
+  2.1); cross stroke 1.47u (0b3c26c).
+
 ## 0.6.2 — 2026-07-13
 - Playground assembly: product fallback — when no phrase resolves directly to ordering/products/*, the best product hit anywhere in the lookups (score >= 0.45) is used and reported ("product inferred: …"). "Folded leaflet" prompts now fingerprint. No-product message now notes the altLabel/steward feedback path.
 
