@@ -7,6 +7,18 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.7.0 (surface updates) — 2026-08-15
+
+- Swedish (sv) joins as the vocabulary's seventh language. Semantic-search
+  embeddings rebuilt with Swedish labels and altLabels in the text base
+  (507 vectors — the server's tokenized search needs no code change: it
+  already matches across ALL label/altLabel language variants, so Swedish
+  buyer phrases like «klammerhäftning» and «dragspelsfals» resolve as soon
+  as the API data carries them). Playground: **Svenska** added to the
+  convergence demo with pre-scripted Swedish phrasings for all three
+  products (brochure / business cards / booklet), and «six languages» →
+  «seven languages» corrected across all 13 UI locales.
+
 ## 0.7.0 (surface updates) — 2026-08-11
 
 - Playground v3/v3.1 (deployed 2026-08-11, within server 0.7.0): every tool
