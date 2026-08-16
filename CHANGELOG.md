@@ -7,6 +7,15 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.7.0 (surface updates) — 2026-08-16
+
+- Danish (da) joins as the vocabulary's eighth language. Embeddings rebuilt
+  with Danish labels and altLabels (507 vectors); tokenized search matches
+  Danish buyer phrases («klammerhæftning», «leporellofals», «løbesedler»)
+  with no server code change. Playground: **Dansk** added to the convergence
+  demo (all three products), and «seven languages» → «eight languages»
+  corrected across all 13 UI locales.
+
 ## 0.7.0 (surface updates) — 2026-08-15
 
 - Swedish (sv) joins as the vocabulary's seventh language. Semantic-search
