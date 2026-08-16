@@ -7,6 +7,17 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.7.0 (surface updates) — 2026-08-16 (ii)
+
+- Dutch (nl) joins as the vocabulary's ninth language — 139 pre-existing
+  Dutch labels from the VIGC field-mapping collaboration preserved, the
+  rest completed. Embeddings rebuilt with Dutch labels and altLabels;
+  tokenized search matches Dutch buyer phrases («zigzagvouw»,
+  «visitekaartjes», «garenloos binden») with no server code change.
+  Playground: **Nederlands** added to the convergence demo (all three
+  products), and «eight languages» → «nine languages» corrected across
+  all 13 UI locales.
+
 ## 0.7.0 (surface updates) — 2026-08-16
 
 - Danish (da) joins as the vocabulary's eighth language. Embeddings rebuilt
