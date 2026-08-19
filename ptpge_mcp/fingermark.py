@@ -125,25 +125,66 @@ def mark_svg(hexstr: str, size: int = 120, ink: str = BRAND_INK, frame: str = "s
             f'role="img" aria-label="PTPGE fingerprint mark {str(hexstr)[:16]}">{body}</svg>')
 
 
-def qr_svg(url: str, px: int = 168) -> str | None:
-    """QR for the resolver URL — white tile with quiet zone, dark modules."""
+def qr_svg(url: str, px: int = 168, origin_dot: bool = True,
+           ecc: str = "M", ink: str = "#111111") -> str | None:
+    """QR for the resolver URL — white tile, quiet zone 4 modules (SD-0065).
+
+    The ORIGIN DOT (SD-0065, adopted 2026-08-20) is the QR family identity:
+    a dot of Ø 3 modules in a square 5×5-module white knockout at the centre
+    (~2 % of the area — safe at ECC M). It is the same fixed fiducial that
+    anchors every ptpge-mark (r 2.94 in the 100×100 frame). spec/offer URLs
+    carry the complete 64-hex fingerprint at ECC M; job short URLs use ECC H.
+    """
     if qrcode is None:
         return None
-    q = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=0)
+    levels = {"L": qrcode.constants.ERROR_CORRECT_L,
+              "M": qrcode.constants.ERROR_CORRECT_M,
+              "Q": qrcode.constants.ERROR_CORRECT_Q,
+              "H": qrcode.constants.ERROR_CORRECT_H}
+    q = qrcode.QRCode(error_correction=levels.get(ecc.upper(), levels["M"]), border=0)
     q.add_data(url)
     q.make(fit=True)
     m = q.modules
     n = len(m)
+    c = (n - 1) / 2  # centre module index (18 for version 5, n=37)
     d = ""
     for y, row in enumerate(m):
         for x, cell in enumerate(row):
+            if origin_dot and abs(x - c) <= 2 and abs(y - c) <= 2:
+                continue  # square 5x5-module knockout
             if cell:
                 d += f"M{x} {y}h1v1h-1z"
-    pad = 3
+    pad = 4  # quiet zone, SD-0065
     vb = f"{-pad} {-pad} {n + 2 * pad} {n + 2 * pad}"
+    dot = (f'<circle cx="{c + 0.5:g}" cy="{c + 0.5:g}" r="1.5" fill="{ink}"/>'
+           if origin_dot else "")
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="{vb}" '
         f'shape-rendering="crispEdges" role="img" aria-label="QR — PTPGE fingerprint resolver">'
         f'<rect x="{-pad}" y="{-pad}" width="{n + 2 * pad}" height="{n + 2 * pad}" fill="#ffffff" rx="2"/>'
-        f'<path d="{d}" fill="#1a1a1a"/></svg>'
+        f'<path d="{d}" fill="{ink}"/>{dot}</svg>'
+    )
+
+
+def stamp_svg(register_line: str, ident: str, qr_url: str, px: int = 360,
+              ecc: str = "M", ink: str = "#111111") -> str | None:
+    """The identity stamp (SD-0065): QR + two text lines BELOW —
+    register line first, then the 16-char identifier in semibold.
+    register_line e.g. 'spec: ptpge.org/f' · ident e.g. hash[:16]."""
+    if qrcode is None:
+        return None
+    inner = qr_svg(qr_url, px=100, origin_dot=True, ecc=ecc, ink=ink)
+    import re as _re
+    mvb = _re.search(r'viewBox="([^"]+)"', inner)
+    body = _re.search(r'>(.*)</svg>$', inner, _re.S).group(1)
+    mono = 'font-family="ui-monospace, Menlo, Consolas, monospace"'
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{int(px * 1.24)}" '
+        f'viewBox="0 0 100 124" role="img" aria-label="GutenLex identity stamp {ident}">'
+        f'<svg x="0" y="0" width="100" height="100" viewBox="{mvb.group(1)}" '
+        f'shape-rendering="crispEdges">{body}</svg>'
+        f'<text x="50" y="109" text-anchor="middle" {mono} font-size="6.2" '
+        f'fill="{ink}">{register_line}</text>'
+        f'<text x="50" y="119" text-anchor="middle" {mono} font-size="6" '
+        f'font-weight="600" fill="{ink}">{ident}</text></svg>'
     )
