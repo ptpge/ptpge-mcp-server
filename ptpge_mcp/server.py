@@ -549,6 +549,11 @@ VARIABLE_ENVELOPE = {
 WEIGHT_VARIABLE = "variables/substrate/substrate-weight"
 WEIGHT_ENVELOPE = "supportsSubstrateWeight"
 SCORING_URI = _BASE + "printing/completions/structural-finishing/scoring"
+# SD-0066: custom-mål
+CUSTOM_WIDTH_VARIABLE = "variables/configuration/custom-width"
+CUSTOM_HEIGHT_VARIABLE = "variables/configuration/custom-height"
+FORMAT_VARIABLE = "variables/configuration/format"
+CUSTOMIZED_FORMAT_URI = _BASE + "printing/configurations/formats/customized"
 
 
 def _full_uri(id_or_path: str) -> str:
@@ -637,9 +642,12 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     if product.get("elementType") != "product":
         return {"error": "not_a_product", "id": product.get("id")}
 
-    results, advisories = [], []
+    results, advisories, rules = [], [], []
     all_ok = True
     bound_weight = None
+    # SD-0066: custom-mål — samle kryssvariabel-kontekst under løkka.
+    bound_format = None
+    custom_dims: dict[str, float] = {}
     for b in args.get("bindings", []) or []:
         var_uri = _full_uri(b.get("variable", ""))
         var_tail = var_uri[len(_BASE):]
@@ -649,6 +657,29 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
             "surface": b.get("surface") or None,
             "value": b.get("values") if "values" in b else b.get("value"),
         }
+        # SD-0066: custom-width / custom-height — numerisk i mm; per-binding
+        # sjekkes range (produktets customSizeRange foran variabelens 5–50000);
+        # kryssvariabel-reglene (påkrevd-iff, normalisering) etter løkka.
+        if var_tail in (CUSTOM_WIDTH_VARIABLE, CUSTOM_HEIGHT_VARIABLE) \
+                and isinstance(values[0], (int, float)):
+            dim = float(values[0])
+            custom_dims[var_tail] = dim
+            axis = "Width" if var_tail == CUSTOM_WIDTH_VARIABLE else "Height"
+            csr = product.get("customSizeRange") or {}
+            lo = csr.get(f"min{axis}", 5)
+            hi = csr.get(f"max{axis}", 50000)
+            if lo <= dim <= hi:
+                entry.update(status="in_range", unit="mm")
+            else:
+                entry.update(status="out_of_range", unit="mm",
+                             note=f"{dim} mm is outside "
+                                  f"{'this product’s customSizeRange' if csr else 'the global sanity range'} "
+                                  f"[{lo}, {hi}] mm.")
+                all_ok = False
+            results.append(entry)
+            continue
+        if var_tail == FORMAT_VARIABLE and values and isinstance(values[0], str):
+            bound_format = _full_uri(values[0])
         # Numeric substrate-weight: map to band, check band against envelope.
         if var_tail == WEIGHT_VARIABLE and isinstance(values[0], (int, float)):
             gsm = values[0]
@@ -726,7 +757,37 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                         f"(from {sp['recommendedFromWeight']} gsm) when the product is folded.",
             })
 
-    return {
+    # SD-0066: kryssvariabel-regler for custom-mål (Layer 1 flagger; Layer 2
+    # håndhever). Én identitet per fysisk objekt: bredde ≤ høyde, rotasjon
+    # via orientation.
+    is_customized = bound_format == CUSTOMIZED_FORMAT_URI
+    cw = custom_dims.get(CUSTOM_WIDTH_VARIABLE)
+    ch = custom_dims.get(CUSTOM_HEIGHT_VARIABLE)
+    if is_customized and (cw is None or ch is None):
+        rules.append({
+            "rule": "custom_size_required", "status": "violation",
+            "note": "Format = Customized requires BOTH custom-width and "
+                    "custom-height (mm). Without them the identity is "
+                    "underspecified — two different sizes would share one "
+                    "fingerprint (SD-0066)."})
+        all_ok = False
+    if custom_dims and not is_customized:
+        rules.append({
+            "rule": "custom_size_without_customized", "status": "violation",
+            "note": "custom-width/custom-height may only be bound when "
+                    "variables/configuration/format = "
+                    "printing/configurations/formats/customized (SD-0066)."})
+        all_ok = False
+    if cw is not None and ch is not None and cw > ch:
+        rules.append({
+            "rule": "not_normalized", "status": "violation",
+            "note": f"Canonical form is width ≤ height: bind "
+                    f"custom-width={ch:g}, custom-height={cw:g} and express "
+                    f"the rotation via variables/configuration/orientation="
+                    f"landscape (SD-0066)."})
+        all_ok = False
+
+    resp = {
         "product": _ref(cache, uri, language),
         "validInEnvelope": all_ok,
         "bindings": results,
@@ -735,6 +796,9 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                  "(e.g. panel counts per topology) and vendor capability are "
                  "Layer 2 (Configurator) services.",
     }
+    if rules:
+        resp["rules"] = rules
+    return resp
 
 
 def browse_payload(cache: "VocabularyCache", id_or_path: str | None, language: str) -> object:

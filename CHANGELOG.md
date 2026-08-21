@@ -7,6 +7,16 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.8.0 — 2026-08-21
+
+- SD-0066 custom dimensions: `ptpge_validate_config` understands the new
+  `variables/configuration/custom-width` / `custom-height` variables (mm) —
+  per-binding range checks (template `customSizeRange` when present, global
+  5–50000 mm otherwise) and cross-variable rules in a new `rules` array:
+  `custom_size_required` (Customized without both dimensions),
+  `custom_size_without_customized`, and `not_normalized` (width > height;
+  the note tells the agent the exact normalized binding + orientation).
+
 ## 0.7.1 — 2026-08-21
 
 - Agent self-correction: `ptpge_validate_config` now includes the `allowed`
