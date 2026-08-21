@@ -666,8 +666,10 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
             custom_dims[var_tail] = dim
             axis = "Width" if var_tail == CUSTOM_WIDTH_VARIABLE else "Height"
             csr = product.get("customSizeRange") or {}
-            lo = csr.get(f"min{axis}", 5)
-            hi = csr.get(f"max{axis}", 50000)
+            # SD-0067: symmetrisk {min, max}; eldre minWidth/maxWidth-form
+            # aksepteres som fallback.
+            lo = csr.get("min", csr.get(f"min{axis}", 5))
+            hi = csr.get("max", csr.get(f"max{axis}", 50000))
             if lo <= dim <= hi:
                 entry.update(status="in_range", unit="mm")
             else:

@@ -7,6 +7,14 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.8.1 — 2026-08-21
+
+- SD-0067: `ptpge_validate_config` reads the adopted symmetric
+  `customSizeRange {min, max, unit}` (all 49 Customized templates now carry
+  industry-vetted ranges); the older `minWidth/maxWidth` form remains as
+  fallback. Format lists in the dataset are now build-derived from
+  `supportsFormatFamilies` within each template's range.
+
 ## 0.8.0 — 2026-08-21
 
 - SD-0066 custom dimensions: `ptpge_validate_config` understands the new
