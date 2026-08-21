@@ -7,6 +7,15 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.7.1 — 2026-08-21
+
+- Agent self-correction: `ptpge_validate_config` now includes the `allowed`
+  list (the product's envelope values, with labels) directly in every
+  `not_in_envelope` binding — both enum variables and numeric
+  substrate-weight. Agents no longer need a second envelope call to
+  recover from a rejected value. Found in the first agent smoke test
+  against the live server.
+
 ## 0.7.0 (surface updates) — 2026-08-16 (ii)
 
 - Dutch (nl) joins as the vocabulary's ninth language — 139 pre-existing

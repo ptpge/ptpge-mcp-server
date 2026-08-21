@@ -670,7 +670,8 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                     entry["status"] = "in_envelope"
                 else:
                     entry.update(status="not_in_envelope",
-                                 note="Weight band is outside this product's envelope.")
+                                 note="Weight band is outside this product's envelope.",
+                                 allowed=[_ref(cache, u, language) for u in env])
                     all_ok = False
             results.append(entry)
             continue
@@ -696,8 +697,11 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
         bad = [v for v in values if _full_uri(v) not in env]
         entry["envelope"] = env_key
         if bad:
+            # Selvkorrigering for agenter: si ikke bare hva som er ulovlig —
+            # legg ved hele den lovlige menyen for akkurat denne variabelen.
             entry.update(status="not_in_envelope",
-                         offending=[_full_uri(v) for v in bad])
+                         offending=[_full_uri(v) for v in bad],
+                         allowed=[_ref(cache, u, language) for u in env])
             all_ok = False
         else:
             entry["status"] = "in_envelope"
