@@ -7,6 +7,15 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.8.2 — 2026-08-22
+
+- SD-0069: `validate_config` maps the new `variables/substrate/substrate-coating`
+  axis (coated/uncoated — buyer-optional refinement; unbound = unspecified).
+- Bug fix: `substrate-color` was mapped to UK-spelled `supportsSubstrateColour`
+  (against SD-0047), making shade validation silently dead — corrected to
+  `supportsSubstrateColor`. Paper shade bindings now validate against each
+  template's declared shades, with `allowed` lists on rejection.
+
 ## 0.8.1 — 2026-08-21
 
 - SD-0067: `ptpge_validate_config` reads the adopted symmetric
