@@ -7,6 +7,13 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.8.3 — 2026-08-22
+
+- SD-0070: `validate_config` validates the new numeric
+  `variables/substrate/substrate-thickness` axis (canonical mm) against the
+  template's `supportsSubstrateThickness` `{min,max}` range — closed semantics
+  when the predicate is absent; error notes carry the mil/pt/inch conversions.
+
 ## 0.8.2 — 2026-08-22
 
 - SD-0069: `validate_config` maps the new `variables/substrate/substrate-coating`

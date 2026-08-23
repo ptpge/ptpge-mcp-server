@@ -549,6 +549,9 @@ VARIABLE_ENVELOPE = {
 
 WEIGHT_VARIABLE = "variables/substrate/substrate-weight"
 WEIGHT_ENVELOPE = "supportsSubstrateWeight"
+# SD-0070: numeric thickness (canonical mm) with per-template {min,max} range
+THICKNESS_VARIABLE = "variables/substrate/substrate-thickness"
+THICKNESS_ENVELOPE = "supportsSubstrateThickness"
 SCORING_URI = _BASE + "printing/completions/structural-finishing/scoring"
 # SD-0066: custom-mål
 CUSTOM_WIDTH_VARIABLE = "variables/configuration/custom-width"
@@ -707,6 +710,29 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                                  note="Weight band is outside this product's envelope.",
                                  allowed=[_ref(cache, u, language) for u in env])
                     all_ok = False
+            results.append(entry)
+            continue
+        # SD-0070: numeric substrate-thickness (mm) against the template's range.
+        if var_tail == THICKNESS_VARIABLE and isinstance(values[0], (int, float)):
+            mm = values[0]
+            rng = product.get(THICKNESS_ENVELOPE)
+            if rng is None:
+                entry.update(status="not_supported",
+                             note="Product declares no supportsSubstrateThickness "
+                                  "(closed semantics).")
+                all_ok = False
+            else:
+                lo, hi = rng.get("min"), rng.get("max")
+                entry["range"] = {"min": lo, "max": hi, "unit": rng.get("unit", "mm")}
+                if (lo is not None and mm < lo) or (hi is not None and mm > hi):
+                    entry.update(status="out_of_range",
+                                 note=f"{mm:g} mm is outside this product's thickness "
+                                      f"range [{lo:g}, {hi:g}] mm. Canonical unit is mm "
+                                      "(1 mil = 0.0254 mm; 14 pt = 0.356 mm; "
+                                      "3/16 in = 4.76 mm).")
+                    all_ok = False
+                else:
+                    entry["status"] = "in_range"
             results.append(entry)
             continue
         # Envelope-mapped enum variables.
