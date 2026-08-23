@@ -152,10 +152,10 @@ footer a { color: #2a6045; }
 
 <details class="card conv" open>
   <summary><h2 data-i="t_conv">Same product · any language · one fingerprint</h2>
-  <span class="expl" data-i="e_conv">Three real products in nine languages — watch the same identity emerge, live.</span></summary>
-  <p style="font-size:13px;color:#555;margin:0 0 10px" data-i="i_conv">Three real products,
-  three different setup models — a brochure (folded sheet), business cards (flat sheet) and
-  a booklet (multi-page) — each phrased in nine languages. Pick a product, then a language,
+  <span class="expl" data-i="e_conv">Four real products in nine languages — watch the same identity emerge, live.</span></summary>
+  <p style="font-size:13px;color:#555;margin:0 0 10px" data-i="i_conv">Four real products,
+  four different setup models — a brochure (folded sheet), business cards (flat sheet) and
+  a booklet (multi-page) and a panel print (custom size on a rigid board) — each phrased in nine languages. Pick a product, then a language,
   and watch the same identity emerge.</p>
   <div class="row prodrow" id="prod-btns" style="margin-bottom:12px"></div>
   <div class="row langrow" style="align-items:center">
@@ -553,7 +553,7 @@ function presetUri(v) { document.getElementById("uri").value = v; doGet(); }
 document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 document.getElementById("uri").addEventListener("keydown", e => { if (e.key === "Enter") doGet(); });
 
-// ————— v2: convergence demo — three products, nine languages —————
+// ————— v2: convergence demo — four products, nine languages —————
 const REF_PRODUCT = "ordering/products/brochures";
 const REF_ROWS = [
   ["variables/configuration/format",        null,      "printing/configurations/formats/a-series/a5"],
@@ -701,10 +701,52 @@ const BK_LANGS = [
     phrase:"小册子，A5，16页，内页双面单黑，哑光纸130克，封面外侧四色、内侧单黑，折页并骑马钉，250份",
     m:["A5","16页","小册子","内页双面单黑","封面外侧四色","封面外侧四色","封面内侧单黑","封面内侧单黑","纸张","哑光","130克","折页并骑马钉","250份"] },
 ];
+// Panel print — rigid board, custom size (SD-0066) + thickness (SD-0070)
+const PP_ROWS = [
+  ["variables/configuration/format",        null,    "printing/configurations/formats/customized"],
+  ["variables/configuration/custom-width",  null,    700],
+  ["variables/configuration/custom-height", null,    1000],
+  ["variables/configuration/orientation",   null,    "printing/configurations/orientation/portrait"],
+  ["variables/configuration/setup-model",   null,    "printing/configurations/setup-models/flat-sheet"],
+  ["variables/features/color-mode",         "front", "printing/features/colors/cmyk"],
+  ["variables/substrate/substrate-type",    null,    "printing/substrates/board-materials/foam"],
+  ["variables/substrate/substrate-thickness", null,  5],
+  ["variables/order/quantity",              null,    3],
+];
+const PP_LANGS = [
+  { code:"en", label:"English",
+    phrase:"panel prints, custom size 70 \u00d7 100 cm, portrait, flat panel, full colour on the front, 5 mm foam board, 3 pcs",
+    m:["custom size","70","100","portrait","flat panel","full colour on the front","foam board","5 mm","3 pcs"] },
+  { code:"nb", label:"Norsk",
+    phrase:"panelbilder, spesialm\u00e5l 70 \u00d7 100 cm, st\u00e5ende, flat plate, full farge p\u00e5 forsiden, 5 mm skumplate, 3 stk",
+    m:["spesialm\u00e5l","70","100","st\u00e5ende","flat plate","full farge p\u00e5 forsiden","skumplate","5 mm","3 stk"] },
+  { code:"sv", label:"Svenska",
+    phrase:"paneltryck, specialm\u00e5tt 70 \u00d7 100 cm, st\u00e5ende, plan skiva, fyrf\u00e4rg p\u00e5 framsidan, 5 mm skumskiva, 3 st",
+    m:["specialm\u00e5tt","70","100","st\u00e5ende","plan skiva","fyrf\u00e4rg p\u00e5 framsidan","skumskiva","5 mm","3 st"] },
+  { code:"da", label:"Dansk",
+    phrase:"paneltryk, specialm\u00e5l 70 \u00d7 100 cm, st\u00e5ende, flad plade, firfarve p\u00e5 forsiden, 5 mm skumplade, 3 stk.",
+    m:["specialm\u00e5l","70","100","st\u00e5ende","flad plade","firfarve p\u00e5 forsiden","skumplade","5 mm","3 stk."] },
+  { code:"nl", label:"Nederlands",
+    phrase:"paneelprints, aangepast formaat 70 \u00d7 100 cm, staand, vlak paneel, full colour op de voorzijde, 5 mm schuimplaat, 3 stuks",
+    m:["aangepast formaat","70","100","staand","vlak paneel","full colour op de voorzijde","schuimplaat","5 mm","3 stuks"] },
+  { code:"de", label:"Deutsch",
+    phrase:"Paneldrucke, Sonderma\u00df 70 \u00d7 100 cm, Hochformat, plane Platte, vorne 4-farbig, 5 mm Schaumplatte, 3 St\u00fcck",
+    m:["Sonderma\u00df","70","100","Hochformat","plane Platte","vorne 4-farbig","Schaumplatte","5 mm","3 St\u00fcck"] },
+  { code:"es", label:"Espa\u00f1ol",
+    phrase:"impresiones en panel, medida personalizada 70 \u00d7 100 cm, vertical, panel plano, todo color por delante, cart\u00f3n pluma de 5 mm, 3 uds",
+    m:["medida personalizada","70","100","vertical","panel plano","todo color por delante","cart\u00f3n pluma","5 mm","3 uds"] },
+  { code:"ja", label:"\u65e5\u672c\u8a9e",
+    phrase:"\u30d1\u30cd\u30eb\u30d7\u30ea\u30f3\u30c8\u3001\u30ab\u30b9\u30bf\u30e0\u30b5\u30a4\u30ba70\u00d7100cm\u3001\u7e26\u5411\u304d\u3001\u5e73\u677f\u3001\u8868\u9762\u30d5\u30eb\u30ab\u30e9\u30fc\u30015mm\u30d5\u30a9\u30fc\u30e0\u30dc\u30fc\u30c9\u30013\u679a",
+    m:["\u30ab\u30b9\u30bf\u30e0\u30b5\u30a4\u30ba","70","100","\u7e26\u5411\u304d","\u5e73\u677f","\u8868\u9762\u30d5\u30eb\u30ab\u30e9\u30fc","\u30d5\u30a9\u30fc\u30e0\u30dc\u30fc\u30c9","5mm","3\u679a"] },
+  { code:"zh-Hans", label:"\u4e2d\u6587",
+    phrase:"\u9762\u677f\u6253\u5370\uff0c\u81ea\u5b9a\u4e49\u5c3a\u5bf870\u00d7100\u5398\u7c73\uff0c\u7ad6\u5411\uff0c\u5e73\u677f\uff0c\u6b63\u9762\u56db\u8272\uff0c5\u6beb\u7c73\u6ce1\u6cab\u677f\uff0c3\u5757",
+    m:["\u81ea\u5b9a\u4e49\u5c3a\u5bf8","70","100","\u7ad6\u5411","\u5e73\u677f","\u6b63\u9762\u56db\u8272","\u6ce1\u6cab\u677f","5\u6beb\u7c73","3\u5757"] },
+];
 const PRODUCTS = [
   { product: REF_PRODUCT,                        rows: REF_ROWS, langs: null },  // langs settes under (CONV)
   { product: "ordering/products/business-cards", rows: BC_ROWS,  langs: BC_LANGS },
   { product: "ordering/products/booklets",       rows: BK_ROWS,  langs: BK_LANGS },
+  { product: "ordering/products/panel-prints",   rows: PP_ROWS,  langs: PP_LANGS },
 ];
 let CUR_PROD = 0;
 function prodSelect(i) {
@@ -721,7 +763,7 @@ function prodSelect(i) {
 function renderProdBtns() {
   const el = document.getElementById("prod-btns");
   if (!el) return;
-  el.innerHTML = [convTT("p1"), convTT("p2"), convTT("p3")].map((n, i) =>
+  el.innerHTML = [convTT("p1"), convTT("p2"), convTT("p3"), convTT("p4")].map((n, i) =>
     '<button data-p="' + i + '">' + n + '</button>').join("");
   document.querySelectorAll("#prod-btns button").forEach((b, k) => {
     b.addEventListener("click", () => prodSelect(k));
@@ -870,10 +912,10 @@ const UI = {
 en: { s01:"Raw specification", s02:"Matched against the vocabulary",
   tag02:"pre-scripted — the agent's job", s03:"Canonical form", tag04:"deterministic function, not the model",
   s05:"Identity", live:"checked live", resolver:"resolves on the public register ↗",
-  same:"same identity", "try":"Try:", b_col:"collapse", b_exp:"expand", p1:"Brochure", p2:"Business cards", p3:"Booklet", ed_hint:"Try editing a character in the canonical form — the SHA-256 recomputes live in your browser. Restore it and the identity comes back.", ed_diff:"different bytes — different identity" },
+  same:"same identity", "try":"Try:", b_col:"collapse", b_exp:"expand", p1:"Brochure", p2:"Business cards", p3:"Booklet", p4:"Panel print", ed_hint:"Try editing a character in the canonical form — the SHA-256 recomputes live in your browser. Restore it and the identity comes back.", ed_diff:"different bytes — different identity" },
 de: { sub:"Jeder Button sendet einen echten MCP-<code>tools/call</code> (JSON-RPC über Streamable HTTP) an <code>/mcp</code> — genau wie ein KI-Agent.",
   t_conv:"Gleiches Produkt · jede Sprache · ein Fingerprint",
-  i_conv:"Drei echte Produkte, drei Aufbau-Modelle — Broschüre (Falzbogen), Visitenkarten (Planobogen) und Heft (mehrseitig) — je in neun Sprachen formuliert. Wählen Sie Produkt und Sprache und sehen Sie dieselbe Identität entstehen.",
+  i_conv:"Vier echte Produkte, vier Aufbau-Modelle — Broschüre (Falzbogen), Visitenkarten (Planobogen), Heft (mehrseitig) und Paneldruck (Sondermaß auf Platte) — je in neun Sprachen formuliert. Wählen Sie Produkt und Sprache und sehen Sie dieselbe Identität entstehen.",
   h_conv:"Die Interpretation (Worte → Bindings) ist hier pro Sprache vorbereitet — in Produktion die Aufgabe des KI-Agenten. Begriffe, Envelope-Validierung und der ptpge-cfs/1-Fingerprint laufen <em>live</em> gegen diesen Server. Der Hash ist eine deterministische Funktion, kein Modell-Output.",
   hist:"Verlauf — gleiches Produkt, verschiedene Sprachen",
   s01:"Rohe Spezifikation", s02:"Gegen das Vokabular aufgelöst", tag02:"vorbereitet — Aufgabe des Agenten",
@@ -887,11 +929,11 @@ de: { sub:"Jeder Button sendet einen echten MCP-<code>tools/call</code> (JSON-RP
   h_chain:"Die Interpretation (Worte → Bindings) ist hier vorbereitet — das ist die Aufgabe des KI-Agenten. Lookups, Envelope-Validierung und der ptpge-cfs/1-Fingerprint laufen <em>live</em> gegen diesen Server.",
   t_own:"Ihr eigener Prompt — was löst sich auf?",
   h_own:"Ein echter Agent zerlegt den Prompt mit einem LLM; die Demo nähert das mit N-Gramm-Suchen an — jedes Fragment wird <em>live</em> nachgeschlagen.",
-  b_search:"Suchen", b_get:"Begriff abrufen", b_resolve:"Phrasen auflösen", b_fp:"Fingerprint → Marke + QR", b_col:"einklappen", b_exp:"ausklappen", p1:"Broschüre", p2:"Visitenkarten", p3:"Heft", ed_hint:"Ändern Sie ein Zeichen der kanonischen Form — SHA-256 wird live im Browser neu berechnet. Stellen Sie es wieder her, und die Identität kehrt zurück.", ed_diff:"andere Bytes — andere Identität",
-  e_search:"Eine Käuferphrase in einer von neun Sprachen eingeben — zurück kommt der kanonische Begriff mit permanenter URI.", e_get:"Eine URI hinein — voller Kontext heraus: Labels in allen Sprachen, Definition, Platz im Baum.", e_ver:"Mit welcher Daten- und Serverversion dieses Playground spricht.", e_chain:"Envelope → Validierung → Fingerprint an einem festen Beispielauftrag — die ganze Reise in drei Klicks.", e_own:"Beschreiben Sie einen Druckauftrag in eigenen Worten — und sehen Sie, was auf den Standard abbildet.", tr_t:"Sitzungsprotokoll — jeder MCP-Aufruf dieser Seite", tr_clear:"leeren", tr_e:"Noch keine Aufrufe. Jeder Button protokolliert Request und Antwort hier, chronologisch — das Gespräch, das ein KI-Agent mit diesem Server führen würde.", e_conv:"Drei echte Produkte in neun Sprachen — sehen Sie dieselbe Identität live entstehen." },
+  b_search:"Suchen", b_get:"Begriff abrufen", b_resolve:"Phrasen auflösen", b_fp:"Fingerprint → Marke + QR", b_col:"einklappen", b_exp:"ausklappen", p1:"Broschüre", p2:"Visitenkarten", p3:"Heft", p4:"Paneldruck", ed_hint:"Ändern Sie ein Zeichen der kanonischen Form — SHA-256 wird live im Browser neu berechnet. Stellen Sie es wieder her, und die Identität kehrt zurück.", ed_diff:"andere Bytes — andere Identität",
+  e_search:"Eine Käuferphrase in einer von neun Sprachen eingeben — zurück kommt der kanonische Begriff mit permanenter URI.", e_get:"Eine URI hinein — voller Kontext heraus: Labels in allen Sprachen, Definition, Platz im Baum.", e_ver:"Mit welcher Daten- und Serverversion dieses Playground spricht.", e_chain:"Envelope → Validierung → Fingerprint an einem festen Beispielauftrag — die ganze Reise in drei Klicks.", e_own:"Beschreiben Sie einen Druckauftrag in eigenen Worten — und sehen Sie, was auf den Standard abbildet.", tr_t:"Sitzungsprotokoll — jeder MCP-Aufruf dieser Seite", tr_clear:"leeren", tr_e:"Noch keine Aufrufe. Jeder Button protokolliert Request und Antwort hier, chronologisch — das Gespräch, das ein KI-Agent mit diesem Server führen würde.", e_conv:"Vier echte Produkte in neun Sprachen — sehen Sie dieselbe Identität live entstehen." },
 nb: { sub:"Hver knapp sender et ekte MCP-<code>tools/call</code> (JSON-RPC over Streamable HTTP) til <code>/mcp</code> — akkurat som en KI-agent.",
   t_conv:"Samme produkt · alle språk · ett fingerprint",
-  i_conv:"Tre ekte produkter, tre setup-modeller — brosjyre (falset ark), visittkort (flatt ark) og hefte (flersidig) — hver formulert på ni språk. Velg produkt og språk, og se samme identitet vokse frem.",
+  i_conv:"Fire ekte produkter, fire setup-modeller — brosjyre (falset ark), visittkort (flatt ark), hefte (flersidig) og panelbilde (spesialmål på plate) — hver formulert på ni språk. Velg produkt og språk, og se samme identitet vokse frem.",
   h_conv:"Tolkningen (ord → bindings) er forhåndsskrevet per språk — det er KI-agentens jobb i produksjon. Termoppslag, envelope-validering og ptpge-cfs/1-fingerprintet kjører <em>live</em> mot denne serveren. Hashen er en deterministisk funksjon, ikke modell-output.",
   hist:"Kjørehistorikk — samme produkt, ulike språk",
   s01:"Rå spesifikasjon", s02:"Matchet mot vokabularet", tag02:"forhåndsskrevet — agentens jobb",
@@ -905,11 +947,11 @@ nb: { sub:"Hver knapp sender et ekte MCP-<code>tools/call</code> (JSON-RPC over 
   h_chain:"Tolkningen (ord → bindings) er forhåndsskrevet her — det er KI-agentens jobb. Oppslag, envelope-validering og ptpge-cfs/1-fingerprintet kjører <em>live</em> mot denne serveren.",
   t_own:"Din egen prompt — se hva som løses",
   h_own:"En ekte agent dekomponerer prompten med en LLM; demoen tilnærmer det med n-gram-søk — hvert fragment slås opp <em>live</em>.",
-  b_search:"Søk", b_get:"Hent term", b_resolve:"Løs opp fraser", b_fp:"Fingerprint → merke + QR", b_col:"skjul", b_exp:"vis", p1:"Brosjyre", p2:"Visittkort", p3:"Hefte", ed_hint:"Prøv å endre et tegn i den kanoniske formen — SHA-256 beregnes på nytt i nettleseren. Gjenopprett, og identiteten kommer tilbake.", ed_diff:"andre bytes — annen identitet",
-  e_search:"Skriv en kjøperfrase på ett av ni språk — få den kanoniske termen med permanent URI.", e_get:"Én URI inn — full kontekst ut: etiketter på alle språk, definisjon, plass i treet.", e_ver:"Hvilken data- og serverversjon denne playgrounden snakker med.", e_chain:"Envelope → validering → fingerprint på et fast eksempel — hele reisen i tre klikk.", e_own:"Beskriv en trykksak med egne ord — og se hva som treffer Standarden.", tr_t:"Sesjonstranskript — alle MCP-kall denne siden har gjort", tr_clear:"tøm", tr_e:"Ingen kall ennå. Hver knapp logger forespørsel og svar her, kronologisk — samtalen en KI-agent ville hatt med denne serveren.", e_conv:"Tre ekte produkter på ni språk — se samme identitet vokse frem, live." },
+  b_search:"Søk", b_get:"Hent term", b_resolve:"Løs opp fraser", b_fp:"Fingerprint → merke + QR", b_col:"skjul", b_exp:"vis", p1:"Brosjyre", p2:"Visittkort", p3:"Hefte", p4:"Panelbilde", ed_hint:"Prøv å endre et tegn i den kanoniske formen — SHA-256 beregnes på nytt i nettleseren. Gjenopprett, og identiteten kommer tilbake.", ed_diff:"andre bytes — annen identitet",
+  e_search:"Skriv en kjøperfrase på ett av ni språk — få den kanoniske termen med permanent URI.", e_get:"Én URI inn — full kontekst ut: etiketter på alle språk, definisjon, plass i treet.", e_ver:"Hvilken data- og serverversjon denne playgrounden snakker med.", e_chain:"Envelope → validering → fingerprint på et fast eksempel — hele reisen i tre klikk.", e_own:"Beskriv en trykksak med egne ord — og se hva som treffer Standarden.", tr_t:"Sesjonstranskript — alle MCP-kall denne siden har gjort", tr_clear:"tøm", tr_e:"Ingen kall ennå. Hver knapp logger forespørsel og svar her, kronologisk — samtalen en KI-agent ville hatt med denne serveren.", e_conv:"Fire ekte produkter på ni språk — se samme identitet vokse frem, live." },
 nl: { sub:"Elke knop stuurt een echte MCP-<code>tools/call</code> (JSON-RPC over Streamable HTTP) naar <code>/mcp</code> — precies wat een AI-agent doet.",
   t_conv:"Zelfde product · elke taal · één fingerprint",
-  i_conv:"Drie echte producten, drie opzetmodellen — brochure (gevouwen vel), visitekaartjes (vlak vel) en boekje (meerpagina) — elk in negen talen. Kies product en taal en zie dezelfde identiteit ontstaan.",
+  i_conv:"Vier echte producten, vier opzetmodellen — brochure (gevouwen vel), visitekaartjes (vlak vel), boekje (meerpagina) en paneelprint (aangepast formaat op plaat) — elk in negen talen. Kies product en taal en zie dezelfde identiteit ontstaan.",
   h_conv:"De interpretatie (woorden → bindings) is per taal voorbereid — in productie het werk van de AI-agent. Termen, envelope-validatie en de ptpge-cfs/1-fingerprint draaien <em>live</em> tegen deze server. De hash is een deterministische functie, geen modeloutput.",
   hist:"Geschiedenis — zelfde product, verschillende talen",
   s01:"Ruwe specificatie", s02:"Gematcht met het vocabulaire", tag02:"voorbereid — het werk van de agent",
@@ -923,11 +965,11 @@ nl: { sub:"Elke knop stuurt een echte MCP-<code>tools/call</code> (JSON-RPC over
   h_chain:"De interpretatie (woorden → bindings) is hier voorbereid — dat is het werk van de AI-agent. Lookups, envelope-validatie en de ptpge-cfs/1-fingerprint draaien <em>live</em> tegen deze server.",
   t_own:"Uw eigen prompt — zie wat er oplost",
   h_own:"Een echte agent ontleedt de prompt met een LLM; de demo benadert dat met n-gram-zoekopdrachten — elk fragment wordt <em>live</em> opgezocht.",
-  b_search:"Zoeken", b_get:"Term ophalen", b_resolve:"Zinnen oplossen", b_fp:"Fingerprint → merk + QR", b_col:"inklappen", b_exp:"uitklappen", p1:"Brochure", p2:"Visitekaartjes", p3:"Boekje", ed_hint:"Wijzig een teken in de canonieke vorm — de SHA-256 wordt live in uw browser herberekend. Herstel het en de identiteit keert terug.", ed_diff:"andere bytes — andere identiteit",
-  e_search:"Typ een inkoopfrase in een van negen talen — krijg de canonieke term met permanente URI.", e_get:"Eén URI erin — volledige context eruit: labels in alle talen, definitie, plek in de boom.", e_ver:"Met welke data- en serverversie dit playground praat.", e_chain:"Envelope → validatie → fingerprint op een vast voorbeeld — de hele reis in drie klikken.", e_own:"Beschrijf een drukwerkopdracht in eigen woorden — en zie wat op de Standaard afbeeldt.", tr_t:"Sessietranscript — elke MCP-aanroep van deze pagina", tr_clear:"wissen", tr_e:"Nog geen aanroepen. Elke knop logt verzoek en antwoord hier, chronologisch — het gesprek dat een AI-agent met deze server zou voeren.", e_conv:"Drie echte producten in negen talen — zie dezelfde identiteit live ontstaan." },
+  b_search:"Zoeken", b_get:"Term ophalen", b_resolve:"Zinnen oplossen", b_fp:"Fingerprint → merk + QR", b_col:"inklappen", b_exp:"uitklappen", p1:"Brochure", p2:"Visitekaartjes", p3:"Boekje", p4:"Paneelprint", ed_hint:"Wijzig een teken in de canonieke vorm — de SHA-256 wordt live in uw browser herberekend. Herstel het en de identiteit keert terug.", ed_diff:"andere bytes — andere identiteit",
+  e_search:"Typ een inkoopfrase in een van negen talen — krijg de canonieke term met permanente URI.", e_get:"Eén URI erin — volledige context eruit: labels in alle talen, definitie, plek in de boom.", e_ver:"Met welke data- en serverversie dit playground praat.", e_chain:"Envelope → validatie → fingerprint op een vast voorbeeld — de hele reis in drie klikken.", e_own:"Beschrijf een drukwerkopdracht in eigen woorden — en zie wat op de Standaard afbeeldt.", tr_t:"Sessietranscript — elke MCP-aanroep van deze pagina", tr_clear:"wissen", tr_e:"Nog geen aanroepen. Elke knop logt verzoek en antwoord hier, chronologisch — het gesprek dat een AI-agent met deze server zou voeren.", e_conv:"Vier echte producten in negen talen — zie dezelfde identiteit live ontstaan." },
 sv: { sub:"Varje knapp skickar ett äkta MCP-<code>tools/call</code> (JSON-RPC över Streamable HTTP) till <code>/mcp</code> — precis som en AI-agent.",
   t_conv:"Samma produkt · alla språk · ett fingerprint",
-  i_conv:"Tre riktiga produkter, tre uppläggsmodeller — broschyr (falsat ark), visitkort (plant ark) och häfte (flersidigt) — var och en på nio språk. Välj produkt och språk och se samma identitet växa fram.",
+  i_conv:"Fyra riktiga produkter, fyra uppläggsmodeller — broschyr (falsat ark), visitkort (plant ark), häfte (flersidigt) och paneltryck (specialmått på skiva) — var och en på nio språk. Välj produkt och språk och se samma identitet växa fram.",
   h_conv:"Tolkningen (ord → bindings) är förskriven per språk — i produktion agentens jobb. Termuppslag, envelope-validering och ptpge-cfs/1-fingerprintet körs <em>live</em> mot denna server. Hashen är en deterministisk funktion, inte modelloutput.",
   hist:"Körhistorik — samma produkt, olika språk",
   s01:"Rå specifikation", s02:"Matchad mot vokabulären", tag02:"förskriven — agentens jobb",
@@ -941,11 +983,11 @@ sv: { sub:"Varje knapp skickar ett äkta MCP-<code>tools/call</code> (JSON-RPC �
   h_chain:"Tolkningen (ord → bindings) är förskriven här — det är AI-agentens jobb. Uppslag, envelope-validering och ptpge-cfs/1-fingerprintet körs <em>live</em> mot denna server.",
   t_own:"Din egen prompt — se vad som löses upp",
   h_own:"En riktig agent bryter ner prompten med en LLM; demon approximerar det med n-gram-sökningar — varje fragment slås upp <em>live</em>.",
-  b_search:"Sök", b_get:"Hämta term", b_resolve:"Lös upp fraser", b_fp:"Fingerprint → märke + QR", b_col:"fäll ihop", b_exp:"fäll ut", p1:"Broschyr", p2:"Visitkort", p3:"Häfte", ed_hint:"Ändra ett tecken i den kanoniska formen — SHA-256 räknas om live i webbläsaren. Återställ, och identiteten kommer tillbaka.", ed_diff:"andra bytes — annan identitet",
-  e_search:"Skriv en köparfras på ett av nio språk — få den kanoniska termen med permanent URI.", e_get:"En URI in — full kontext ut: etiketter på alla språk, definition, plats i trädet.", e_ver:"Vilken data- och serverversion denna playground pratar med.", e_chain:"Envelope → validering → fingerprint på ett fast exempel — hela resan i tre klick.", e_own:"Beskriv ett tryckjobb med egna ord — och se vad som träffar Standarden.", tr_t:"Sessionsutskrift — alla MCP-anrop denna sida gjort", tr_clear:"rensa", tr_e:"Inga anrop ännu. Varje knapp loggar förfrågan och svar här, kronologiskt — samtalet en AI-agent skulle föra med denna server.", e_conv:"Tre riktiga produkter på nio språk — se samma identitet växa fram, live." },
+  b_search:"Sök", b_get:"Hämta term", b_resolve:"Lös upp fraser", b_fp:"Fingerprint → märke + QR", b_col:"fäll ihop", b_exp:"fäll ut", p1:"Broschyr", p2:"Visitkort", p3:"Häfte", p4:"Paneltryck", ed_hint:"Ändra ett tecken i den kanoniska formen — SHA-256 räknas om live i webbläsaren. Återställ, och identiteten kommer tillbaka.", ed_diff:"andra bytes — annan identitet",
+  e_search:"Skriv en köparfras på ett av nio språk — få den kanoniska termen med permanent URI.", e_get:"En URI in — full kontext ut: etiketter på alla språk, definition, plats i trädet.", e_ver:"Vilken data- och serverversion denna playground pratar med.", e_chain:"Envelope → validering → fingerprint på ett fast exempel — hela resan i tre klick.", e_own:"Beskriv ett tryckjobb med egna ord — och se vad som träffar Standarden.", tr_t:"Sessionsutskrift — alla MCP-anrop denna sida gjort", tr_clear:"rensa", tr_e:"Inga anrop ännu. Varje knapp loggar förfrågan och svar här, kronologiskt — samtalet en AI-agent skulle föra med denna server.", e_conv:"Fyra riktiga produkter på nio språk — se samma identitet växa fram, live." },
 da: { sub:"Hver knap sender et ægte MCP-<code>tools/call</code> (JSON-RPC over Streamable HTTP) til <code>/mcp</code> — præcis som en AI-agent.",
   t_conv:"Samme produkt · alle sprog · ét fingerprint",
-  i_conv:"Tre rigtige produkter, tre opsætningsmodeller — brochure (falset ark), visitkort (fladt ark) og hæfte (flersidet) — hver på ni sprog. Vælg produkt og sprog, og se den samme identitet opstå.",
+  i_conv:"Fire rigtige produkter, fire opsætningsmodeller — brochure (falset ark), visitkort (fladt ark), hæfte (flersidet) og paneltryk (specialmål på plade) — hver på ni sprog. Vælg produkt og sprog, og se den samme identitet opstå.",
   h_conv:"Fortolkningen (ord → bindings) er forberedt pr. sprog — i produktion agentens job. Termopslag, envelope-validering og ptpge-cfs/1-fingerprintet kører <em>live</em> mod denne server. Hashen er en deterministisk funktion, ikke modeloutput.",
   hist:"Kørselshistorik — samme produkt, forskellige sprog",
   s01:"Rå specifikation", s02:"Matchet mod vokabularet", tag02:"forberedt — agentens job",
@@ -959,11 +1001,11 @@ da: { sub:"Hver knap sender et ægte MCP-<code>tools/call</code> (JSON-RPC over 
   h_chain:"Fortolkningen (ord → bindings) er forberedt her — det er AI-agentens job. Opslag, envelope-validering og ptpge-cfs/1-fingerprintet kører <em>live</em> mod denne server.",
   t_own:"Din egen prompt — se hvad der løses",
   h_own:"En rigtig agent nedbryder prompten med en LLM; demoen tilnærmer det med n-gram-søgninger — hvert fragment slås op <em>live</em>.",
-  b_search:"Søg", b_get:"Hent term", b_resolve:"Opløs fraser", b_fp:"Fingerprint → mærke + QR", b_col:"fold sammen", b_exp:"fold ud", p1:"Brochure", p2:"Visitkort", p3:"Hæfte", ed_hint:"Ændr et tegn i den kanoniske form — SHA-256 genberegnes live i browseren. Gendan, og identiteten vender tilbage.", ed_diff:"andre bytes — anden identitet",
-  e_search:"Skriv en køberfrase på et af ni sprog — få den kanoniske term med permanent URI.", e_get:"Én URI ind — fuld kontekst ud: etiketter på alle sprog, definition, plads i træet.", e_ver:"Hvilken data- og serverversion denne playground taler med.", e_chain:"Envelope → validering → fingerprint på et fast eksempel — hele rejsen i tre klik.", e_own:"Beskriv en tryksag med egne ord — og se hvad der rammer Standarden.", tr_t:"Sessionsudskrift — alle MCP-kald denne side har lavet", tr_clear:"ryd", tr_e:"Ingen kald endnu. Hver knap logger forespørgsel og svar her, kronologisk — samtalen en AI-agent ville føre med denne server.", e_conv:"Tre ægte produkter på ni sprog — se samme identitet opstå, live." },
+  b_search:"Søg", b_get:"Hent term", b_resolve:"Opløs fraser", b_fp:"Fingerprint → mærke + QR", b_col:"fold sammen", b_exp:"fold ud", p1:"Brochure", p2:"Visitkort", p3:"Hæfte", p4:"Paneltryk", ed_hint:"Ændr et tegn i den kanoniske form — SHA-256 genberegnes live i browseren. Gendan, og identiteten vender tilbage.", ed_diff:"andre bytes — anden identitet",
+  e_search:"Skriv en køberfrase på et af ni sprog — få den kanoniske term med permanent URI.", e_get:"Én URI ind — fuld kontekst ud: etiketter på alle sprog, definition, plads i træet.", e_ver:"Hvilken data- og serverversion denne playground taler med.", e_chain:"Envelope → validering → fingerprint på et fast eksempel — hele rejsen i tre klik.", e_own:"Beskriv en tryksag med egne ord — og se hvad der rammer Standarden.", tr_t:"Sessionsudskrift — alle MCP-kald denne side har lavet", tr_clear:"ryd", tr_e:"Ingen kald endnu. Hver knap logger forespørgsel og svar her, kronologisk — samtalen en AI-agent ville føre med denne server.", e_conv:"Fire ægte produkter på ni sprog — se samme identitet opstå, live." },
 fi: { sub:"Jokainen painike lähettää aidon MCP-<code>tools/call</code>-kutsun (JSON-RPC, Streamable HTTP) osoitteeseen <code>/mcp</code> — täsmälleen kuten tekoälyagentti.",
   t_conv:"Sama tuote · kaikki kielet · yksi sormenjälki",
-  i_conv:"Kolme oikeaa tuotetta, kolme rakennemallia — esite (taitettu arkki), käyntikortit (tasainen arkki) ja vihko (monisivuinen) — kukin yhdeksällä kielellä. Valitse tuote ja kieli ja katso saman identiteetin syntyvän.",
+  i_conv:"Neljä oikeaa tuotetta, neljä rakennemallia — esite (taitettu arkki), käyntikortit (tasainen arkki), vihko (monisivuinen) ja paneelituloste (erikoismitta levylle) — kukin yhdeksällä kielellä. Valitse tuote ja kieli ja katso saman identiteetin syntyvän.",
   h_conv:"Tulkinta (sanat → sidonnat) on ennalta kirjoitettu kielittäin — tuotannossa se on agentin työ. Termihaut, envelope-validointi ja ptpge-cfs/1-sormenjälki ajetaan <em>live</em> tätä palvelinta vasten. Hash on deterministinen funktio, ei mallin tuotos.",
   hist:"Ajohistoria — sama tuote, eri kielet",
   s01:"Raaka spesifikaatio", s02:"Sovitettu sanastoon", tag02:"ennalta kirjoitettu — agentin työ",
@@ -977,11 +1019,11 @@ fi: { sub:"Jokainen painike lähettää aidon MCP-<code>tools/call</code>-kutsun
   h_chain:"Tulkinta (sanat → sidonnat) on ennalta kirjoitettu — se on agentin työ. Haut, envelope-validointi ja ptpge-cfs/1-sormenjälki ajetaan <em>live</em> tätä palvelinta vasten.",
   t_own:"Oma kehotteesi — katso mikä ratkeaa",
   h_own:"Oikea agentti purkaa kehotteen LLM:llä; demo approksimoi sen n-grammihauilla — jokainen fragmentti haetaan <em>live</em>.",
-  b_search:"Hae", b_get:"Hae termi", b_resolve:"Ratkaise fraasit", b_fp:"Sormenjälki → merkki + QR", b_col:"pienennä", b_exp:"laajenna", p1:"Esite", p2:"Käyntikortit", p3:"Vihko", ed_hint:"Muokkaa merkkiä kanonisessa muodossa — SHA-256 lasketaan uudelleen selaimessa. Palauta, ja identiteetti palaa.", ed_diff:"eri tavut — eri identiteetti",
-  e_search:"Kirjoita ostajan fraasi jollakin yhdeksästä kielestä — saat kanonisen termin pysyvine URI:neen.", e_get:"Yksi URI sisään — koko konteksti ulos: nimikkeet kaikilla kielillä, määritelmä, paikka puussa.", e_ver:"Minkä data- ja palvelinversion kanssa tämä playground keskustelee.", e_chain:"Envelope → validointi → sormenjälki kiinteällä esimerkillä — koko matka kolmella klikkauksella.", e_own:"Kuvaile painotyö omin sanoin — ja katso mikä osuu standardiin.", tr_t:"Istunnon loki — jokainen tämän sivun MCP-kutsu", tr_clear:"tyhjennä", tr_e:"Ei kutsuja vielä. Jokainen painike kirjaa pyynnön ja vastauksen tänne aikajärjestyksessä — keskustelu, jonka tekoälyagentti kävisi tämän palvelimen kanssa.", e_conv:"Kolme oikeaa tuotetta yhdeksällä kielellä — katso saman identiteetin syntyvän, livenä." },
+  b_search:"Hae", b_get:"Hae termi", b_resolve:"Ratkaise fraasit", b_fp:"Sormenjälki → merkki + QR", b_col:"pienennä", b_exp:"laajenna", p1:"Esite", p2:"Käyntikortit", p3:"Vihko", p4:"Paneelituloste", ed_hint:"Muokkaa merkkiä kanonisessa muodossa — SHA-256 lasketaan uudelleen selaimessa. Palauta, ja identiteetti palaa.", ed_diff:"eri tavut — eri identiteetti",
+  e_search:"Kirjoita ostajan fraasi jollakin yhdeksästä kielestä — saat kanonisen termin pysyvine URI:neen.", e_get:"Yksi URI sisään — koko konteksti ulos: nimikkeet kaikilla kielillä, määritelmä, paikka puussa.", e_ver:"Minkä data- ja palvelinversion kanssa tämä playground keskustelee.", e_chain:"Envelope → validointi → sormenjälki kiinteällä esimerkillä — koko matka kolmella klikkauksella.", e_own:"Kuvaile painotyö omin sanoin — ja katso mikä osuu standardiin.", tr_t:"Istunnon loki — jokainen tämän sivun MCP-kutsu", tr_clear:"tyhjennä", tr_e:"Ei kutsuja vielä. Jokainen painike kirjaa pyynnön ja vastauksen tänne aikajärjestyksessä — keskustelu, jonka tekoälyagentti kävisi tämän palvelimen kanssa.", e_conv:"Neljä oikeaa tuotetta yhdeksällä kielellä — katso saman identiteetin syntyvän, livenä." },
 is: { sub:"Hver hnappur sendir ekta MCP-<code>tools/call</code> (JSON-RPC yfir Streamable HTTP) á <code>/mcp</code> — nákvæmlega eins og gervigreindarfulltrúi.",
   t_conv:"Sama vara · öll tungumál · eitt fingrafar",
-  i_conv:"Þrjár raunverulegar vörur, þrjú uppsetningarlíkön — bæklingur (brotin örk), nafnspjöld (flöt örk) og hefti (fjölsíðna) — hver á níu tungumálum. Veldu vöru og tungumál og sjáðu sömu auðkenni verða til.",
+  i_conv:"Fjórar raunverulegar vörur, fjögur uppsetningarlíkön — bæklingur (brotin örk), nafnspjöld (flöt örk), hefti (fjölsíðna) og plötuprent (sérmál á plötu) — hver á níu tungumálum. Veldu vöru og tungumál og sjáðu sömu auðkenni verða til.",
   h_conv:"Túlkunin (orð → bindingar) er fyrirfram skrifuð fyrir hvert tungumál — í framleiðslu er það verk fulltrúans. Hugtakauppflettingar, envelope-staðfesting og ptpge-cfs/1-fingrafarið keyra <em>live</em> gegn þessum þjóni. Hashið er deterministískt fall, ekki líkansútkoma.",
   hist:"Keyrslusaga — sama vara, ólík tungumál",
   s01:"Hrá forskrift", s02:"Parað við orðaforðann", tag02:"fyrirfram skrifað — verk fulltrúans",
@@ -995,11 +1037,11 @@ is: { sub:"Hver hnappur sendir ekta MCP-<code>tools/call</code> (JSON-RPC yfir S
   h_chain:"Túlkunin (orð → bindingar) er fyrirfram skrifuð hér — það er verk fulltrúans. Uppflettingar, envelope-staðfesting og ptpge-cfs/1-fingrafarið keyra <em>live</em> gegn þessum þjóni.",
   t_own:"Þín eigin skipun — sjáðu hvað leysist",
   h_own:"Alvöru fulltrúi brýtur skipunina niður með LLM; sýnidæmið nálgast það með n-gramma leit — hvert brot er flett upp <em>live</em>.",
-  b_search:"Leita", b_get:"Sækja hugtak", b_resolve:"Leysa orðalag", b_fp:"Fingrafar → merki + QR", b_col:"fella saman", b_exp:"opna", p1:"Bæklingur", p2:"Nafnspjöld", p3:"Hefti", ed_hint:"Breyttu staf í kanóníska forminu — SHA-256 er endurreiknað í vafranum. Endurheimtu, og auðkennið kemur aftur.", ed_diff:"aðrir bætar — annað auðkenni",
-  e_search:"Sláðu inn kaupandafrasa á einu af níu tungumálum — fáðu kanóníska hugtakið með varanlegri URI.", e_get:"Ein URI inn — fullt samhengi út: heiti á öllum tungumálum, skilgreining, staður í trénu.", e_ver:"Hvaða gagna- og þjónsútgáfu þessi playground talar við.", e_chain:"Envelope → staðfesting → fingrafar á föstu dæmi — öll leiðin í þremur smellum.", e_own:"Lýstu prentverki með eigin orðum — og sjáðu hvað fellur að staðlinum.", tr_t:"Lotuskrá — hvert MCP-kall þessarar síðu", tr_clear:"hreinsa", tr_e:"Engin köll enn. Hver hnappur skráir beiðni og svar hér, í tímaröð — samtalið sem gervigreindarfulltrúi ætti við þennan þjón.", e_conv:"Þrjár alvöru vörur á níu tungumálum — sjáðu sama auðkennið verða til, í beinni." },
+  b_search:"Leita", b_get:"Sækja hugtak", b_resolve:"Leysa orðalag", b_fp:"Fingrafar → merki + QR", b_col:"fella saman", b_exp:"opna", p1:"Bæklingur", p2:"Nafnspjöld", p3:"Hefti", p4:"Plötuprent", ed_hint:"Breyttu staf í kanóníska forminu — SHA-256 er endurreiknað í vafranum. Endurheimtu, og auðkennið kemur aftur.", ed_diff:"aðrir bætar — annað auðkenni",
+  e_search:"Sláðu inn kaupandafrasa á einu af níu tungumálum — fáðu kanóníska hugtakið með varanlegri URI.", e_get:"Ein URI inn — fullt samhengi út: heiti á öllum tungumálum, skilgreining, staður í trénu.", e_ver:"Hvaða gagna- og þjónsútgáfu þessi playground talar við.", e_chain:"Envelope → staðfesting → fingrafar á föstu dæmi — öll leiðin í þremur smellum.", e_own:"Lýstu prentverki með eigin orðum — og sjáðu hvað fellur að staðlinum.", tr_t:"Lotuskrá — hvert MCP-kall þessarar síðu", tr_clear:"hreinsa", tr_e:"Engin köll enn. Hver hnappur skráir beiðni og svar hér, í tímaröð — samtalið sem gervigreindarfulltrúi ætti við þennan þjón.", e_conv:"Fjórar alvöru vörur á níu tungumálum — sjáðu sama auðkennið verða til, í beinni." },
 fr: { sub:"Chaque bouton envoie un vrai <code>tools/call</code> MCP (JSON-RPC sur Streamable HTTP) vers <code>/mcp</code> — exactement comme un agent IA.",
   t_conv:"Même produit · toutes les langues · une empreinte",
-  i_conv:"Trois produits réels, trois modèles de montage — brochure (feuille pliée), cartes de visite (feuille plate) et livret (multipage) — chacun en neuf langues. Choisissez un produit et une langue, et regardez la même identité émerger.",
+  i_conv:"Quatre produits réels, quatre modèles de montage — brochure (feuille pliée), cartes de visite (feuille plate), livret (multipage) et impression sur panneau (format sur mesure sur plaque) — chacun en neuf langues. Choisissez un produit et une langue, et regardez la même identité émerger.",
   h_conv:"L'interprétation (mots → liaisons) est pré-écrite par langue — en production, c'est le travail de l'agent IA. Les termes, la validation d'enveloppe et l'empreinte ptpge-cfs/1 s'exécutent <em>en direct</em> sur ce serveur. Le hash est une fonction déterministe, pas une sortie de modèle.",
   hist:"Historique — même produit, langues différentes",
   s01:"Spécification brute", s02:"Résolue contre le vocabulaire", tag02:"pré-écrit — le travail de l'agent",
@@ -1013,11 +1055,11 @@ fr: { sub:"Chaque bouton envoie un vrai <code>tools/call</code> MCP (JSON-RPC su
   h_chain:"L'interprétation (mots → liaisons) est pré-écrite ici — c'est le travail de l'agent IA. Les recherches, la validation d'enveloppe et l'empreinte ptpge-cfs/1 s'exécutent <em>en direct</em> sur ce serveur.",
   t_own:"Votre propre prompt — voyez ce qui se résout",
   h_own:"Un vrai agent décompose le prompt avec un LLM ; la démo l'approxime par recherches n-grammes — chaque fragment est résolu <em>en direct</em>.",
-  b_search:"Rechercher", b_get:"Obtenir le terme", b_resolve:"Résoudre les phrases", b_fp:"Empreinte → marque + QR", b_col:"replier", b_exp:"déplier", p1:"Brochure", p2:"Cartes de visite", p3:"Livret", ed_hint:"Modifiez un caractère de la forme canonique — le SHA-256 est recalculé dans votre navigateur. Restaurez-le et l'identité revient.", ed_diff:"octets différents — identité différente",
-  e_search:"Saisissez une phrase d'acheteur dans l'une des neuf langues — obtenez le terme canonique et son URI permanente.", e_get:"Une URI en entrée — tout le contexte en sortie : libellés dans toutes les langues, définition, place dans l'arbre.", e_ver:"Avec quelle version des données et du serveur ce playground dialogue.", e_chain:"Envelope → validation → empreinte sur un exemple fixe — tout le parcours en trois clics.", e_own:"Décrivez un travail d'impression avec vos mots — et voyez ce qui correspond au Standard.", tr_t:"Transcription de session — chaque appel MCP de cette page", tr_clear:"effacer", tr_e:"Aucun appel pour l'instant. Chaque bouton journalise requête et réponse ici, chronologiquement — la conversation qu'un agent IA aurait avec ce serveur.", e_conv:"Trois produits réels en neuf langues — voyez la même identité émerger, en direct." },
+  b_search:"Rechercher", b_get:"Obtenir le terme", b_resolve:"Résoudre les phrases", b_fp:"Empreinte → marque + QR", b_col:"replier", b_exp:"déplier", p1:"Brochure", p2:"Cartes de visite", p3:"Livret", p4:"Impression sur panneau", ed_hint:"Modifiez un caractère de la forme canonique — le SHA-256 est recalculé dans votre navigateur. Restaurez-le et l'identité revient.", ed_diff:"octets différents — identité différente",
+  e_search:"Saisissez une phrase d'acheteur dans l'une des neuf langues — obtenez le terme canonique et son URI permanente.", e_get:"Une URI en entrée — tout le contexte en sortie : libellés dans toutes les langues, définition, place dans l'arbre.", e_ver:"Avec quelle version des données et du serveur ce playground dialogue.", e_chain:"Envelope → validation → empreinte sur un exemple fixe — tout le parcours en trois clics.", e_own:"Décrivez un travail d'impression avec vos mots — et voyez ce qui correspond au Standard.", tr_t:"Transcription de session — chaque appel MCP de cette page", tr_clear:"effacer", tr_e:"Aucun appel pour l'instant. Chaque bouton journalise requête et réponse ici, chronologiquement — la conversation qu'un agent IA aurait avec ce serveur.", e_conv:"Quatre produits réels en neuf langues — voyez la même identité émerger, en direct." },
 pl: { sub:"Każdy przycisk wysyła prawdziwe MCP-<code>tools/call</code> (JSON-RPC przez Streamable HTTP) do <code>/mcp</code> — dokładnie jak agent AI.",
   t_conv:"Ten sam produkt · każdy język · jeden odcisk",
-  i_conv:"Trzy prawdziwe produkty, trzy modele konstrukcji — broszura (arkusz falcowany), wizytówki (arkusz płaski) i książeczka (wielostronicowa) — każdy w dziewięciu językach. Wybierz produkt i język i zobacz, jak wyłania się ta sama tożsamość.",
+  i_conv:"Cztery prawdziwe produkty, cztery modele konstrukcji — broszura (arkusz falcowany), wizytówki (arkusz płaski), książeczka (wielostronicowa) i druk panelowy (wymiar niestandardowy na płycie) — każdy w dziewięciu językach. Wybierz produkt i język i zobacz, jak wyłania się ta sama tożsamość.",
   h_conv:"Interpretacja (słowa → powiązania) jest przygotowana per język — w produkcji to zadanie agenta AI. Terminy, walidacja envelope i odcisk ptpge-cfs/1 działają <em>na żywo</em> na tym serwerze. Hash to funkcja deterministyczna, nie wynik modelu.",
   hist:"Historia — ten sam produkt, różne języki",
   s01:"Surowa specyfikacja", s02:"Dopasowana do słownika", tag02:"przygotowane — zadanie agenta",
@@ -1031,11 +1073,11 @@ pl: { sub:"Każdy przycisk wysyła prawdziwe MCP-<code>tools/call</code> (JSON-R
   h_chain:"Interpretacja (słowa → powiązania) jest tu przygotowana — to zadanie agenta AI. Wyszukiwania, walidacja envelope i odcisk ptpge-cfs/1 działają <em>na żywo</em> na tym serwerze.",
   t_own:"Twój własny prompt — zobacz, co się rozwiązuje",
   h_own:"Prawdziwy agent rozkłada prompt przy użyciu LLM; demo przybliża to wyszukiwaniami n-gramów — każdy fragment jest sprawdzany <em>na żywo</em>.",
-  b_search:"Szukaj", b_get:"Pobierz termin", b_resolve:"Rozwiąż frazy", b_fp:"Odcisk → znak + QR", b_col:"zwiń", b_exp:"rozwiń", p1:"Broszura", p2:"Wizytówki", p3:"Książeczka", ed_hint:"Zmień znak w formie kanonicznej — SHA-256 zostanie przeliczony w przeglądarce. Przywróć, a tożsamość wróci.", ed_diff:"inne bajty — inna tożsamość",
-  e_search:"Wpisz frazę kupującego w jednym z dziewięciu języków — otrzymasz termin kanoniczny z trwałym URI.", e_get:"Jedno URI na wejściu — pełny kontekst na wyjściu: etykiety we wszystkich językach, definicja, miejsce w drzewie.", e_ver:"Z jaką wersją danych i serwera rozmawia ten playground.", e_chain:"Envelope → walidacja → odcisk na stałym przykładzie — cała podróż w trzech kliknięciach.", e_own:"Opisz zlecenie druku własnymi słowami — i zobacz, co trafia w Standard.", tr_t:"Zapis sesji — każde wywołanie MCP tej strony", tr_clear:"wyczyść", tr_e:"Brak wywołań. Każdy przycisk zapisuje tu żądanie i odpowiedź, chronologicznie — rozmowa, jaką agent AI prowadziłby z tym serwerem.", e_conv:"Trzy prawdziwe produkty w dziewięciu językach — zobacz, jak ta sama tożsamość powstaje na żywo." },
+  b_search:"Szukaj", b_get:"Pobierz termin", b_resolve:"Rozwiąż frazy", b_fp:"Odcisk → znak + QR", b_col:"zwiń", b_exp:"rozwiń", p1:"Broszura", p2:"Wizytówki", p3:"Książeczka", p4:"Druk panelowy", ed_hint:"Zmień znak w formie kanonicznej — SHA-256 zostanie przeliczony w przeglądarce. Przywróć, a tożsamość wróci.", ed_diff:"inne bajty — inna tożsamość",
+  e_search:"Wpisz frazę kupującego w jednym z dziewięciu języków — otrzymasz termin kanoniczny z trwałym URI.", e_get:"Jedno URI na wejściu — pełny kontekst na wyjściu: etykiety we wszystkich językach, definicja, miejsce w drzewie.", e_ver:"Z jaką wersją danych i serwera rozmawia ten playground.", e_chain:"Envelope → walidacja → odcisk na stałym przykładzie — cała podróż w trzech kliknięciach.", e_own:"Opisz zlecenie druku własnymi słowami — i zobacz, co trafia w Standard.", tr_t:"Zapis sesji — każde wywołanie MCP tej strony", tr_clear:"wyczyść", tr_e:"Brak wywołań. Każdy przycisk zapisuje tu żądanie i odpowiedź, chronologicznie — rozmowa, jaką agent AI prowadziłby z tym serwerem.", e_conv:"Cztery prawdziwe produkty w dziewięciu językach — zobacz, jak ta sama tożsamość powstaje na żywo." },
 es: { sub:"Cada botón envía un <code>tools/call</code> MCP real (JSON-RPC sobre Streamable HTTP) a <code>/mcp</code> — exactamente lo que hace un agente de IA.",
   t_conv:"Mismo producto · cualquier idioma · una huella",
-  i_conv:"Tres productos reales, tres modelos de montaje — folleto (hoja plegada), tarjetas de visita (hoja plana) y cuadernillo (multipágina) — cada uno en nueve idiomas. Elija producto e idioma y vea emerger la misma identidad.",
+  i_conv:"Cuatro productos reales, cuatro modelos de montaje — folleto (hoja plegada), tarjetas de visita (hoja plana), cuadernillo (multipágina) e impresión en panel (medida personalizada sobre placa) — cada uno en nueve idiomas. Elija producto e idioma y vea emerger la misma identidad.",
   h_conv:"La interpretación (palabras → vínculos) está preescrita por idioma — en producción es trabajo del agente de IA. Los términos, la validación de envelope y la huella ptpge-cfs/1 se ejecutan <em>en vivo</em> contra este servidor. El hash es una función determinista, no salida de un modelo.",
   hist:"Historial — mismo producto, idiomas distintos",
   s01:"Especificación en bruto", s02:"Resuelta contra el vocabulario", tag02:"preescrito — trabajo del agente",
@@ -1049,11 +1091,11 @@ es: { sub:"Cada botón envía un <code>tools/call</code> MCP real (JSON-RPC sobr
   h_chain:"La interpretación (palabras → vínculos) está preescrita aquí — es trabajo del agente de IA. Las búsquedas, la validación de envelope y la huella ptpge-cfs/1 se ejecutan <em>en vivo</em> contra este servidor.",
   t_own:"Su propio prompt — vea qué se resuelve",
   h_own:"Un agente real descompone el prompt con un LLM; la demo lo aproxima con búsquedas de n-gramas — cada fragmento se consulta <em>en vivo</em>.",
-  b_search:"Buscar", b_get:"Obtener término", b_resolve:"Resolver frases", b_fp:"Huella → marca + QR", b_col:"contraer", b_exp:"expandir", p1:"Folleto", p2:"Tarjetas de visita", p3:"Cuadernillo", ed_hint:"Edite un carácter de la forma canónica — el SHA-256 se recalcula en su navegador. Restáurelo y la identidad vuelve.", ed_diff:"bytes distintos — identidad distinta",
-  e_search:"Escriba una frase de comprador en uno de nueve idiomas — obtenga el término canónico con su URI permanente.", e_get:"Una URI de entrada — contexto completo de salida: etiquetas en todos los idiomas, definición, lugar en el árbol.", e_ver:"Con qué versión de datos y servidor habla este playground.", e_chain:"Envelope → validación → huella sobre un ejemplo fijo — todo el recorrido en tres clics.", e_own:"Describa un trabajo de impresión con sus palabras — y vea qué encaja en el Estándar.", tr_t:"Transcripción de sesión — cada llamada MCP de esta página", tr_clear:"limpiar", tr_e:"Aún no hay llamadas. Cada botón registra aquí petición y respuesta, cronológicamente — la conversación que un agente de IA tendría con este servidor.", e_conv:"Tres productos reales en nueve idiomas — vea emerger la misma identidad, en vivo." },
+  b_search:"Buscar", b_get:"Obtener término", b_resolve:"Resolver frases", b_fp:"Huella → marca + QR", b_col:"contraer", b_exp:"expandir", p1:"Folleto", p2:"Tarjetas de visita", p3:"Cuadernillo", p4:"Impresión en panel", ed_hint:"Edite un carácter de la forma canónica — el SHA-256 se recalcula en su navegador. Restáurelo y la identidad vuelve.", ed_diff:"bytes distintos — identidad distinta",
+  e_search:"Escriba una frase de comprador en uno de nueve idiomas — obtenga el término canónico con su URI permanente.", e_get:"Una URI de entrada — contexto completo de salida: etiquetas en todos los idiomas, definición, lugar en el árbol.", e_ver:"Con qué versión de datos y servidor habla este playground.", e_chain:"Envelope → validación → huella sobre un ejemplo fijo — todo el recorrido en tres clics.", e_own:"Describa un trabajo de impresión con sus palabras — y vea qué encaja en el Estándar.", tr_t:"Transcripción de sesión — cada llamada MCP de esta página", tr_clear:"limpiar", tr_e:"Aún no hay llamadas. Cada botón registra aquí petición y respuesta, cronológicamente — la conversación que un agente de IA tendría con este servidor.", e_conv:"Cuatro productos reales en nueve idiomas — vea emerger la misma identidad, en vivo." },
 ja: { sub:"各ボタンは本物のMCP <code>tools/call</code>（Streamable HTTP上のJSON-RPC）を<code>/mcp</code>に送信します — AIエージェントの動作そのものです。",
   t_conv:"同じ製品 · どの言語でも · ひとつのフィンガープリント",
-  i_conv:"3つの実在製品、3つのセットアップモデル — パンフレット（折り）、名刺（平判）、冊子（多ページ）— それぞれ9言語で表現。製品と言語を選び、同じアイデンティティが現れるのをご覧ください。",
+  i_conv:"4つの実在製品、4つのセットアップモデル — パンフレット（折り）、名刺（平判）、冊子（多ページ）、パネルプリント（カスタムサイズの板材）— それぞれ9言語で表現。製品と言語を選び、同じアイデンティティが現れるのをご覧ください。",
   h_conv:"解釈（言葉 → バインディング）は言語ごとに事前定義 — 本番ではAIエージェントの仕事です。用語参照、envelope検証、ptpge-cfs/1フィンガープリントはこのサーバーで<em>ライブ</em>実行。ハッシュは決定的関数であり、モデルの出力ではありません。",
   hist:"実行履歴 — 同じ製品、異なる言語",
   s01:"元の仕様", s02:"語彙とのマッチング", tag02:"事前定義 — エージェントの仕事",
@@ -1067,11 +1109,11 @@ ja: { sub:"各ボタンは本物のMCP <code>tools/call</code>（Streamable HTTP
   h_chain:"解釈（言葉 → バインディング）はここでは事前定義 — それがAIエージェントの仕事です。参照、envelope検証、ptpge-cfs/1フィンガープリントはこのサーバーで<em>ライブ</em>実行されます。",
   t_own:"自分のプロンプト — 何が解決されるか",
   h_own:"実際のエージェントはLLMでプロンプトを分解します。デモはn-gram検索で近似 — 各フラグメントを<em>ライブ</em>で照会します。",
-  b_search:"検索", b_get:"用語取得", b_resolve:"フレーズを解決", b_fp:"フィンガープリント → マーク + QR", b_col:"折りたたむ", b_exp:"展開", p1:"パンフレット", p2:"名刺", p3:"冊子", ed_hint:"正規形の一文字を変えてみてください — SHA-256はブラウザで再計算されます。元に戻せばアイデンティティも戻ります。", ed_diff:"バイト列が異なる — アイデンティティが異なる",
-  e_search:"9言語いずれかで購買フレーズを入力 — 恒久URI付きの正規用語が返ります。", e_get:"URIを1つ入力 — 全言語のラベル、定義、ツリー上の位置まで完全なコンテキストを返します。", e_ver:"このプレイグラウンドが接続するデータ／サーバーのバージョン。", e_chain:"固定サンプルで Envelope → 検証 → フィンガープリント — 全行程を3クリックで。", e_own:"印刷物を自分の言葉で記述 — 何が標準にマッピングされるかを確認。", tr_t:"セッション記録 — このページが行った全MCP呼び出し", tr_clear:"クリア", tr_e:"まだ呼び出しはありません。各ボタンのリクエストと応答が時系列でここに記録されます — AIエージェントがこのサーバーと交わす会話です。", e_conv:"9言語×3つの実在製品 — 同じアイデンティティがライブで現れるのをご覧ください。" },
+  b_search:"検索", b_get:"用語取得", b_resolve:"フレーズを解決", b_fp:"フィンガープリント → マーク + QR", b_col:"折りたたむ", b_exp:"展開", p1:"パンフレット", p2:"名刺", p3:"冊子", p4:"パネルプリント", ed_hint:"正規形の一文字を変えてみてください — SHA-256はブラウザで再計算されます。元に戻せばアイデンティティも戻ります。", ed_diff:"バイト列が異なる — アイデンティティが異なる",
+  e_search:"9言語いずれかで購買フレーズを入力 — 恒久URI付きの正規用語が返ります。", e_get:"URIを1つ入力 — 全言語のラベル、定義、ツリー上の位置まで完全なコンテキストを返します。", e_ver:"このプレイグラウンドが接続するデータ／サーバーのバージョン。", e_chain:"固定サンプルで Envelope → 検証 → フィンガープリント — 全行程を3クリックで。", e_own:"印刷物を自分の言葉で記述 — 何が標準にマッピングされるかを確認。", tr_t:"セッション記録 — このページが行った全MCP呼び出し", tr_clear:"クリア", tr_e:"まだ呼び出しはありません。各ボタンのリクエストと応答が時系列でここに記録されます — AIエージェントがこのサーバーと交わす会話です。", e_conv:"9言語×4つの実在製品 — 同じアイデンティティがライブで現れるのをご覧ください。" },
 zh: { sub:"每个按钮都会向 <code>/mcp</code> 发送真实的 MCP <code>tools/call</code>（基于 Streamable HTTP 的 JSON-RPC）— 与 AI 智能体的行为完全一致。",
   t_conv:"同一产品 · 任何语言 · 一个指纹",
-  i_conv:"三个真实产品、三种装帧模型 — 宣传册（折页）、名片（平张）、小册子（多页）— 各用九种语言表述。选择产品和语言，看同一身份如何呈现。",
+  i_conv:"四个真实产品、四种装帧模型 — 宣传册（折页）、名片（平张）、小册子（多页）、面板打印（板材自定义尺寸）— 各用九种语言表述。选择产品和语言，看同一身份如何呈现。",
   h_conv:"解释（词语 → 绑定）按语言预先编写 — 在生产中这是 AI 智能体的工作。术语查询、envelope 验证和 ptpge-cfs/1 指纹在此服务器上<em>实时</em>运行。哈希是确定性函数，不是模型输出。",
   hist:"运行历史 — 同一产品，不同语言",
   s01:"原始规格", s02:"与词汇表匹配", tag02:"预先编写 — 智能体的工作",
@@ -1085,8 +1127,8 @@ zh: { sub:"每个按钮都会向 <code>/mcp</code> 发送真实的 MCP <code>too
   h_chain:"解释（词语 → 绑定）在此预先编写 — 那是 AI 智能体的工作。查询、envelope 验证和 ptpge-cfs/1 指纹在此服务器上<em>实时</em>运行。",
   t_own:"你自己的提示 — 看看能解析出什么",
   h_own:"真正的智能体用 LLM 分解提示；演示用 n-gram 搜索近似 — 每个片段都<em>实时</em>查询。",
-  b_search:"搜索", b_get:"获取术语", b_resolve:"解析短语", b_fp:"指纹 → 标记 + QR", b_col:"收起", b_exp:"展开", p1:"宣传册", p2:"名片", p3:"小册子", ed_hint:"试着修改规范形式中的一个字符 — SHA-256 会在浏览器中重新计算。恢复后，身份也随之恢复。", ed_diff:"字节不同 — 身份不同",
-  e_search:"用九种语言之一输入买家用语 — 返回带永久 URI 的规范术语。", e_get:"输入一个 URI — 输出完整上下文：所有语言的标签、定义、在树中的位置。", e_ver:"此演练场连接的数据与服务器版本。", e_chain:"固定示例上的 Envelope → 验证 → 指纹 — 三次点击走完全程。", e_own:"用自己的话描述印刷品 — 看哪些内容映射到标准。", tr_t:"会话记录 — 本页发出的每个 MCP 调用", tr_clear:"清空", tr_e:"尚无调用。每个按钮的请求与响应都会按时间记录在此 — 这就是 AI 智能体与此服务器的对话。", e_conv:"九种语言、三个真实产品 — 实时看同一身份浮现。" },
+  b_search:"搜索", b_get:"获取术语", b_resolve:"解析短语", b_fp:"指纹 → 标记 + QR", b_col:"收起", b_exp:"展开", p1:"宣传册", p2:"名片", p3:"小册子", p4:"面板打印", ed_hint:"试着修改规范形式中的一个字符 — SHA-256 会在浏览器中重新计算。恢复后，身份也随之恢复。", ed_diff:"字节不同 — 身份不同",
+  e_search:"用九种语言之一输入买家用语 — 返回带永久 URI 的规范术语。", e_get:"输入一个 URI — 输出完整上下文：所有语言的标签、定义、在树中的位置。", e_ver:"此演练场连接的数据与服务器版本。", e_chain:"固定示例上的 Envelope → 验证 → 指纹 — 三次点击走完全程。", e_own:"用自己的话描述印刷品 — 看哪些内容映射到标准。", tr_t:"会话记录 — 本页发出的每个 MCP 调用", tr_clear:"清空", tr_e:"尚无调用。每个按钮的请求与响应都会按时间记录在此 — 这就是 AI 智能体与此服务器的对话。", e_conv:"九种语言、四个真实产品 — 实时看同一身份浮现。" },
 };
 const _EN_DEFAULTS = {};
 function setLang(l) {

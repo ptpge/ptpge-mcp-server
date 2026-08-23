@@ -7,6 +7,13 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.8.3 (surface updates) — 2026-08-23
+
+- Playground: fourth product in the convergence demo — **Panel print**
+  (70 × 100 cm custom size, portrait, CMYK front, 5 mm foam board, 3 pcs)
+  in all nine content languages; shows SD-0066 custom dimensions and
+  SD-0070 thickness live. UI strings updated in 13 languages.
+
 ## 0.8.3 — 2026-08-22
 
 - SD-0070: `validate_config` validates the new numeric
