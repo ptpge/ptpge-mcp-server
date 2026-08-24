@@ -7,6 +7,17 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.9.0 — 2026-08-24
+
+- MCP revision **2026-07-28** (SEP-2575/2549): the server is now dual-era.
+  `server/discover` implemented (mandatory in the new revision) — advertises
+  supported versions, capabilities and identity with `ttlMs`/`cacheScope`
+  cache hints. All modern results carry `resultType: "complete"` and
+  `io.modelcontextprotocol/serverInfo` in `_meta`; `tools/list` carries the
+  new cache hints and remains deterministically ordered. Legacy
+  `initialize`/`ping` still answered for older clients. We were stateless
+  from day one, so the stateless-protocol change is purely additive.
+
 ## 0.8.3 (surface updates) — 2026-08-23
 
 - Playground: fourth product in the convergence demo — **Panel print**

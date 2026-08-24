@@ -973,8 +973,13 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
 # Protocol revisions we know how to speak. We echo the client's requested
 # version when we recognise it; otherwise we answer with our latest, per the
 # MCP version-negotiation rules.
-SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2026-07-28")
 LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[-1]
+# 2026-07-28 (SEP-2575): protokollen er stateless, initialize-håndtrykket er
+# borte i moderne æra, og server/discover er OBLIGATORISK. Vi er dual-era:
+# initialize besvares fortsatt (legacy-klienter), server/discover + per-
+# request-metadata dekker moderne klienter. Vi var stateless hele veien, så
+# overgangen er additiv.
 
 SERVER_INSTRUCTIONS = (
     "PTPGE Standard vocabulary server (printing & graphic industry). "
@@ -989,8 +994,24 @@ def negotiate_protocol_version(requested: object) -> str:
     return LATEST_PROTOCOL_VERSION
 
 
+_SERVER_INFO = {"name": "ptpge-mcp", "title": "PTPGE Standard MCP"}
+
+
 def _rpc_result(msg_id: object, result: dict) -> dict:
     return {"jsonrpc": "2.0", "id": msg_id, "result": result}
+
+
+def _modern_result(msg_id: object, result: dict) -> dict:
+    """2026-07-28-form: resultType er påkrevd i moderne resultater, og
+    serveren identifiserer seg i hvert svars _meta (statelessness — ingen
+    tilstand fra initialize). Legacy-klienter skal per spec behandle
+    fraværende resultType som "complete", og ekstra felt er ufarlige, så
+    formen er trygg for begge æraer."""
+    result.setdefault("resultType", "complete")
+    meta = result.setdefault("_meta", {})
+    meta.setdefault("io.modelcontextprotocol/serverInfo",
+                    dict(_SERVER_INFO, version=__version__))
+    return _rpc_result(msg_id, result)
 
 
 def _rpc_error(msg_id: object, code: int, message: str) -> dict:
@@ -1025,12 +1046,27 @@ def handle_jsonrpc_message(cache: "VocabularyCache", msg: object) -> dict | None
             "instructions": SERVER_INSTRUCTIONS,
         })
 
+    if method == "server/discover":
+        # SEP-2575: OBLIGATORISK i 2026-07-28 — annonser versjoner,
+        # kapabiliteter og identitet uten noen forutgående tilstand.
+        return _modern_result(msg_id, {
+            "supportedVersions": list(SUPPORTED_PROTOCOL_VERSIONS),
+            "capabilities": {"tools": {"listChanged": False}},
+            "instructions": SERVER_INSTRUCTIONS,
+            "ttlMs": 3600000,
+            "cacheScope": "public",
+        })
+
     if method == "ping":
+        # Fjernet i 2026-07-28, beholdt for legacy-klienter (dual-era).
         return _rpc_result(msg_id, {})
 
     if method == "tools/list":
         tools = [t.model_dump(by_alias=True, exclude_none=True) for t in TOOL_DESCRIPTORS]
-        return _rpc_result(msg_id, {"tools": tools})
+        # SEP-2549: liste-resultater bærer cache-hint i 2026-07-28.
+        # Rekkefølgen er deterministisk (fast deskriptorliste) per SHOULD-kravet.
+        return _modern_result(msg_id, {"tools": tools,
+                                       "ttlMs": 3600000, "cacheScope": "public"})
 
     if method == "tools/call":
         params = msg.get("params") or {}
@@ -1046,7 +1082,7 @@ def handle_jsonrpc_message(cache: "VocabularyCache", msg: object) -> dict | None
                 "content": [{"type": "text", "text": f"Tool execution failed: {exc}"}],
                 "isError": True,
             })
-        return _rpc_result(msg_id, {
+        return _modern_result(msg_id, {
             "content": [{
                 "type": "text",
                 "text": json.dumps(payload, ensure_ascii=False, indent=2),
