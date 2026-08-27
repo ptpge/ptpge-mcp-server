@@ -283,14 +283,23 @@ class VocabularyCache:
             logger.warning("Version check failed (will retry): %s", exc)
             return False
 
+        # Freshness is (version, generated), not version alone. dataVersion is
+        # a date, so two deploys on the same day carry the same string and a
+        # version-only check silently keeps serving the older dataset until
+        # someone happens to restart the app. `generated` is a full timestamp
+        # written by tools/build_api.py on every build, so it moves whenever
+        # anything is rebuilt — including a same-day correction.
+        def _key(v: dict | None) -> tuple:
+            return ((v or {}).get("version"), (v or {}).get("generated"))
+
         with self._lock:
-            current = self._version.get("version") if self._version else None
-            remote = remote_version.get("version")
+            current = _key(self._version)
+        remote = _key(remote_version)
 
         if remote == current:
             return False
 
-        logger.info("New dataset version detected: %s -> %s", current, remote)
+        logger.info("New dataset detected: %s -> %s", current, remote)
         try:
             self.load()
             return True
