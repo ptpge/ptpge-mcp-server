@@ -146,6 +146,7 @@ from . import __version__
 from . import registerclient as _reg
 from .config import Config
 from . import fingermark as _fm
+from . import colornotation
 from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
 from .htpasswd import HtpasswdVerifier
@@ -427,6 +428,40 @@ TOOL_DESCRIPTORS: list[Tool] = [
         },
     ),
     Tool(
+        name="ptpge_resolve_color_notation",
+        description=(
+            "Resolve print colour pair notation (4/4, 4/1, 4+4) into per-surface "
+            "colour bindings for a given product. The number is a COUNT OF "
+            "SEPARATIONS, not a colour: it is resolved by searching the "
+            "combinations this product's envelope actually supports whose "
+            "colorChannelCount sums to that number. Returns one of three "
+            "outcomes per surface — a deterministic binding, "
+            "`needs_disambiguation` with the candidate combinations, or "
+            "`invalid_for_template` when no combination is possible. "
+            "IMPORTANT: when `needs_disambiguation` is returned you MUST put its "
+            "`question` to the user and never infer the answer yourself. '1' is "
+            "black on some products and a named spot colour on others; guessing "
+            "gives two different products the same identity. Do not fingerprint "
+            "an unresolved configuration."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "product": {"type": "string", "description": "Product URI or path."},
+                "notation": {"type": "string", "description": "Pair notation, e.g. '4/4', '4 / 1', '4+4'."},
+                "surfaces": {
+                    "type": "array",
+                    "description": ("Optional surface slugs in notation order. Defaults to "
+                                    "['front','back']; folded products may use "
+                                    "['outside','inside']."),
+                    "items": {"type": "string"},
+                },
+                "language": {"type": "string", "default": "en"},
+            },
+            "required": ["product", "notation"],
+        },
+    ),
+    Tool(
         name="ptpge_fingerprint",
         description=(
             "Compute the canonical ptpge-cfs/1 serialization and SHA-256 "
@@ -635,6 +670,61 @@ def envelope_payload(cache: "VocabularyCache", id_or_path: str, language: str) -
         elif key in ("typicalPageCount", "fulfilmentClass"):
             out["typical"][key] = value
     return out
+
+
+def color_notation_payload(cache: "VocabularyCache", args: dict) -> object:
+    """SD-0071: pair notation → per-surface bindings, or a question.
+
+    The count is resolved against what this product's envelope supports, so the
+    same "4/1" is deterministic on a product whose back surface only takes
+    black and a question on one that also takes spot colour. We never guess.
+    """
+    language = args.get("language", "en")
+    uri = _full_uri(args.get("product", ""))
+    product = cache.get_term(uri)
+    if product is None:
+        return {"error": "not_found", "product": args.get("product")}
+    if product.get("elementType") != "product":
+        return {"error": "not_a_product", "id": product.get("id")}
+
+    supported = product.get("perSurfaceSupportsColorMode") or []
+    if not supported:
+        return {"error": "no_per_surface_color",
+                "product": _ref(cache, uri, language),
+                "hint": ("This product declares no perSurfaceSupportsColorMode, so colour "
+                         "is not a per-surface axis for it (SD-0068 closed semantics).")}
+
+    channels = {u: n for u in supported
+                if (n := colornotation.channel_count(cache.get_term(u))) is not None}
+    surfaces = [s for s in (args.get("surfaces") or []) if isinstance(s, str)]
+
+    try:
+        resolution = colornotation.resolve(
+            args.get("notation", ""), supported, channels,
+            surfaces or colornotation.SURFACES)
+    except colornotation.NotationError:
+        return {"error": "not_pair_notation",
+                "notation": args.get("notation"),
+                "hint": ("Expected two counts separated by '/' or '+', e.g. '4/4', '4/1', "
+                         "'4 + 4'. A single colour (e.g. 'CMYK') is a term lookup — use "
+                         "ptpge_search_terms instead.")}
+
+    payload = resolution.to_dict()
+    payload["product"] = _ref(cache, uri, language)
+    # Label the URIs so the agent can put the question to a human unaided.
+    for entry in payload.get("needs_disambiguation", []):
+        if entry.get("reason") != "surface_count":
+            continue
+        entry["candidate_labels"] = [
+            [_ref(cache, u, language) for u in combo] for combo in entry["candidates"]
+        ]
+    for surface in payload["surfaces"].values():
+        if surface.get("binding"):
+            surface["binding_labels"] = [_ref(cache, u, language) for u in surface["binding"]]
+    if payload.get("needs_disambiguation"):
+        payload["guidance"] = ("Put the question to the user. Do not infer the answer: the "
+                               "same notation means different products on different presses.")
+    return payload
 
 
 def validate_payload(cache: "VocabularyCache", args: dict) -> object:
@@ -959,6 +1049,9 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
 
     if name == "ptpge_validate_config":
         return validate_payload(cache, args)
+
+    if name == "ptpge_resolve_color_notation":
+        return color_notation_payload(cache, args)
 
     if name == "ptpge_fingerprint":
         return fingerprint_payload(args)

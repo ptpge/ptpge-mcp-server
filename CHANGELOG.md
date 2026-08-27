@@ -7,6 +7,30 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.10.0 — 2026-08-27
+
+- New tool **`ptpge_resolve_color_notation`** (tool surface 7 → 8), implementing
+  SD-0071. Print colour pair notation (`4/4`, `4/1`, `4+4`) resolves to
+  per-surface bindings — the notation buyers actually write, and the one XJDF
+  carries as `ColorIntent`/SurfaceColor.
+- The count is treated as a **constraint, not a value**. Hand-written candidate
+  lists collapse (7 = CMYKOGV, or CMYKOG+white, or CMYK+3 spots, or CMYK+2
+  spots+white, …), so the resolver instead searches the combinations *this
+  product's envelope supports* whose `colorChannelCount` sums to N. Three
+  outcomes: a deterministic binding, `needs_disambiguation` with the candidates
+  and a ready-made question, or `invalid_for_template`.
+- Consequence worth stating: the same `4/1` is **deterministic** on a product
+  whose back surface only supports black, and a **question** on one that also
+  supports spot colour. Two declared conventions: `4` is CMYK, `0` is None.
+  Black is never added to CMYK (K is already there); `+` between *different*
+  numbers asks first, since parts of the trade read `4+1` as five inks on one
+  surface.
+- The tool description instructs agents never to infer an ambiguous count. We
+  cannot force a third-party agent to ask, but the ambiguity is now a
+  machine-readable fact rather than something it cannot see.
+- New module `ptpge_mcp/colornotation.py`, deliberately free of MCP/HTTP
+  concerns so the API and Engine can import it unchanged. 32 new tests (85 total).
+
 ## 0.9.0 — 2026-08-24
 
 - MCP revision **2026-07-28** (SEP-2575/2549): the server is now dual-era.
