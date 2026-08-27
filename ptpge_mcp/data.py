@@ -21,12 +21,26 @@ from typing import Any
 
 import httpx
 
-from . import semantic
+from . import inflect, semantic
 from .config import Config
 
 # Hybrid search weights (used only when semantic embeddings are available).
 _LEX_WEIGHT = 0.35
 _SEM_WEIGHT = 0.65
+# Inflected forms of each label, built once per term and memoised on the term
+# itself: the work is pure and the index is rebuilt on every reload, so there
+# is nothing to invalidate.
+_INFLECT_KEY = "_inflected_forms"
+
+
+def _inflected(entry: dict) -> tuple[frozenset, frozenset]:
+    forms = entry.get(_INFLECT_KEY)
+    if forms is None:
+        forms = inflect.index_for(entry)
+        entry[_INFLECT_KEY] = forms
+    return forms
+
+
 _SEM_THRESHOLD = 0.35  # minimum blended score to surface a semantic-only hit
 
 logger = logging.getLogger(__name__)
@@ -223,8 +237,16 @@ class VocabularyCache:
                 score = 1.0
             elif any(lbl == q for lbl in labels):
                 score = 0.95
+            elif q in _inflected(entry)[0]:
+                # SD-0072: the buyer's grammar is not a signal. «Broschüre» and
+                # «Broschüren» are one request. Below exact by design, so a term
+                # that owns the word outright is never displaced by one that
+                # merely inflects to it.
+                score = 0.93
             elif any(a == q for a in alt_values):
                 score = 0.90
+            elif q in _inflected(entry)[1]:
+                score = 0.88
             elif any(lbl.startswith(q) for lbl in labels):
                 score = 0.85
             elif any(a.startswith(q) for a in alt_values):

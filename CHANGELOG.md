@@ -7,6 +7,22 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.20.0 — 2026-08-27
+
+- **Number-tolerant matching (SD-0072).** «Broschüre» and «Broschüren» are one
+  request; so are «sticker» and «stickers», «visittkort» and «visittkortet».
+  Each label grows inflected forms, matched one tier below exact — so nothing
+  that resolves correctly today is displaced, and the forms a buyer happens to
+  choose stop being the difference between an answer and silence.
+
+  Generated from our own labels rather than by stemming the query: we know what
+  our labels are, and we do not know what the buyer typed. Stemming an unknown
+  word is how «Poster» becomes «post». Truncation is held to a longer minimum
+  than suffixing for the same reason.
+
+  Five failures in the 342-phrase product-variant corpus resolved, none broken.
+  CJK excluded — no grammatical number.
+
 ## 0.19.0 — 2026-08-27
 
 - **A view-only key for /learning**, `PTPGE_LEARNING_KEY_READONLY`. It shows the
