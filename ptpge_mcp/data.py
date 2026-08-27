@@ -162,7 +162,9 @@ class VocabularyCache:
         Scoring (higher = more relevant):
             1.00 — whole query exactly equals `notation`
             0.95 — whole query exactly equals a label (any language)
+            0.90 — whole query exactly equals an altLabel (any language)
             0.85 — a label (any language) starts with the whole query
+            0.80 — an altLabel (any language) starts with the whole query
             otherwise, min over tokens of the best per-token score:
                 0.70 — token substring in a label (any language)
                 0.60 — token substring in an altLabel (any language)
@@ -212,12 +214,21 @@ class VocabularyCache:
             ]
 
             # Whole-query exact/prefix matches rank above token matches.
+            # An exact synonym hit must outrank a partial one: searching
+            # «パントン» should reach the system that IS called that, not the
+            # library merely containing it in «パントン ソリッド». Without the
+            # exact-altLabel tier both scored 0.60 and the winner depended on
+            # index order.
             if notation and notation == q:
                 score = 1.0
             elif any(lbl == q for lbl in labels):
                 score = 0.95
+            elif any(a == q for a in alt_values):
+                score = 0.90
             elif any(lbl.startswith(q) for lbl in labels):
                 score = 0.85
+            elif any(a.startswith(q) for a in alt_values):
+                score = 0.80
             else:
                 per_token: list[float] = []
                 for t in tokens:
@@ -255,7 +266,10 @@ class VocabularyCache:
             elif score > 0:
                 results.append((score, entry))
 
-        results.sort(key=lambda r: -r[0])
+        # Deterministic: equal scores break on the URI, never on index order.
+        # A standard that promises lookups rather than interpretations cannot
+        # answer the same query differently between two calls.
+        results.sort(key=lambda r: (-r[0], r[1].get("id") or ""))
         return [
             {
                 "id": entry["id"],

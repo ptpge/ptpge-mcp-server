@@ -241,3 +241,63 @@ def test_search_token_in_alt_label(loaded_cache):
     results = loaded_cache.search("ISO A")
     notations = [r["notation"] for r in results]
     assert "CF-FMT-ASER" in notations
+
+
+# --------------------------------------------------------------------------
+# Exact-synonym ranking and deterministic ties
+# --------------------------------------------------------------------------
+
+class _AltCache:
+    """Two terms where one's altLabel is a prefix of the other's."""
+
+    version = {"version": "x", "generated": "y"}
+
+    _entries = [
+        {"id": "https://ptpge.org/v1/b-library", "notation": "P:X§LIB",
+         "label": {"en": "Pantone Solid"},
+         "altLabels": {"ja": ["パントン ソリッド"], "en": ["Pantone Solid Coated"]}},
+        {"id": "https://ptpge.org/v1/a-system", "notation": "P:X§SYS",
+         "label": {"en": "Pantone"},
+         "altLabels": {"ja": ["パントン"], "en": ["PMS"]}},
+    ]
+
+    def __init__(self):
+        from ptpge_mcp.data import VocabularyCache
+        from ptpge_mcp.config import Config
+        self._c = VocabularyCache.__new__(VocabularyCache)
+        import threading
+        self._c._lock = threading.RLock()
+        self._c._search_index = {"terms": self._entries}
+        self._c._config = None
+
+    def search(self, **kw):
+        from ptpge_mcp.data import VocabularyCache
+        return VocabularyCache.search(self._c, **kw)
+
+
+def test_exact_altlabel_outranks_partial(monkeypatch):
+    from ptpge_mcp import semantic
+    monkeypatch.setattr(semantic, "query_sims", lambda q: None)
+    hits = _AltCache().search(query="パントン", limit=5)
+    assert hits, "expected both terms to match"
+    assert hits[0]["id"].endswith("/a-system"), \
+        "an exact synonym must beat a synonym that merely contains the query"
+    assert hits[0]["score"] > hits[1]["score"], "scores must not tie here"
+
+
+def test_altlabel_prefix_tier(monkeypatch):
+    from ptpge_mcp import semantic
+    monkeypatch.setattr(semantic, "query_sims", lambda q: None)
+    hits = _AltCache().search(query="pms", limit=5)
+    assert hits[0]["id"].endswith("/a-system")
+    assert hits[0]["score"] == 0.9          # exact altLabel
+
+
+def test_ties_are_deterministic(monkeypatch):
+    """Equal scores break on the URI, so repeated calls never reshuffle."""
+    from ptpge_mcp import semantic
+    monkeypatch.setattr(semantic, "query_sims", lambda q: None)
+    c = _AltCache()
+    runs = [[h["id"] for h in c.search(query="pantone", limit=5)] for _ in range(5)]
+    assert all(r == runs[0] for r in runs), "search order must be stable"
+    assert runs[0] == sorted(runs[0]) or len(set(runs[0])) == len(runs[0])

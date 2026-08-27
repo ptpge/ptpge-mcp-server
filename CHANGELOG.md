@@ -7,6 +7,19 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.12.1 — 2026-08-27
+
+- **Search: an exact synonym now outranks a partial one.** Two new tiers —
+  0.90 when the query exactly equals an altLabel, 0.80 when an altLabel starts
+  with it — sit between the existing exact-label (0.95) and label-prefix (0.85)
+  tiers. Found by searching «パントン»: the system that IS called that and the
+  library merely containing it in «パントン ソリッド» both scored 0.60, because
+  exact and substring synonym hits were indistinguishable.
+- **Ties are deterministic.** Equal scores now break on the term URI rather
+  than on index order, so the same query cannot return a different first result
+  between two calls. A standard whose pitch is «a lookup, never an
+  interpretation» must not answer twice.
+
 ## 0.12.0 — 2026-08-27
 
 - **ETag validation on cacheable results.** Read methods (`tools/list`,
