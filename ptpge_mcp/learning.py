@@ -45,11 +45,29 @@ WEAK_BELOW = 0.55
 MAX_PHRASES = 4000          # hard cap; least-seen entries are dropped first
 MAX_PHRASE_LEN = 60         # longer than this is a prompt, not a term
 
+# Script and orthography hints. A single trade word cannot be language-typed
+# reliably — "banner" is English and German both — so these are marked as
+# guesses in the UI. The CJK ones are certain; the Latin ones lean on
+# characters that only some languages use.
+_SCRIPTS = [
+    ("ja", re.compile(r"[\u3040-\u30ff]")),          # kana — certain
+    ("zh", re.compile(r"[\u4e00-\u9fff]")),          # Han (also ja kanji; kana wins above)
+    ("ko", re.compile(r"[\uac00-\ud7af]")),
+    ("el", re.compile(r"[\u0370-\u03ff]")),
+    ("ru", re.compile(r"[\u0400-\u04ff]")),
+]
+_ORTHO = [
+    ("nb/da", re.compile(r"[øæåØÆÅ]")),
+    ("de", re.compile(r"[äöüßÄÖÜ]")),
+    ("es", re.compile(r"[ñáéíóúü¿¡]")),
+    ("fr", re.compile(r"[çèêëàâîïôùû]")),
+]
+
 _EMAILISH = re.compile(r"[^\s@]+@[^\s@]+")
 _LONGDIGITS = re.compile(r"\d{5,}")
 
 _lock = threading.RLock()
-_state: dict = {"misses": {}, "weak": {}, "colour": {}}
+_state: dict = {"misses": {}, "weak": {}, "colour": {}, "ignored": {}}
 _path: str | None = None
 _dirty = False
 
@@ -64,6 +82,22 @@ def _safe(phrase: str) -> str | None:
     return p.lower()
 
 
+def language_hint(phrase: str) -> str:
+    """A short tag for which language the phrase is probably in.
+
+    Certain for non-Latin scripts, a guess for Latin ones — «nb/da?» rather
+    than a claim. Shown so the table says WHICH language's synonyms are thin,
+    which is the whole reason to look at it.
+    """
+    for tag, rx in _SCRIPTS:
+        if rx.search(phrase):
+            return tag
+    for tag, rx in _ORTHO:
+        if rx.search(phrase):
+            return tag + "?"
+    return ""
+
+
 def configure(path: str | None) -> None:
     """Point the recorder at a file. None (or an unwritable path) disables it."""
     global _path
@@ -76,7 +110,7 @@ def configure(path: str | None) -> None:
             with open(path, encoding="utf-8") as fh:
                 loaded = json.load(fh)
             if isinstance(loaded, dict):
-                for k in ("misses", "weak", "colour"):
+                for k in ("misses", "weak", "colour", "ignored"):
                     if isinstance(loaded.get(k), dict):
                         _state[k] = loaded[k]
         _path = path
@@ -103,7 +137,7 @@ def _bump(bucket: str, key: str, **fields) -> None:
         _dirty = True
 
 
-def record_search(query: str, hits: list[dict]) -> None:
+def record_search(query: str, hits: list[dict], language: str | None = None) -> None:
     """Judge one search. Only failures are kept."""
     if _path is None:
         return
@@ -111,15 +145,25 @@ def record_search(query: str, hits: list[dict]) -> None:
     if phrase is None:
         return
     try:
+        with _lock:
+            known = phrase in _state.get("ignored", {})
+        if known:
+            # Out of scope by decision, not by oversight — keep counting so the
+            # size of the demand stays visible if the scope ever changes.
+            _bump("ignored", phrase)
+            return
+        # `lang` is what the caller declared (often nothing); `hint` is what the
+        # characters suggest. Kept apart so a guess is never read as a fact.
+        meta = {"hint": language_hint(query), "lang": language or None}
         if not hits:
-            _bump("misses", phrase, got=None, score=None)
+            _bump("misses", phrase, got=None, score=None, **meta)
         else:
             top = hits[0]
             score = top.get("score")
             if score is not None and score < WEAK_BELOW:
                 _bump("weak", phrase,
                       got=(top.get("id") or "").replace("https://ptpge.org/v1/", ""),
-                      score=score)
+                      score=score, **meta)
     except Exception:                                          # pragma: no cover
         pass                    # never let bookkeeping break a lookup
 
@@ -141,6 +185,43 @@ def record_colour_question(product: str, surface: str, count: int,
         pass
 
 
+def ignore(phrase: str, reason: str = "out of scope") -> bool:
+    """Take a phrase off the list for good.
+
+    Used for words that are missing on purpose — merchandise, apparel, 3D and
+    POS are outside the 54 product templates by decision, so their absence is
+    not a gap to fix. The phrase stops appearing, but its hits keep being
+    counted under `ignored`, so if the scope ever widens the demand is already
+    measured.
+    """
+    p = _safe(phrase)
+    if p is None:
+        return False
+    with _lock:
+        for bucket in ("misses", "weak"):
+            _state[bucket].pop(p, None)
+        entry = _state.setdefault("ignored", {}).setdefault(
+            p, {"n": 0, "first": _today(), "reason": reason})
+        entry["reason"] = reason
+        entry["last"] = _today()
+        global _dirty
+        _dirty = True
+    flush()
+    return True
+
+
+def unignore(phrase: str) -> bool:
+    p = _safe(phrase)
+    if p is None:
+        return False
+    with _lock:
+        gone = _state.get("ignored", {}).pop(p, None) is not None
+        global _dirty
+        _dirty = True
+    flush()
+    return gone
+
+
 def flush() -> None:
     """Write the file if anything changed. Cheap; safe to call often."""
     global _dirty
@@ -148,7 +229,7 @@ def flush() -> None:
         return
     try:
         with _lock:
-            for bucket in ("misses", "weak", "colour"):
+            for bucket in ("misses", "weak", "colour", "ignored"):
                 entries = _state[bucket]
                 if len(entries) > MAX_PHRASES:
                     keep = sorted(entries.items(), key=lambda kv: -kv[1].get("n", 0))
@@ -173,14 +254,14 @@ def snapshot() -> dict:
                 key=lambda r: (-r.get("n", 0), r["key"]))
         return {"enabled": _path is not None,
                 "misses": rows("misses"), "weak": rows("weak"),
-                "colour": rows("colour"),
+                "colour": rows("colour"), "ignored": rows("ignored"),
                 "totals": {k: sum(e.get("n", 0) for e in _state[k].values())
-                           for k in ("misses", "weak", "colour")}}
+                           for k in ("misses", "weak", "colour", "ignored")}}
 
 
 def reset() -> None:
     with _lock:
-        for k in ("misses", "weak", "colour"):
+        for k in ("misses", "weak", "colour", "ignored"):
             _state[k] = {}
         global _dirty
         _dirty = True

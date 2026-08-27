@@ -7,6 +7,31 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.15.1 — 2026-08-27
+
+- **Language on every row.** Without it the table cannot answer the question it
+  exists for — *which* language's synonyms are thin. Three levels, kept apart so
+  a guess is never read as a fact: certain for non-Latin scripts (`ja`, `zh`),
+  a guess from distinctive characters for Latin ones (`de?` from ä/ö/ü, `nb/da?`
+  from ø/æ/å), and the caller's own `language` argument when they supplied one.
+  Where nothing is known it says so rather than assuming English.
+
+## 0.15.0 — 2026-08-27
+
+- **`/learning` is behind a key.** A list of what the vocabulary cannot do is an
+  internal instrument, not a demo, and the open mirror is unauthenticated by
+  design — so the page carries its own lock: `?key=` once, then a session
+  cookie. Without `PTPGE_LEARNING_KEY` set the page does not exist on that
+  instance at all. Nothing about the vocabulary's weaknesses is served before
+  the key is presented.
+- **Out of scope, not missing.** Each row can be set aside with one click.
+  Merchandise, apparel, 3D and POS sit outside the 54 product templates by
+  decision, so their absence is not a gap and should not clutter the list — but
+  the hits keep accumulating under `ignored`, so the size of that demand is
+  already measured if the scope is ever revisited. Reversible.
+- Curation is key-gated too (`POST /learning/curate`), so no passer-by can edit
+  what the vocabulary has learned.
+
 ## 0.14.0 — 2026-08-27
 
 - **The learning loop, live** (SD-0071 §9). Every lookup through `/mcp` is now

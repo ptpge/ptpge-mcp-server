@@ -1080,7 +1080,7 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
         hits = cache.search(query=query, limit=limit, groups=groups, language=language)
         # SD-0071 §9: a lookup that failed is the only thing worth learning from.
         # Phrase and score only — never who asked. See ptpge_mcp/learning.py.
-        learning.record_search(query, hits)
+        learning.record_search(query, hits, args.get("language"))
         return {"query": query, "count": len(hits), "results": hits}
 
     if name == "ptpge_get_term":
@@ -1625,8 +1625,48 @@ def build_app() -> Starlette:
         Every lookup through /mcp is judged; the failures land here. No caller
         is identified: phrases and counts only.
         """
-        from .learningpage import page_html as _lp
-        return HTMLResponse(_lp(learning.snapshot()))
+        from .learningpage import locked_html, page_html as _lp
+        key = os.environ.get("PTPGE_LEARNING_KEY")
+        if not key:
+            # No key configured on this instance: the page does not exist here.
+            return HTMLResponse(locked_html(unconfigured=True), status_code=404)
+        # A list of what the vocabulary cannot do is an internal instrument, not
+        # a demo — the open mirror is unauthenticated by design, so this page
+        # carries its own lock. ?key= once, then a cookie for the session.
+        supplied = (request.query_params.get("key")
+                    or request.cookies.get("ptpge_learning") or "")
+        if not secrets.compare_digest(supplied, key):
+            return HTMLResponse(locked_html(), status_code=401)
+        resp = HTMLResponse(_lp(learning.snapshot(), curatable=True))
+        if request.query_params.get("key"):
+            resp.set_cookie("ptpge_learning", key, httponly=True, samesite="strict",
+                            secure=True, max_age=60 * 60 * 12)
+        return resp
+
+    async def learning_curate(request: Request) -> Response:
+        """Mark a phrase out of scope, or put it back.
+
+        Key-gated: the open mirror is public, and nobody but us should be able
+        to edit what the vocabulary has learned. The key lives in
+        PTPGE_LEARNING_KEY; without it set, curation is simply unavailable.
+        """
+        key = os.environ.get("PTPGE_LEARNING_KEY")
+        if not key:
+            return JSONResponse({"error": "curation_disabled"}, status_code=404)
+        if not secrets.compare_digest(request.headers.get("x-learning-key", ""), key):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "bad_request"}, status_code=400)
+        phrase = (body.get("phrase") or "").strip()
+        if not phrase:
+            return JSONResponse({"error": "no_phrase"}, status_code=400)
+        if body.get("undo"):
+            ok = learning.unignore(phrase)
+        else:
+            ok = learning.ignore(phrase, body.get("reason") or "out of scope")
+        return JSONResponse({"ok": ok, "phrase": phrase})
 
     async def health(_request: Request) -> JSONResponse:
         try:
@@ -1792,6 +1832,7 @@ def build_app() -> Starlette:
             Route("/playground", endpoint=playground, methods=["GET"]),
             Route("/miss-report", endpoint=miss_report, methods=["GET"]),
             Route("/learning", endpoint=learning_page, methods=["GET"]),
+            Route("/learning/curate", endpoint=learning_curate, methods=["POST"]),
             Route("/chat", endpoint=chat, methods=["POST", "OPTIONS"]),
             Route("/vision", endpoint=vision, methods=["POST", "OPTIONS"]),
             Route("/health", endpoint=health, methods=["GET"]),

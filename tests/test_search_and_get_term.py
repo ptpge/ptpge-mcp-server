@@ -364,3 +364,31 @@ def test_learning_disabled_is_silent():
     learning.reset(); learning.configure(None)
     learning.record_search("anything", [])          # must not raise
     assert learning.snapshot()["enabled"] is False
+
+
+def test_ignored_phrases_leave_the_list_but_keep_counting(tmp_path):
+    """Out of scope by decision is not a gap — hide it, but keep the demand."""
+    from ptpge_mcp import learning
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    learning.record_search("ballpoint pens", [])
+    assert learning.snapshot()["totals"]["misses"] == 1
+
+    assert learning.ignore("ballpoint pens", "merch — outside the 54 templates")
+    snap = learning.snapshot()
+    assert snap["misses"] == []                       # off the list
+    assert snap["ignored"][0]["key"] == "ballpoint pens"
+
+    for _ in range(5):
+        learning.record_search("ballpoint pens", [])  # asked again, still hidden
+    snap = learning.snapshot()
+    assert snap["misses"] == []
+    assert snap["totals"]["ignored"] == 5             # but the demand is measured
+
+
+def test_ignore_can_be_undone(tmp_path):
+    from ptpge_mcp import learning
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    learning.ignore("mugs")
+    assert learning.unignore("mugs")
+    learning.record_search("mugs", [])
+    assert learning.snapshot()["misses"][0]["key"] == "mugs"
