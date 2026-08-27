@@ -1619,7 +1619,7 @@ def build_app() -> Starlette:
         from .missreport import page_html
         return HTMLResponse(page_html())
 
-    async def learning_page(_request: Request) -> HTMLResponse:
+    async def learning_page(request: Request) -> HTMLResponse:
         """What real requests could not resolve — SD-0071 §9, accumulated.
 
         Every lookup through /mcp is judged; the failures land here. No caller

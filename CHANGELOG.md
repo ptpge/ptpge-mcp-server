@@ -7,6 +7,14 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.15.2 — 2026-08-27
+
+- **Fix: /learning returned 500 once a key was configured.** The endpoint took
+  `_request` but its body read `request`, so the gate raised `NameError` on the
+  only path that reaches it — the path that exists after someone sets the key.
+  A test now walks all three doors (no key → 404, wrong key → 401, right key →
+  the table), so the gate can never again be shipped untried.
+
 ## 0.15.1 — 2026-08-27
 
 - **Language on every row.** Without it the table cannot answer the question it

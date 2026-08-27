@@ -392,3 +392,36 @@ def test_ignore_can_be_undone(tmp_path):
     assert learning.unignore("mugs")
     learning.record_search("mugs", [])
     assert learning.snapshot()["misses"][0]["key"] == "mugs"
+
+
+def test_learning_page_route_survives_a_configured_key(tmp_path, monkeypatch):
+    """The gate must run, not crash.
+
+    A key set on the server is the only path that reaches the lock; a typo in
+    the endpoint's own parameter name therefore stays invisible until the
+    moment it matters. This walks all three doors: no key, wrong key, right key.
+    """
+    from starlette.testclient import TestClient
+    from ptpge_mcp import learning, server as server_mod
+
+    learning.reset()
+    learning.configure(str(tmp_path / "l.json"))
+    learning.record_search("チラシ", [])
+
+    # The app is built for its routes only; the vocabulary is fetched over the
+    # network at startup and is irrelevant to a gate that runs before any data.
+    monkeypatch.setattr(server_mod.VocabularyCache, "load", lambda self: None)
+    monkeypatch.setattr(server_mod.VocabularyCache, "maybe_reload", lambda self: None)
+
+    monkeypatch.delenv("PTPGE_LEARNING_KEY", raising=False)
+    client = TestClient(server_mod.build_app(), raise_server_exceptions=False)
+    assert client.get("/learning").status_code == 404       # not configured here
+
+    monkeypatch.setenv("PTPGE_LEARNING_KEY", "sesame")
+    assert client.get("/learning").status_code == 401       # configured, unlocked
+    assert client.get("/learning?key=nope").status_code == 401
+
+    ok = client.get("/learning?key=sesame")
+    assert ok.status_code == 200
+    assert "チラシ" in ok.text and "Out of scope" in ok.text
+    assert "ja" in ok.text                                  # the language column
