@@ -166,3 +166,55 @@ def test_tool_payload_localizes_term():
                            {"id_or_path": "printing/.../a4", "language": "nb"})
     assert payload["label"] == "A4"
     assert payload["label_all"] == {"en": "A4", "nb": "A4"}
+
+
+# --------------------------------------------------------------------------
+# ETag validation (MCP roadmap: HTTP-Native Transport Unification)
+# --------------------------------------------------------------------------
+
+def test_etag_is_stable_for_the_same_request_and_dataset():
+    from ptpge_mcp.server import _result_etag
+    reply = handle_jsonrpc_message(FakeCache(), _req("tools/list"))
+    a = _result_etag(FakeCache(), "tools/list", reply)
+    b = _result_etag(FakeCache(), "tools/list", reply)
+    assert a and a == b
+    assert a.startswith('"') and a.endswith('"')      # strong validator
+
+
+def test_etag_ignores_the_jsonrpc_id():
+    """The id identifies the call, not the answer."""
+    from ptpge_mcp.server import _result_etag
+    r1 = handle_jsonrpc_message(FakeCache(), _req("tools/list", msg_id=1))
+    r2 = handle_jsonrpc_message(FakeCache(), _req("tools/list", msg_id=99))
+    assert r1["id"] != r2["id"]
+    assert _result_etag(FakeCache(), "tools/list", r1) == \
+           _result_etag(FakeCache(), "tools/list", r2)
+
+
+def test_etag_changes_when_the_dataset_changes():
+    from ptpge_mcp.server import _result_etag
+
+    class Newer(FakeCache):
+        version = dict(FakeCache.version, generated="2026-08-27T14:00:00+02:00")
+
+    reply = handle_jsonrpc_message(FakeCache(), _req("tools/list"))
+    assert _result_etag(FakeCache(), "tools/list", reply) != \
+           _result_etag(Newer(), "tools/list", reply)
+
+
+def test_no_etag_for_errors_or_uncacheable_methods():
+    from ptpge_mcp.server import _result_etag
+    err = handle_jsonrpc_message(FakeCache(), _req("no/such/method"))
+    assert _result_etag(FakeCache(), "no/such/method", err) is None
+    ok = handle_jsonrpc_message(FakeCache(), _req("tools/list"))
+    assert _result_etag(FakeCache(), "ping", ok) is None
+
+
+def test_if_none_match_parsing():
+    from ptpge_mcp.server import _if_none_match
+    assert _if_none_match('"abc"', '"abc"')
+    assert _if_none_match('"x", "abc" , "y"', '"abc"')
+    assert _if_none_match("*", '"abc"')
+    assert not _if_none_match('"other"', '"abc"')
+    assert not _if_none_match(None, '"abc"')
+    assert not _if_none_match("", '"abc"')

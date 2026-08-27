@@ -124,6 +124,7 @@ Deploy on cPanel Passenger:
 """
 
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -1145,6 +1146,51 @@ def _modern_result(msg_id: object, result: dict) -> dict:
     return _rpc_result(msg_id, result)
 
 
+#: JSON-RPC methods whose result is a pure function of (dataset, request) and
+#: may therefore be validated with an ETag. Everything else — notifications,
+#: errors, anything with a side effect — is never tagged.
+_CACHEABLE_METHODS = frozenset({
+    "tools/list", "tools/call", "resources/list", "resources/templates/list",
+    "prompts/list", "server/discover",
+})
+
+
+def _result_etag(cache: "VocabularyCache", method: str | None, reply: object) -> str | None:
+    """A strong ETag over the JSON-RPC *result* plus the dataset it came from.
+
+    Extends the ttlMs/cacheScope work of SEP-2549 toward the ETag validation
+    named in the MCP roadmap (HTTP-Native Transport Unification): a client can
+    revalidate cheaply instead of re-downloading a result it already holds.
+
+    The JSON-RPC `id` is deliberately excluded — it identifies the *call*, not
+    the *answer*. A 304 therefore means «the result you cached is still
+    current; reuse it under your current request id». Our tools are pure reads
+    over an immutable dataset snapshot, so the same request against the same
+    (dataVersion, generated) always yields the same result.
+    """
+    if method not in _CACHEABLE_METHODS:
+        return None
+    if not isinstance(reply, dict) or "result" not in reply:
+        return None          # errors and notifications are never validated
+    try:
+        version = cache.version or {}
+    except Exception:
+        return None
+    seed = json.dumps(
+        {"data": version.get("version"), "built": version.get("generated"),
+         "server": __version__, "method": method, "result": reply["result"]},
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+    return '"' + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32] + '"'
+
+
+def _if_none_match(header: str | None, etag: str) -> bool:
+    """RFC 9110 If-None-Match: a comma-separated list, or `*`."""
+    if not header:
+        return False
+    candidates = [c.strip() for c in header.split(",")]
+    return "*" in candidates or etag in candidates
+
+
 def _rpc_error(msg_id: object, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
 
@@ -1527,7 +1573,15 @@ def build_app() -> Starlette:
         reply = handle_jsonrpc_message(cache, body)
         if reply is None:
             return Response(status_code=202)
-        return JSONResponse(reply)
+
+        method = body.get("method") if isinstance(body, dict) else None
+        etag = _result_etag(cache, method, reply)
+        if not etag:
+            return JSONResponse(reply)
+        headers = {"ETag": etag, "Cache-Control": "public, max-age=3600"}
+        if _if_none_match(request.headers.get("if-none-match"), etag):
+            return Response(status_code=304, headers=headers)
+        return JSONResponse(reply, headers=headers)
 
     async def playground(_request: Request) -> HTMLResponse:
         """Browser test console (v0.3.3) — same-origin JS that POSTs real

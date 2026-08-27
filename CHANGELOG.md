@@ -7,6 +7,26 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.12.0 — 2026-08-27
+
+- **ETag validation on cacheable results.** Read methods (`tools/list`,
+  `tools/call`, the `*/list` family, `server/discover`) now return a strong
+  `ETag` plus `Cache-Control`, and honour `If-None-Match` with `304 Not
+  Modified`. Extends the `ttlMs`/`cacheScope` work of SEP-2549 toward the ETag
+  validation named in the MCP roadmap's HTTP-Native Transport Unification area.
+- The tag covers the dataset (`dataVersion` + `generated`), the server version,
+  the method and the *result* — but deliberately not the JSON-RPC `id`, which
+  identifies the call rather than the answer. A 304 therefore means "the result
+  you cached is still current; reuse it under your current request id". Our
+  tools are pure reads over an immutable dataset snapshot, so the same request
+  against the same snapshot always yields the same result.
+- Errors, notifications and non-read methods are never tagged.
+- **Cache freshness fixed** in `data.py`: `maybe_reload()` now compares
+  `(version, generated)` rather than `version` alone. `dataVersion` is a date,
+  so two deploys on the same day carried the same string and a version-only
+  check kept serving the older dataset until someone happened to restart the
+  app — exactly the class of staleness that is invisible until you test it.
+
 ## 0.11.0 — 2026-08-27
 
 - **`provenance` on bindings** (SD-0071 §7): `confirmed` | `inferred` |
