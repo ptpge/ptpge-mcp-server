@@ -87,3 +87,31 @@ def test_inflected_forms_never_displace_an_exact_label():
     # CJK has no number; generating suffixed forms there would be nonsense.
     labels, _ = index_for({"label": {"ja": "名刺", "zh-Hans": "名片"}})
     assert labels == frozenset()
+
+
+def test_a_product_wins_a_tie_but_never_a_better_match():
+    """SD-0073's ranking half: a tie-break, and strictly only that.
+
+    If a product could outrank a better match, the name collisions the
+    conformance check exists to expose would stop being visible in search —
+    which is exactly how the singular/plural defect stayed hidden.
+    """
+    from ptpge_mcp.data import VocabularyCache
+
+    def rank(pairs):
+        results = list(pairs)
+        results.sort(key=lambda r: (-r[0], 0 if "/ordering/products/" in (r[1].get("id") or "") else 1,
+                                    r[1].get("id") or ""))
+        return [r[1]["id"] for r in results]
+
+    product = {"id": "https://ptpge.org/v1/ordering/products/rollups"}
+    fmt = {"id": "https://ptpge.org/v1/printing/configurations/formats/rollups"}
+    audience = {"id": "https://ptpge.org/v1/ordering/audiences/retail"}
+
+    # Equal score: the orderable thing goes first.
+    assert rank([(0.95, fmt), (0.95, product)])[0] == product["id"]
+    # Better score elsewhere: the product does NOT jump the queue.
+    assert rank([(0.95, fmt), (0.93, product)])[0] == fmt["id"]
+    # And the ordering stays total, so results never depend on index order.
+    assert rank([(0.9, audience), (0.9, fmt), (0.9, product)]) == [
+        product["id"], audience["id"], fmt["id"]]

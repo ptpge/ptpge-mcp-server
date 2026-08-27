@@ -289,9 +289,22 @@ class VocabularyCache:
                 results.append((score, entry))
 
         # Deterministic: equal scores break on the URI, never on index order.
+        # SD-0073 makes one part of that ordering explicit rather than
+        # accidental: when a phrase matches a product and a non-product equally
+        # well, the product wins, because a product is the thing that can
+        # actually be ordered. It happens to be what alphabetical URI order
+        # already did — «ordering/» sorts before «printing/» — but relying on
+        # the alphabet for a rule we depend on is how a rule silently changes.
+        # This is a TIE-break only; it must never lift a product over a better
+        # match, or it would hide the name collisions SD-0073 exists to expose.
         # A standard that promises lookups rather than interpretations cannot
         # answer the same query differently between two calls.
-        results.sort(key=lambda r: (-r[0], r[1].get("id") or ""))
+        def _rank(r: tuple[float, dict]) -> tuple:
+            uri = r[1].get("id") or ""
+            is_product = 0 if "/ordering/products/" in uri else 1
+            return (-r[0], is_product, uri)
+
+        results.sort(key=_rank)
         return [
             {
                 "id": entry["id"],

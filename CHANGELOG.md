@@ -7,6 +7,14 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.21.0 — 2026-08-27
+
+- **Products win ties, and only ties (SD-0073).** Where a phrase matches a
+  product and a non-product equally well, the orderable thing goes first. It is
+  what alphabetical URI order already did by accident; now it is stated, and
+  tested to be a tie-break only. A product that could outrank a better match
+  would hide the name collisions SD-0073 exists to expose.
+
 ## 0.20.0 — 2026-08-27
 
 - **Number-tolerant matching (SD-0072).** «Broschüre» and «Broschüren» are one
