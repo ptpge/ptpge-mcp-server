@@ -68,9 +68,17 @@ details.ign summary b{color:var(--ink)}
 .ask{border:0;background:none;color:#a9a396;font-size:11.5px;cursor:pointer;padding:2px 0 0;
  display:block;text-decoration:underline dotted}
 .ask:hover{color:var(--green)}
+.ro{background:#fcfbf8;border:1.5px solid var(--line);border-radius:10px;
+ padding:11px 15px;color:var(--mut);font-size:13px;margin-bottom:16px}
 .off{background:#fbeaea;border:1.5px solid #e7b9b9;border-radius:10px;padding:12px 16px;
  color:#7a2020;font-size:13.5px;margin-bottom:18px}
 """
+
+
+_READONLY = (
+    '<div class="ro">You are reading with a view-only key: everything is here, '
+    'but setting a word aside as out of scope stays with the curator, so scope '
+    'is never quietly redefined by two people at once.</div>')
 
 
 def _language_of(row: dict, settled=None) -> tuple[str, bool]:
@@ -118,7 +126,8 @@ def _rows(rows: list[dict], kind: str, curatable: bool = False, settled=None) ->
             if r.get("gloss"):
                 # Read once, kept for good — the meaning of チラシ does not change.
                 what += f'<div class="gloss">{esc(r["gloss"])}</div>'
-            elif kind != "colour":
+            elif curatable:
+                # Asking costs a model call, so it belongs to the curator.
                 what += (f'<button class="ask" onclick="gloss(this,\''
                          f'{esc(r.get("key"))}\')" title="What does this mean?">'
                          f'what is this?</button>')
@@ -169,7 +178,7 @@ def page_html(snap: dict, curatable: bool = False, settled=None) -> str:
 <p class="sub">Lookups that failed, collected from real requests — ours, the playground's,
 anybody's agent. No caller is identified: phrases, scores and counts only.
 &nbsp;·&nbsp; <a href="/miss-report">Miss report</a> &nbsp;·&nbsp; <a href="/playground">Playground</a></p>
-{off}
+{off}{"" if curatable else _READONLY}
 <div class="cards">
   <div class="card"><b>{t.get('misses', 0)}</b><span>found nothing</span></div>
   <div class="card"><b>{t.get('weak', 0)}</b><span>barely matched</span></div>

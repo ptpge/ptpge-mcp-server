@@ -1650,7 +1650,14 @@ def build_app() -> Starlette:
         # carries its own lock. ?key= once, then a cookie for the session.
         supplied = (request.query_params.get("key")
                     or request.cookies.get("ptpge_learning") or "")
-        if not secrets.compare_digest(supplied, key):
+        # Two keys, two rights. The read-only one can be mailed to a colleague:
+        # it shows everything and changes nothing, so it cannot quietly redefine
+        # what is in scope and cannot spend a model call. Revoking it does not
+        # disturb the curator's key.
+        curatable = bool(supplied) and secrets.compare_digest(supplied, key)
+        readonly = os.environ.get("PTPGE_LEARNING_KEY_READONLY") or ""
+        if not curatable and not (readonly and supplied
+                                  and secrets.compare_digest(supplied, readonly)):
             return HTMLResponse(locked_html(), status_code=401)
         # The vocabulary itself answers the language question wherever it can;
         # the detector is only the fallback. Rebuilt per request — the page is
@@ -1659,10 +1666,11 @@ def build_app() -> Starlette:
             settled = learning.settled_language(cache.search_index)
         except Exception:
             settled = None      # index not ready: fall back, never fail the page
-        resp = HTMLResponse(_lp(learning.snapshot(), curatable=True, settled=settled))
+        resp = HTMLResponse(_lp(learning.snapshot(), curatable=curatable,
+                                settled=settled))
         if request.query_params.get("key"):
-            resp.set_cookie("ptpge_learning", key, httponly=True, samesite="strict",
-                            secure=True, max_age=60 * 60 * 12)
+            resp.set_cookie("ptpge_learning", supplied, httponly=True,
+                            samesite="strict", secure=True, max_age=60 * 60 * 12)
         return resp
 
     async def learning_curate(request: Request) -> Response:

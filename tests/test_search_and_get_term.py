@@ -511,3 +511,41 @@ def test_two_apps_can_share_one_learning_file(tmp_path, monkeypatch):
     learning.ignore("fahnen")
     assert "fahnen" not in {r["key"] for r in learning.snapshot()["misses"]}
     assert "fahnen" in json.loads(shared.read_text(encoding="utf-8"))["ignored"]
+
+
+def test_read_only_key_sees_everything_and_changes_nothing(tmp_path, monkeypatch):
+    """A key you can put in an email: full sight, no authority.
+
+    It matters that the read-only key cannot curate — scope is a decision, and
+    two people quietly making it separately is worse than one making it in the
+    open — and that it cannot ask for a gloss, which spends a model call.
+    """
+    from starlette.testclient import TestClient
+    from ptpge_mcp import learning, server as server_mod
+
+    monkeypatch.setattr(server_mod.VocabularyCache, "load", lambda self: None)
+    monkeypatch.setattr(server_mod.VocabularyCache, "maybe_reload", lambda self: None)
+    monkeypatch.setenv("PTPGE_LEARNING_KEY", "curator")
+    monkeypatch.setenv("PTPGE_LEARNING_KEY_READONLY", "guest")
+    client = TestClient(server_mod.build_app(), raise_server_exceptions=False)
+
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    learning.record_search("チラシ", [])
+
+    guest = client.get("/learning?key=guest")
+    assert guest.status_code == 200
+    assert "チラシ" in guest.text                      # sees the whole record
+    assert "Out of scope" not in guest.text            # but cannot set scope
+    assert "what is this?" not in guest.text           # and cannot spend a call
+    assert "view-only key" in guest.text               # and is told why
+
+    curator = client.get("/learning?key=curator")
+    assert "Out of scope" in curator.text and "what is this?" in curator.text
+
+    # The write endpoints answer only to the curator's key.
+    for path in ("/learning/curate", "/learning/gloss"):
+        r = client.post(path, json={"phrase": "チラシ"},
+                        headers={"X-Learning-Key": "guest"})
+        assert r.status_code == 401, path
+
+    assert client.get("/learning?key=neither").status_code == 401

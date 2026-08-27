@@ -7,6 +7,17 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.19.0 — 2026-08-27
+
+- **A view-only key for /learning**, `PTPGE_LEARNING_KEY_READONLY`. It shows the
+  whole record and grants no authority: no setting a word out of scope, no
+  asking for a gloss. That makes it a key you can put in an email to a
+  colleague — revoking it later does not disturb the curator's own key, and
+  scope stays a decision made in one place rather than by two people
+  separately. The page says which key you arrived with.
+- Fix: the session cookie stored the curator's key regardless of which key was
+  presented. It now stores the one actually used.
+
 ## 0.18.0 — 2026-08-27
 
 - **One learning record across both apps.** `mcp.` and `open.` can now be
