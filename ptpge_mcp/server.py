@@ -1588,6 +1588,16 @@ def build_app() -> Starlette:
         JSON-RPC to /mcp. See ptpge_mcp/playground.py."""
         return HTMLResponse(PLAYGROUND_HTML)
 
+    async def miss_report(_request: Request) -> HTMLResponse:
+        """Browser console for finding what the vocabulary CANNOT resolve.
+
+        The CLI (tools/search_miss_report.py) guards deploys with a fixed
+        corpus; this is for trying phrases the moment you think of them.
+        Same origin as /mcp, so it calls the real search directly.
+        """
+        from .missreport import page_html
+        return HTMLResponse(page_html())
+
     async def health(_request: Request) -> JSONResponse:
         try:
             v = cache.version.get("version")
@@ -1750,6 +1760,7 @@ def build_app() -> Starlette:
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
+            Route("/miss-report", endpoint=miss_report, methods=["GET"]),
             Route("/chat", endpoint=chat, methods=["POST", "OPTIONS"]),
             Route("/vision", endpoint=vision, methods=["POST", "OPTIONS"]),
             Route("/health", endpoint=health, methods=["GET"]),

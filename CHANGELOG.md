@@ -7,6 +7,20 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.13.0 — 2026-08-27
+
+- New page **`/miss-report`** beside `/playground`: type or paste buyer phrases
+  and see what the vocabulary cannot resolve, colour-coded as MISS (nothing
+  found), WRONG (a different term won than the one pinned with `expect=`),
+  WEAK (right term, but it will lose to the next competitor) or OK. Same origin
+  as `/mcp`, so it calls the real search; the phrase list persists in the
+  browser and grows into a personal corpus.
+- Counterpart to `tools/search_miss_report.py`, which stays the regression
+  guard: fixed corpus in the repo, exit code, run before a deploy. Between them
+  the vocabulary's blind spots surface from our own testing rather than from a
+  customer's failed order — the live counter of SD-0071 §9 without waiting for
+  third-party traffic.
+
 ## 0.12.1 — 2026-08-27
 
 - **Search: an exact synonym now outranks a partial one.** Two new tiers —
