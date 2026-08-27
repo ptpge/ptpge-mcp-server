@@ -14,6 +14,8 @@ from __future__ import annotations
 import html as _html
 import json
 
+from .learning import language_hint
+
 
 def esc(s) -> str:
     return _html.escape(str(s if s is not None else ""), quote=True)
@@ -93,7 +95,11 @@ def _rows(rows: list[dict], kind: str, curatable: bool = False) -> str:
         if kind == "colour":
             lg = ""
         else:
-            hint, said = r.get("hint") or "", r.get("lang")
+            # Derived at render time, not read from store: the key IS the
+            # phrase, so everything recorded before the column existed gets a
+            # language too, and no backfill is needed.
+            hint = r.get("hint") or language_hint(r.get("key") or "")
+            said = r.get("lang")
             tag = hint or (said if said and said != "en" else "")
             sure = bool(hint) and not hint.endswith("?")
             lg = (f'<span class="lang{" sure" if sure else ""}">{esc(tag)}</span>'

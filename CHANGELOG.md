@@ -7,6 +7,12 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.15.3 — 2026-08-27
+
+- **Language derived when the row is drawn, not when it was written.** The key
+  *is* the phrase, so everything recorded before the column existed gets a
+  language too — no backfill, and no rows left blank for the wrong reason.
+
 ## 0.15.2 — 2026-08-27
 
 - **Fix: /learning returned 500 once a key was configured.** The endpoint took
