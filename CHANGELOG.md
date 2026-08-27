@@ -7,6 +7,24 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.18.0 — 2026-08-27
+
+- **One learning record across both apps.** `mcp.` and `open.` can now be
+  pointed at the same file via `PTPGE_LEARNING_FILE` and keep one shared
+  account of what the vocabulary cannot resolve — so a phrase set out of scope
+  on one host is out of scope on the other.
+
+  Sharing a file between two processes is where this normally goes wrong: each
+  app holds its own copy in memory, and writing that copy out discards whatever
+  the other recorded meanwhile. So a process no longer writes what it *has* —
+  it writes what it *changed*. Counts are kept as increments and edits as a
+  replayable list; every write re-reads the file and applies them on top, and
+  every read of the page re-reads first. No lock is held across a request.
+- `~` in `PTPGE_LEARNING_FILE` is expanded, so both apps can be given the
+  identical value — cPanel stores env vars verbatim, tilde and all.
+- `reset()` removes the file rather than writing an empty one, so a cleared
+  record cannot resurrect from a stale in-memory copy.
+
 ## 0.17.0 — 2026-08-27
 
 - **«what is this?» on any row you cannot read.** A row in a script you do not

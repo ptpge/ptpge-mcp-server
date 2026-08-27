@@ -66,10 +66,22 @@ _ORTHO = [
 _EMAILISH = re.compile(r"[^\s@]+@[^\s@]+")
 _LONGDIGITS = re.compile(r"\d{5,}")
 
+BUCKETS = ("misses", "weak", "colour", "ignored")
+
 _lock = threading.RLock()
-_state: dict = {"misses": {}, "weak": {}, "colour": {}, "ignored": {}}
+_state: dict = {b: {} for b in BUCKETS}
 _path: str | None = None
 _dirty = False
+
+# Two apps (mcp. and open.) may point at ONE file. Each runs in its own process
+# with its own copy in memory, so writing that copy out would silently discard
+# whatever the other process recorded meanwhile. Instead each process keeps
+# only what IT changed — counts as increments, edits as a replayable list — and
+# every write re-reads the file and applies those on top. Nothing is lost, and
+# no lock is held across a request.
+_delta: dict = {b: {} for b in BUCKETS}     # bucket -> key -> times seen here
+_meta: dict = {b: {} for b in BUCKETS}      # bucket -> key -> fields to merge
+_ops: list = []                             # ("ignore"|"unignore"|"gloss", ...)
 
 
 def _safe(phrase: str) -> str | None:
@@ -104,6 +116,9 @@ def configure(path: str | None) -> None:
     if not path:
         _path = None
         return
+    # cPanel stores an env var verbatim, so "~/..." arrives with the tilde
+    # intact. Expanding it here lets both apps be given the identical value.
+    path = os.path.expanduser(path)
     try:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         if os.path.exists(path):
@@ -133,6 +148,8 @@ def _bump(bucket: str, key: str, **fields) -> None:
         entry["n"] += 1
         entry["last"] = _today()
         entry.update(fields)
+        _delta[bucket][key] = _delta[bucket].get(key, 0) + 1
+        _meta[bucket].setdefault(key, {}).update(fields)
         global _dirty
         _dirty = True
 
@@ -204,6 +221,7 @@ def ignore(phrase: str, reason: str = "out of scope") -> bool:
             p, {"n": 0, "first": _today(), "reason": reason})
         entry["reason"] = reason
         entry["last"] = _today()
+        _ops.append(("ignore", p, reason))
         global _dirty
         _dirty = True
     flush()
@@ -216,26 +234,95 @@ def unignore(phrase: str) -> bool:
         return False
     with _lock:
         gone = _state.get("ignored", {}).pop(p, None) is not None
+        _ops.append(("unignore", p))
         global _dirty
         _dirty = True
     flush()
     return gone
 
 
-def flush() -> None:
-    """Write the file if anything changed. Cheap; safe to call often."""
-    global _dirty
-    if _path is None or not _dirty:
+def _read_disk() -> dict:
+    """Whatever is on disk right now — possibly written by the other process."""
+    try:
+        with open(_path, encoding="utf-8") as fh:
+            loaded = json.load(fh)
+        if isinstance(loaded, dict):
+            return {b: (loaded.get(b) if isinstance(loaded.get(b), dict) else {})
+                    for b in BUCKETS}
+    except FileNotFoundError:
+        pass
+    except Exception as exc:                                   # pragma: no cover
+        logger.warning("Could not read learning file: %s", exc)
+    return {b: {} for b in BUCKETS}
+
+
+def _apply(doc: dict) -> dict:
+    """Replay this process's own changes onto a freshly-read document."""
+    for bucket, counts in _delta.items():
+        for key, inc in counts.items():
+            entry = doc[bucket].get(key)
+            if entry is None:
+                entry = {"n": 0, "first": _today()}
+                doc[bucket][key] = entry
+            entry["n"] = entry.get("n", 0) + inc
+            entry["last"] = _today()
+            for k, v in (_meta[bucket].get(key) or {}).items():
+                # Never overwrite a known value with None: a later caller who
+                # declared no language must not erase one who did.
+                if v is not None or k not in entry:
+                    entry[k] = v
+
+    for op in _ops:
+        if op[0] == "ignore":
+            _, phrase, reason = op
+            for bucket in ("misses", "weak"):
+                doc[bucket].pop(phrase, None)
+            entry = doc["ignored"].setdefault(phrase, {"n": 0, "first": _today()})
+            entry["reason"] = reason
+            entry["last"] = _today()
+        elif op[0] == "unignore":
+            doc["ignored"].pop(op[1], None)
+        elif op[0] == "gloss":
+            _, phrase, text, language = op
+            for bucket in BUCKETS:
+                entry = doc[bucket].get(phrase)
+                if entry is not None:
+                    entry["gloss"] = text
+                    if language:
+                        entry["lang"] = language
+
+    for bucket in BUCKETS:
+        entries = doc[bucket]
+        if len(entries) > MAX_PHRASES:
+            keep = sorted(entries.items(), key=lambda kv: -kv[1].get("n", 0))
+            doc[bucket] = dict(keep[:MAX_PHRASES])
+    return doc
+
+
+def _sync(force: bool = False) -> None:
+    """Merge this process's changes into the file and adopt the result.
+
+    Called on every write and before every read, so a page opened on one host
+    shows what the other host recorded. Cheap: one small JSON read and, only
+    when something changed, one atomic replace.
+    """
+    global _dirty, _state
+    if _path is None:
+        return
+    with _lock:
+        if not _dirty and not force:
+            return
+        doc = _apply(_read_disk())
+        payload = json.dumps(doc, ensure_ascii=False)
+        _state = doc
+        for bucket in BUCKETS:
+            _delta[bucket] = {}
+            _meta[bucket] = {}
+        _ops.clear()
+        had_changes, _dirty = _dirty, False
+    if not had_changes:
         return
     try:
-        with _lock:
-            for bucket in ("misses", "weak", "colour", "ignored"):
-                entries = _state[bucket]
-                if len(entries) > MAX_PHRASES:
-                    keep = sorted(entries.items(), key=lambda kv: -kv[1].get("n", 0))
-                    _state[bucket] = dict(keep[:MAX_PHRASES])
-            payload = json.dumps(_state, ensure_ascii=False)
-            _dirty = False
         d = os.path.dirname(_path) or "."
         fd, tmp = tempfile.mkstemp(dir=d, prefix=".learning-", suffix=".json")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -245,8 +332,18 @@ def flush() -> None:
         logger.warning("Could not write learning file: %s", exc)
 
 
+def flush() -> None:
+    """Write pending changes. Cheap; safe to call often."""
+    _sync()
+
+
 def snapshot() -> dict:
-    """Everything recorded, newest-heaviest first — for the /learning page."""
+    """Everything recorded, heaviest first — for the /learning page.
+
+    Re-reads the file first, so when two apps share one record the page shows
+    the whole of it and not just this process's share.
+    """
+    _sync(force=True)
     with _lock:
         def rows(bucket: str) -> list[dict]:
             return sorted(
@@ -260,12 +357,21 @@ def snapshot() -> dict:
 
 
 def reset() -> None:
+    global _dirty
     with _lock:
-        for k in ("misses", "weak", "colour", "ignored"):
+        for k in BUCKETS:
             _state[k] = {}
-        global _dirty
-        _dirty = True
-    flush()
+            _delta[k] = {}
+            _meta[k] = {}
+        _ops.clear()
+        _dirty = False
+    if _path:
+        try:
+            os.remove(_path)
+        except FileNotFoundError:
+            pass
+        except Exception as exc:                               # pragma: no cover
+            logger.warning("Could not clear learning file: %s", exc)
 
 
 def settled_language(search_index: dict):
@@ -314,6 +420,7 @@ def gloss(phrase: str, text: str, language: str | None = None) -> bool:
                 entry["gloss"] = text.strip()[:120]
                 if language:
                     entry["lang"] = language
+        _ops.append(("gloss", p, text.strip()[:120], language))
         global _dirty
         _dirty = True
     flush()

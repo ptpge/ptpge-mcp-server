@@ -474,3 +474,40 @@ def test_gloss_is_stored_and_settles_the_language(tmp_path):
 
     assert not learning.gloss("不干胶", "   ")      # nothing to store
     assert learning.snapshot()["misses"][0]["gloss"] == "self-adhesive labels"
+
+
+def test_two_apps_can_share_one_learning_file(tmp_path, monkeypatch):
+    """mcp. and open. may point at one record. Neither may erase the other.
+
+    Each app is its own process with its own copy in memory. Writing that copy
+    out wholesale would discard whatever the other recorded meanwhile — so a
+    write re-reads the file and replays only this process's own changes. This
+    test stands in for the second process by editing the file behind our back.
+    """
+    import json
+    from ptpge_mcp import learning
+
+    shared = tmp_path / "shared" / "learning.json"
+    learning.reset(); learning.configure(str(shared))
+    learning.record_search("チラシ", [])          # this app sees one miss
+    learning.flush()
+
+    # The other app records two of its own and one more of ours.
+    doc = json.loads(shared.read_text(encoding="utf-8"))
+    doc["misses"]["fahnen"] = {"n": 2, "first": "2026-08-26", "last": "2026-08-26"}
+    doc["misses"]["チラシ"]["n"] = 3
+    shared.write_text(json.dumps(doc), encoding="utf-8")
+
+    learning.record_search("チラシ", [])          # ours: one more
+    learning.record_search("banderolas", [])
+    snap = learning.snapshot()
+    seen = {r["key"]: r["n"] for r in snap["misses"]}
+
+    assert seen["fahnen"] == 2          # the other app's work survived
+    assert seen["チラシ"] == 4           # 3 on disk + 1 of ours, not overwritten
+    assert seen["banderolas"] == 1
+
+    # Curation crosses too: taken off the list here, gone for both.
+    learning.ignore("fahnen")
+    assert "fahnen" not in {r["key"] for r in learning.snapshot()["misses"]}
+    assert "fahnen" in json.loads(shared.read_text(encoding="utf-8"))["ignored"]
