@@ -266,3 +266,31 @@ def reset() -> None:
         global _dirty
         _dirty = True
     flush()
+
+
+def settled_language(search_index: dict):
+    """A lookup that answers «which language is this word?» from the vocabulary.
+
+    Once a phrase exists as a label or altLabel, the standard has already
+    decided the question and no detector is needed. That is what lets a row on
+    /learning heal itself: the day "Fahnen" is filed as a German altLabel on
+    banners, the row that used to shrug starts saying `de`.
+
+    Returns None when the word is unknown — a miss, by definition — and also
+    when it is known in more than one language. "Banner" is English and German
+    both, and picking one would be inventing a fact the vocabulary declines to
+    state. Builds a plain dict, so the page costs one hash lookup per row.
+    """
+    index: dict[str, set[str]] = {}
+    for entry in (search_index or {}).get("terms", []):
+        for field in ("label", "altLabels"):
+            for lang, value in (entry.get(field) or {}).items():
+                for text in (value if isinstance(value, list) else [value]):
+                    if isinstance(text, str) and text.strip():
+                        index.setdefault(text.strip().lower(), set()).add(lang)
+
+    def lookup(phrase: str) -> str | None:
+        langs = index.get((phrase or "").strip().lower())
+        return next(iter(langs)) if langs and len(langs) == 1 else None
+
+    return lookup

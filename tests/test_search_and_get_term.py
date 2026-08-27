@@ -425,3 +425,28 @@ def test_learning_page_route_survives_a_configured_key(tmp_path, monkeypatch):
     assert ok.status_code == 200
     assert "チラシ" in ok.text and "Out of scope" in ok.text
     assert "ja" in ok.text                                  # the language column
+
+
+def test_settled_language_prefers_the_vocabulary_over_a_guess():
+    """The standard answers before the detector does — and stays quiet when
+    the word belongs to two languages at once."""
+    from ptpge_mcp.learning import settled_language
+    from ptpge_mcp.learningpage import _language_of
+
+    settled = settled_language({"terms": [
+        {"label": {"en": "Business cards", "nb": "Visittkort"},
+         "altLabels": {"de": ["Visitenkarten"], "en": ["Banner"]}},
+        {"label": {"de": "Banner"}, "altLabels": {}},
+    ]})
+
+    # Known in exactly one language: settled, and certain.
+    assert _language_of({"key": "visittkort"}, settled) == ("nb", True)
+    assert _language_of({"key": "Visitenkarten"}, settled) == ("de", True)
+    # Known in two: the vocabulary declines to choose, so we do not invent one.
+    assert _language_of({"key": "banner"}, settled) == ("", False)
+    # Unknown to the vocabulary — that is what a miss IS — so fall down the
+    # ladder: what the caller declared, then the characters, then nothing.
+    assert _language_of({"key": "dekaler", "lang": "sv"}, settled) == ("sv", True)
+    assert _language_of({"key": "チラシ"}, settled) == ("ja", True)
+    assert _language_of({"key": "faltblätter"}, settled) == ("de", False)
+    assert _language_of({"key": "fahnen"}, settled) == ("", False)

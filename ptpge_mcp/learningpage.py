@@ -69,7 +69,37 @@ details.ign summary b{color:var(--ink)}
 """
 
 
-def _rows(rows: list[dict], kind: str, curatable: bool = False) -> str:
+def _language_of(row: dict, settled=None) -> tuple[str, bool]:
+    """Which language a recorded phrase is in, and whether we actually know.
+
+    Three sources, strongest first:
+
+    1. The vocabulary. Once the word exists as a label or altLabel, the
+       standard itself has settled the question — no detector needed. This is
+       what makes a row heal: add "Fahnen" as a German altLabel, and the row
+       that used to shrug stops guessing and says `de`.
+    2. What the caller declared in `query_language`. They know what they typed.
+    3. The characters, which only decide non-Latin scripts; for Latin ones it
+       is marked a guess, because "fahnen" and "banner" give nothing away.
+
+    Returns (tag, certain). An empty tag means we do not know, and the table
+    says so rather than filling the column with plausible fiction.
+    """
+    phrase = row.get("key") or ""
+    if settled:
+        found = settled(phrase)
+        if found:
+            return found, True
+    said = row.get("lang")
+    if said:
+        return said, True
+    hint = row.get("hint") or language_hint(phrase)
+    if hint:
+        return hint.rstrip("?"), not hint.endswith("?")
+    return "", False
+
+
+def _rows(rows: list[dict], kind: str, curatable: bool = False, settled=None) -> str:
     if not rows:
         return ('<div class="empty">Nothing recorded yet — either everything asked for was '
                 'found, or no one has asked since this was last cleared.</div>')
@@ -95,14 +125,12 @@ def _rows(rows: list[dict], kind: str, curatable: bool = False) -> str:
         if kind == "colour":
             lg = ""
         else:
-            # Derived at render time, not read from store: the key IS the
-            # phrase, so everything recorded before the column existed gets a
-            # language too, and no backfill is needed.
-            hint = r.get("hint") or language_hint(r.get("key") or "")
-            said = r.get("lang")
-            tag = hint or (said if said and said != "en" else "")
-            sure = bool(hint) and not hint.endswith("?")
-            lg = (f'<span class="lang{" sure" if sure else ""}">{esc(tag)}</span>'
+            # Decided at render time, not read from store: the key IS the
+            # phrase, so history gets a language too, and a row improves by
+            # itself the moment the vocabulary learns the word.
+            tag, sure = _language_of(r, settled)
+            lg = (f'<span class="lang{" sure" if sure else ""}">'
+                  f'{esc(tag if sure else tag + "?")}</span>'
                   if tag else '<span style="color:#c9c4b8">—</span>')
         lgcell = "" if kind == "colour" else f'<td class="lg">{lg}</td>'
         out.append(f'<tr><td class="n">{esc(r.get("n"))}×</td>{lgcell}<td>{what}</td>'
@@ -115,7 +143,7 @@ def _rows(rows: list[dict], kind: str, curatable: bool = False) -> str:
     return f'<table><thead><tr>{head}</tr></thead><tbody>{"".join(out)}</tbody></table>' 
 
 
-def page_html(snap: dict, curatable: bool = False) -> str:
+def page_html(snap: dict, curatable: bool = False, settled=None) -> str:
     t = snap.get("totals") or {}
     off = "" if snap.get("enabled") else (
         '<div class="off">The recorder is switched off on this server — nothing is being '
@@ -138,15 +166,15 @@ anybody's agent. No caller is identified: phrases, scores and counts only.
 </div>
 
 <h2><span class="tag miss">FOUND NOTHING</span> &nbsp;<span>words the trade uses and the vocabulary does not</span></h2>
-{_rows(snap.get('misses') or [], 'miss', curatable)}
+{_rows(snap.get('misses') or [], 'miss', curatable, settled)}
 
 <h2><span class="tag weak">BARELY MATCHED</span> &nbsp;<span>an answer came back, but it would lose to the next competing term</span></h2>
-{_rows(snap.get('weak') or [], 'weak', curatable)}
+{_rows(snap.get('weak') or [], 'weak', curatable, settled)}
 
 <h2><span class="tag q">COLOUR QUESTIONS</span> &nbsp;<span>where a count like 4/1 could not be settled by the template (SD-0071)</span></h2>
 {_rows(snap.get('colour') or [], 'colour', curatable)}
 
-{_ignored_block(snap, curatable)}
+{_ignored_block(snap, curatable, settled)}
 
 <p class="note"><b>How to use this.</b> A phrase at the top of the first table is the
 vocabulary's most expensive blind spot: people keep asking and keep getting nothing. Add it as
@@ -162,7 +190,7 @@ Phrases that look like they carry personal data are discarded rather than counte
 """
 
 
-def _ignored_block(snap: dict, curatable: bool) -> str:
+def _ignored_block(snap: dict, curatable: bool, settled=None) -> str:
     """Out of scope on purpose — hidden, but still counted.
 
     Merchandise, apparel, 3D and POS sit outside the 54 product templates by
@@ -176,7 +204,7 @@ def _ignored_block(snap: dict, curatable: bool) -> str:
     hits = (snap.get("totals") or {}).get("ignored", 0)
     return (f'<details class="ign"><summary><b>{len(rows)} phrases set aside as out of scope</b>'
             f' — {hits} requests, still counted but not listed above</summary>'
-            f'{_rows(rows, "ignored", curatable)}</details>')
+            f'{_rows(rows, "ignored", curatable, settled)}</details>')
 
 
 def _script(curatable: bool) -> str:

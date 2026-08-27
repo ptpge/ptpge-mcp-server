@@ -309,6 +309,18 @@ TOOL_DESCRIPTORS: list[Tool] = [
                     "default": "en",
                     "description": "ISO 639-1 language code for label and definition matching.",
                 },
+                "query_language": {
+                    "type": "string",
+                    "description": (
+                        "ISO 639-1 code for the language the QUERY is written in — "
+                        "not the language of the labels you want back (that is "
+                        "`language`). Optional, and it never changes the results: "
+                        "search always looks across every language. It is used only "
+                        "so that a phrase we cannot resolve is recorded against the "
+                        "right market, which is how missing synonyms get found and "
+                        "added. Send it if you know it; omit it if you do not."
+                    ),
+                },
             },
             "required": ["query"],
         },
@@ -1080,7 +1092,10 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
         hits = cache.search(query=query, limit=limit, groups=groups, language=language)
         # SD-0071 §9: a lookup that failed is the only thing worth learning from.
         # Phrase and score only — never who asked. See ptpge_mcp/learning.py.
-        learning.record_search(query, hits, args.get("language"))
+        # `query_language`, never `language`: the latter says which labels to
+        # RETURN, so a Norwegian agent asking "visittkort" with language=en
+        # would otherwise be filed as English and the Norwegian gap missed.
+        learning.record_search(query, hits, args.get("query_language"))
         return {"query": query, "count": len(hits), "results": hits}
 
     if name == "ptpge_get_term":
@@ -1637,7 +1652,14 @@ def build_app() -> Starlette:
                     or request.cookies.get("ptpge_learning") or "")
         if not secrets.compare_digest(supplied, key):
             return HTMLResponse(locked_html(), status_code=401)
-        resp = HTMLResponse(_lp(learning.snapshot(), curatable=True))
+        # The vocabulary itself answers the language question wherever it can;
+        # the detector is only the fallback. Rebuilt per request — the page is
+        # opened by hand, and the index must not go stale behind a cache.
+        try:
+            settled = learning.settled_language(cache.search_index)
+        except Exception:
+            settled = None      # index not ready: fall back, never fail the page
+        resp = HTMLResponse(_lp(learning.snapshot(), curatable=True, settled=settled))
         if request.query_params.get("key"):
             resp.set_cookie("ptpge_learning", key, httponly=True, samesite="strict",
                             secure=True, max_age=60 * 60 * 12)

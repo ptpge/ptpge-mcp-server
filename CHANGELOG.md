@@ -7,6 +7,30 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.16.0 — 2026-08-27
+
+Language on the learning page, from three sources instead of one guess.
+
+- **`query_language` on `ptpge_search_terms`.** New optional argument, distinct
+  from `language`: it says what tongue the QUERY is written in, where
+  `language` says which labels to hand back. Conflating them would have filed a
+  Norwegian agent asking «visittkort» with `language=en` as an English gap and
+  hidden the Norwegian one. It never changes results — search has always looked
+  across every language — and the recorder now reads it and nothing else.
+- **The vocabulary answers first.** `learning.settled_language()` indexes every
+  label and altLabel, so a phrase the standard already knows needs no detector.
+  A row heals itself: file "Fahnen" as a German altLabel and the row that used
+  to shrug starts saying `de`. Where a word belongs to two languages at once —
+  "banner" is English and German both — it stays silent rather than pick one.
+- **The corpus carries its market.** `lang=xx` per line, or `# lang: xx` over a
+  block, in `tools/search_corpus.txt`; the harness sends it as `query_language`.
+  We wrote those phrases, so we know what they are; that beats a detector
+  staring at a lone word.
+- The playground's own-prompt demo sends `query_language` too — the prompt was
+  typed in the language selected on screen.
+- The page never fails over this: if the index is not loaded, the column falls
+  back to the detector rather than taking the page down with it.
+
 ## 0.15.3 — 2026-08-27
 
 - **Language derived when the row is drawn, not when it was written.** The key

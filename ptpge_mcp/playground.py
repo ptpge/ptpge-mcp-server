@@ -469,7 +469,11 @@ async function doResolve() {
     const hits = await Promise.all(cands.map(async c => {
       try {
         const { json } = await rpc("tools/call", {
-          name: "ptpge_search_terms", arguments: { query: c.phrase, limit: 5, language: lang },
+          // query_language as well as language: the prompt was typed in the
+          // language selected here, so a phrase that fails is recorded
+          // against the right market instead of defaulting to English.
+          name: "ptpge_search_terms",
+          arguments: { query: c.phrase, limit: 5, language: lang, query_language: lang },
         });
         const pp = JSON.parse(json.result.content[0].text);
         const r = pick(pp.results);
