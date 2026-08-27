@@ -404,10 +404,6 @@ def test_learning_page_route_survives_a_configured_key(tmp_path, monkeypatch):
     from starlette.testclient import TestClient
     from ptpge_mcp import learning, server as server_mod
 
-    learning.reset()
-    learning.configure(str(tmp_path / "l.json"))
-    learning.record_search("チラシ", [])
-
     # The app is built for its routes only; the vocabulary is fetched over the
     # network at startup and is irrelevant to a gate that runs before any data.
     monkeypatch.setattr(server_mod.VocabularyCache, "load", lambda self: None)
@@ -415,6 +411,12 @@ def test_learning_page_route_survives_a_configured_key(tmp_path, monkeypatch):
 
     monkeypatch.delenv("PTPGE_LEARNING_KEY", raising=False)
     client = TestClient(server_mod.build_app(), raise_server_exceptions=False)
+
+    # After build_app: it configures the recorder itself, reloading from file,
+    # so anything recorded before this point would be overwritten.
+    learning.reset()
+    learning.configure(str(tmp_path / "l.json"))
+    learning.record_search("チラシ", [])
     assert client.get("/learning").status_code == 404       # not configured here
 
     monkeypatch.setenv("PTPGE_LEARNING_KEY", "sesame")
