@@ -225,6 +225,30 @@ footer a { color: #2a6045; }
 </details>
 
 <details class="card">
+  <summary><h2 data-i="t_color">ptpge_resolve_color_notation — the shorthand buyers actually write</h2>
+  <span class="expl" data-i="e_color">"4/1" is a count of separations, not a colour. Watch the same notation resolve differently on different products — and ask when it must.</span></summary>
+  <p style="font-size:13px;color:#555;margin:0 0 10px;font-style:italic">
+  A buyer writes "CMYK on the front, black on the back" — or just 4/1. But "1" is
+  black on one press and a named spot colour on another, so the number alone cannot
+  identify the product. The resolver searches the combinations <em>this product's
+  envelope supports</em> whose channel counts sum to that number.</p>
+  <div class="row">
+    <button onclick="doColor('ordering/products/business-cards','4/4')">4/4 · business cards</button>
+    <button onclick="doColor('ordering/products/books','4/1')">4/1 · books</button>
+    <button onclick="doColor('ordering/products/business-cards','4/1')">4/1 · business cards</button>
+    <button onclick="doColor('ordering/products/business-cards','4+1')">4+1 · business cards</button>
+  </div>
+  <div class="hint" data-i="h_color">Three outcomes, all correct: <b>4/4</b> resolves (4 is CMYK by trade
+  convention). <b>4/1 on books</b> resolves to black — that template supports no other
+  single-channel ink, so there is nothing to ask about. <b>4/1 on business cards</b> returns
+  <code>needs_disambiguation</code> with a ready-made question, because black, white and spot
+  are all possible. <b>4+1</b> asks about the separator first: in parts of the trade it means
+  five inks on one surface, not front/back. The server never guesses — a guessed default would
+  give two different products the same fingerprint. (SD-0071)</div>
+  <div class="res" id="res-color"></div>
+</details>
+
+<details class="card">
   <summary><h2 data-i="t_chain">Test-prompt demo — the full chain, live</h2>
   <span class="expl" data-i="e_chain">Envelope → validation → fingerprint on a fixed example order — the whole journey in three clicks.</span></summary>
   <p style="font-size:13px;color:#555;margin:0 0 10px;font-style:italic">
@@ -389,6 +413,13 @@ function doGet() {
   }, "get");
 }
 function doVersion() { callTool("ptpge_get_version", {}, "ver"); }
+
+// SD-0071 — colour pair notation. The count is resolved against what the
+// product's envelope supports, so the same string is deterministic on one
+// template and a question on another.
+function doColor(product, notation) {
+  callTool("ptpge_resolve_color_notation", { product: product, notation: notation }, "color");
+}
 
 // — Test-prompt demo: the canonical brochure configuration —
 const DEMO_PRODUCT = "ordering/products/brochures";
