@@ -418,6 +418,18 @@ TOOL_DESCRIPTORS: list[Tool] = [
                             "value": {"description": "URI/path (enum) or number (numeric variables)."},
                             "values": {"type": "array", "description": "For cardinality-multiple variables."},
                             "surface": {"type": "string", "description": "Surface slug for surface-scoped bindings (e.g. 'outside')."},
+                            "provenance": {
+                                "type": "string",
+                                "enum": ["confirmed", "inferred", "policy-default"],
+                                "description": (
+                                    "How this value came about (SD-0071): 'confirmed' — the "
+                                    "buyer chose it; 'inferred' — you derived it without "
+                                    "asking; 'policy-default' — a house rule supplied it. "
+                                    "Never part of the fingerprint; identity is the product, "
+                                    "not the conversation. Set it honestly: a vendor may "
+                                    "refuse an order whose colour was never confirmed."
+                                ),
+                            },
                         },
                         "required": ["variable"],
                     },
@@ -751,6 +763,11 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
             "surface": b.get("surface") or None,
             "value": b.get("values") if "values" in b else b.get("value"),
         }
+        # SD-0071: provenance travels with the binding and is echoed back, but
+        # never reaches the fingerprint — identity is the product, not the
+        # conversation that produced it.
+        if b.get("provenance"):
+            entry["provenance"] = b["provenance"]
         # SD-0066: custom-width / custom-height — numerisk i mm; per-binding
         # sjekkes range (produktets customSizeRange foran variabelens 5–50000);
         # kryssvariabel-reglene (påkrevd-iff, normalisering) etter løkka.
@@ -917,6 +934,27 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     }
     if rules:
         resp["rules"] = rules
+
+    # SD-0071: surface what was never confirmed by the buyer. The envelope is
+    # still valid — an inferred value can be perfectly legal — but a vendor or
+    # marketplace may want confirmation before accepting the order, and a
+    # dispute afterwards can be settled on data rather than recollection.
+    unconfirmed = [
+        {"variable": e["variable"], "surface": e.get("surface"),
+         "provenance": e["provenance"]}
+        for e in results
+        if e.get("provenance") and e["provenance"] != "confirmed"
+    ]
+    stated = sum(1 for e in results if e.get("provenance"))
+    if unconfirmed:
+        resp["provenance"] = {
+            "unconfirmed": unconfirmed,
+            "note": ("These values were not confirmed by the buyer. They do not affect "
+                     "the fingerprint — identity is the product, not the conversation — "
+                     "but the order may be refused where confirmation is required."),
+        }
+    elif stated:
+        resp["provenance"] = {"unconfirmed": [], "note": "All stated values were buyer-confirmed."}
     return resp
 
 

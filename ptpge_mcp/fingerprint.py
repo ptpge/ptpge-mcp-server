@@ -64,6 +64,15 @@ def canonical_string(config: dict, profile: str = "spec") -> str:
         {"variable": <uri>, "surface": <slug>, "value": ...},
         {"variable": <uri>, "values": [...], "ordered": bool},
     ]}
+
+    Only `variable`, `surface`, `value`/`values` and `ordered` are read. Any
+    other key on a binding is deliberately ignored — notably `provenance`
+    (SD-0071), which records whether a value was confirmed by the buyer or
+    inferred by an agent. That describes the conversation, not the product:
+    two buyers who arrive at the same configuration hold the same product
+    however they got there, so provenance references the identity instead of
+    constituting it, exactly as price and vendor do. Guarded by
+    tests/test_cfs_conformance.py::test_provenance_never_reaches_the_hash.
     """
     if profile not in ("spec", "offer"):
         raise ValueError("profile must be 'spec' or 'offer'")

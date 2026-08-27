@@ -7,6 +7,27 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.11.0 — 2026-08-27
+
+- **`provenance` on bindings** (SD-0071 §7): `confirmed` | `inferred` |
+  `policy-default` — how a value came about. Accepted by
+  `ptpge_validate_config`, echoed back per binding, and summarised under
+  `provenance.unconfirmed` so a vendor or marketplace can require confirmation
+  before accepting an order, and a dispute can be settled on data.
+- It is **never part of the fingerprint**. Two buyers who arrive at the same
+  configuration hold the same product however they got there; if provenance
+  touched the hash, physically identical print would carry two identities and
+  comparison would break. Provenance references the identity the way price and
+  vendor do, rather than constituting it.
+- The exclusion already held by construction — canonicalization reads only
+  variable/surface/value(s)/ordered — and is now stated in `fingerprint.py` and
+  pinned by `tests/test_cfs_conformance.py::test_provenance_never_reaches_the_hash`,
+  which proves it across all four implementations (tools, mcp-server, engine,
+  configurator).
+- New `tools/color_ambiguity_sweep.py`: runs the resolver over every template ×
+  count and reports where ambiguity lives. The static counterpart to the live
+  counter — it tells us something today instead of waiting for traffic.
+
 ## 0.10.0 — 2026-08-27
 
 - New tool **`ptpge_resolve_color_notation`** (tool surface 7 → 8), implementing
