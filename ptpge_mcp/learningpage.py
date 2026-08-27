@@ -64,6 +64,10 @@ td.act{width:96px;text-align:right}
 details.ign{margin-top:26px}
 details.ign summary{cursor:pointer;font-size:13.5px;color:var(--mut)}
 details.ign summary b{color:var(--ink)}
+.gloss{color:#6a6a72;font-size:12.5px;font-style:italic;margin-top:2px;line-height:1.35}
+.ask{border:0;background:none;color:#a9a396;font-size:11.5px;cursor:pointer;padding:2px 0 0;
+ display:block;text-decoration:underline dotted}
+.ask:hover{color:var(--green)}
 .off{background:#fbeaea;border:1.5px solid #e7b9b9;border-radius:10px;padding:12px 16px;
  color:#7a2020;font-size:13.5px;margin-bottom:18px}
 """
@@ -111,6 +115,13 @@ def _rows(rows: list[dict], kind: str, curatable: bool = False, settled=None) ->
             extra = f'{esc(r.get("candidates"))} readings open'
         else:
             what = esc(r.get("key"))
+            if r.get("gloss"):
+                # Read once, kept for good — the meaning of チラシ does not change.
+                what += f'<div class="gloss">{esc(r["gloss"])}</div>'
+            elif kind != "colour":
+                what += (f'<button class="ask" onclick="gloss(this,\''
+                         f'{esc(r.get("key"))}\')" title="What does this mean?">'
+                         f'what is this?</button>')
             extra = (f'<code>{esc(r.get("got"))}</code> at {esc(r.get("score"))}'
                      if r.get("got") else "nothing found")
         act = ""
@@ -212,13 +223,38 @@ def _script(curatable: bool) -> str:
         return ""
     return """<script>
 const KEY = "ptpge-learning-key";
-async function curate(btn, phrase, undo) {
+function askKey() {
   let key = localStorage.getItem(KEY);
   if (!key) {
     key = prompt("Curation key (stored in this browser only):");
-    if (!key) return;
-    localStorage.setItem(KEY, key);
+    if (key) localStorage.setItem(KEY, key);
   }
+  return key;
+}
+async function gloss(btn, phrase) {
+  const key = askKey();
+  if (!key) return;
+  btn.disabled = true; btn.textContent = "reading…";
+  const r = await fetch("/learning/gloss", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Learning-Key": key },
+    body: JSON.stringify({ phrase: phrase })
+  });
+  if (!r.ok) {
+    if (r.status === 401) localStorage.removeItem(KEY);
+    btn.disabled = false;
+    btn.textContent = r.status === 401 ? "wrong key" : "could not read it";
+    return;
+  }
+  const d = await r.json();
+  const el = document.createElement("div");
+  el.className = "gloss";
+  el.textContent = d.gloss || "";
+  btn.replaceWith(el);
+}
+async function curate(btn, phrase, undo) {
+  const key = askKey();
+  if (!key) return;
   btn.disabled = true; btn.textContent = "…";
   const r = await fetch("/learning/curate", {
     method: "POST",

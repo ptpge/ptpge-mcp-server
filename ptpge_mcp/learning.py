@@ -294,3 +294,27 @@ def settled_language(search_index: dict):
         return next(iter(langs)) if langs and len(langs) == 1 else None
 
     return lookup
+
+
+def gloss(phrase: str, text: str, language: str | None = None) -> bool:
+    """Store what a phrase means, so a row you cannot read stops being opaque.
+
+    Written once, kept forever: the reading of チラシ does not change, and
+    nobody should pay for the same lookup twice. If the gloss also settles the
+    language, that is recorded as declared — a reading of the characters by a
+    model that knows the trade beats a regex looking for umlauts.
+    """
+    p = _safe(phrase)
+    if p is None or not (text or "").strip():
+        return False
+    with _lock:
+        for bucket in ("misses", "weak", "ignored"):
+            entry = _state.get(bucket, {}).get(p)
+            if entry is not None:
+                entry["gloss"] = text.strip()[:120]
+                if language:
+                    entry["lang"] = language
+        global _dirty
+        _dirty = True
+    flush()
+    return True

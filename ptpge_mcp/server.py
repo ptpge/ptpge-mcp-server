@@ -1690,6 +1690,79 @@ def build_app() -> Starlette:
             ok = learning.ignore(phrase, body.get("reason") or "out of scope")
         return JSONResponse({"ok": ok, "phrase": phrase})
 
+    async def learning_gloss(request: Request) -> Response:
+        """Say what a recorded phrase means, in print-trade terms.
+
+        A row you cannot read is a row you cannot curate: 不干胶 is a
+        self-adhesive label, but a general translator will offer «not-dry
+        glue», which is exactly the kind of confident wrong answer this
+        vocabulary exists to prevent. So the question asked is a trade
+        question, and the answer is written into the row and kept — a reading
+        does not change, and nobody should pay for it twice.
+
+        Key-gated like curation, and never automatic: one call per word you
+        actually wondered about.
+        """
+        key = os.environ.get("PTPGE_LEARNING_KEY")
+        if not key or not secrets.compare_digest(
+                request.headers.get("x-learning-key", ""), key):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            return JSONResponse({"error": "no_model",
+                                 "detail": "ANTHROPIC_API_KEY is not set on this server."},
+                                status_code=503)
+        try:
+            phrase = ((await request.json()).get("phrase") or "").strip()
+        except Exception:
+            phrase = ""
+        if not phrase:
+            return JSONResponse({"error": "no_phrase"}, status_code=400)
+
+        prompt = (
+            "You are helping curate a printing-industry vocabulary. A buyer or "
+            "an AI agent searched for the phrase below and the vocabulary "
+            "returned nothing useful.\n\n"
+            f"Phrase: {phrase}\n\n"
+            "Reply with ONE line of at most 14 words, in this shape:\n"
+            "  <ISO 639-1 code> — <what it means as a printed product, "
+            "material or process, in English>\n"
+            "Use the trade sense, not the literal one. If you are not "
+            "confident what it means in printing, say so plainly instead of "
+            "guessing. No preamble, no quotes."
+        )
+        payload = {"model": os.getenv("PTPGE_VISION_MODEL", "claude-haiku-4-5"),
+                   "max_tokens": 80,
+                   "messages": [{"role": "user", "content": prompt}]}
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                r = client.post("https://api.anthropic.com/v1/messages",
+                                headers={"x-api-key": api_key,
+                                         "anthropic-version": "2023-06-01",
+                                         "content-type": "application/json"},
+                                json=payload)
+            if r.status_code != 200:
+                return JSONResponse({"error": "upstream", "status": r.status_code},
+                                    status_code=502)
+            text = "".join(b.get("text", "") for b in r.json().get("content", [])
+                           if b.get("type") == "text").strip()
+        except Exception as exc:
+            return JSONResponse({"error": "upstream_exception", "detail": str(exc)[:200]},
+                                status_code=502)
+        if not text:
+            return JSONResponse({"error": "empty"}, status_code=502)
+
+        # "ja — flyers, a single-sheet advertising leaflet" → the code is a
+        # reading of the characters by something that knows the trade, which
+        # is a better source than a regex hunting for umlauts.
+        lang = None
+        head, sep, rest = text.partition("—")
+        code = head.strip().lower()
+        if sep and 2 <= len(code) <= 5 and code.replace("-", "").isalpha():
+            lang, text = code, rest.strip() or text
+        learning.gloss(phrase, text, lang)
+        return JSONResponse({"ok": True, "phrase": phrase, "gloss": text, "lang": lang})
+
     async def health(_request: Request) -> JSONResponse:
         try:
             v = cache.version.get("version")
@@ -1855,6 +1928,7 @@ def build_app() -> Starlette:
             Route("/miss-report", endpoint=miss_report, methods=["GET"]),
             Route("/learning", endpoint=learning_page, methods=["GET"]),
             Route("/learning/curate", endpoint=learning_curate, methods=["POST"]),
+            Route("/learning/gloss", endpoint=learning_gloss, methods=["POST"]),
             Route("/chat", endpoint=chat, methods=["POST", "OPTIONS"]),
             Route("/vision", endpoint=vision, methods=["POST", "OPTIONS"]),
             Route("/health", endpoint=health, methods=["GET"]),

@@ -450,3 +450,25 @@ def test_settled_language_prefers_the_vocabulary_over_a_guess():
     assert _language_of({"key": "チラシ"}, settled) == ("ja", True)
     assert _language_of({"key": "faltblätter"}, settled) == ("de", False)
     assert _language_of({"key": "fahnen"}, settled) == ("", False)
+
+
+def test_gloss_is_stored_and_settles_the_language(tmp_path):
+    """A reading is written into the row and kept — you pay for it once."""
+    from ptpge_mcp import learning
+    from ptpge_mcp.learningpage import _language_of, _rows
+
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    learning.record_search("不干胶", [])
+
+    assert learning.gloss("不干胶", "self-adhesive labels", "zh")
+    row = learning.snapshot()["misses"][0]
+    assert row["gloss"] == "self-adhesive labels"
+    # The model read the characters and named the language; that is a stronger
+    # claim than the regex, so it counts as declared, not guessed.
+    assert _language_of(row) == ("zh", True)
+    # Once glossed, the row shows the meaning instead of offering to fetch it.
+    html = _rows([row], "miss", True)
+    assert "self-adhesive labels" in html and "what is this?" not in html
+
+    assert not learning.gloss("不干胶", "   ")      # nothing to store
+    assert learning.snapshot()["misses"][0]["gloss"] == "self-adhesive labels"

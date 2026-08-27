@@ -7,6 +7,19 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.17.0 — 2026-08-27
+
+- **«what is this?» on any row you cannot read.** A row in a script you do not
+  read is a row you cannot curate. One click asks the model already configured
+  for /vision a *trade* question — 不干胶 is a self-adhesive label, where a
+  general translator offers «not-dry glue», which is precisely the confident
+  wrong answer this vocabulary exists to prevent. The reading is written into
+  the row and kept: a meaning does not change, so nobody pays for it twice.
+  Key-gated like curation, and never automatic — one call per word you actually
+  wondered about.
+- When the reading names the language, that becomes the row's language. A model
+  that knows the trade reading the characters beats a regex hunting umlauts.
+
 ## 0.16.0 — 2026-08-27
 
 Language on the learning page, from three sources instead of one guess.
