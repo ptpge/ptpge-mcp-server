@@ -7,6 +7,27 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.14.0 — 2026-08-27
+
+- **The learning loop, live** (SD-0071 §9). Every lookup through `/mcp` is now
+  judged, and the ones that went badly are counted: a phrase that found
+  nothing, a phrase that only just matched, a colour count a template could
+  not settle. It fills itself from whatever actually happens — our testing,
+  the playground, somebody's agent — instead of waiting to be driven.
+- New page **`/learning`** shows the accumulated picture, heaviest first: the
+  words the trade uses and the vocabulary does not, the answers that would
+  lose to the next competing term, and which products force `4/1` to ask.
+- **What is not recorded is the point.** No user, no key, no IP, no session, no
+  time of day — phrases, scores and counts only, so the open mirror's promise
+  of anonymity per the partner onboarding still holds. Successful lookups are
+  never stored; there is nothing to learn from them. Phrases that look like
+  they carry personal data (an address, a long digit run, a whole prompt) are
+  discarded rather than counted.
+- Data lives in `tmp/learning.json`, which `.cpanel.yml` creates and rsync
+  excludes, so what has been learned survives a deploy. Set
+  `PTPGE_LEARNING_FILE=""` to switch the recorder off; an unwritable path
+  disables it silently, because bookkeeping must never break a lookup.
+
 ## 0.13.0 — 2026-08-27
 
 - New page **`/miss-report`** beside `/playground`: type or paste buyer phrases

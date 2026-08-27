@@ -148,6 +148,7 @@ from . import registerclient as _reg
 from .config import Config
 from . import fingermark as _fm
 from . import colornotation
+from . import learning
 from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
 from .htpasswd import HtpasswdVerifier
@@ -737,6 +738,13 @@ def color_notation_payload(cache: "VocabularyCache", args: dict) -> object:
     if payload.get("needs_disambiguation"):
         payload["guidance"] = ("Put the question to the user. Do not infer the answer: the "
                                "same notation means different products on different presses.")
+        # SD-0071 §9: count where the shorthand forced a question — template,
+        # surface, number, how many readings stayed open. Structure only.
+        for entry in payload["needs_disambiguation"]:
+            if entry.get("reason") == "surface_count":
+                learning.record_colour_question(
+                    uri, entry.get("surface", "?"), entry.get("count", -1),
+                    len(entry.get("candidates") or []))
     return payload
 
 
@@ -1070,6 +1078,9 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
         groups = args.get("groups")
         language = args.get("language", "en")
         hits = cache.search(query=query, limit=limit, groups=groups, language=language)
+        # SD-0071 §9: a lookup that failed is the only thing worth learning from.
+        # Phrase and score only — never who asked. See ptpge_mcp/learning.py.
+        learning.record_search(query, hits)
         return {"query": query, "count": len(hits), "results": hits}
 
     if name == "ptpge_get_term":
@@ -1516,6 +1527,15 @@ def build_app() -> Starlette:
     cache.load()
     cache.start_background_refresh()
 
+    # Learning loop (SD-0071 §9). Defaults into tmp/, which .cpanel.yml creates
+    # and rsync excludes — so what the vocabulary has learned survives a deploy.
+    # Set PTPGE_LEARNING_FILE="" to switch the recorder off entirely.
+    _lf = os.environ.get("PTPGE_LEARNING_FILE")
+    if _lf is None:
+        _lf = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "tmp", "learning.json")
+    learning.configure(_lf or None)
+
     mcp_server: Server = Server("ptpge-mcp")
 
     @mcp_server.list_tools()
@@ -1578,6 +1598,7 @@ def build_app() -> Starlette:
         etag = _result_etag(cache, method, reply)
         if not etag:
             return JSONResponse(reply)
+        learning.flush()          # cheap no-op unless something was recorded
         headers = {"ETag": etag, "Cache-Control": "public, max-age=3600"}
         if _if_none_match(request.headers.get("if-none-match"), etag):
             return Response(status_code=304, headers=headers)
@@ -1597,6 +1618,15 @@ def build_app() -> Starlette:
         """
         from .missreport import page_html
         return HTMLResponse(page_html())
+
+    async def learning_page(_request: Request) -> HTMLResponse:
+        """What real requests could not resolve — SD-0071 §9, accumulated.
+
+        Every lookup through /mcp is judged; the failures land here. No caller
+        is identified: phrases and counts only.
+        """
+        from .learningpage import page_html as _lp
+        return HTMLResponse(_lp(learning.snapshot()))
 
     async def health(_request: Request) -> JSONResponse:
         try:
@@ -1761,6 +1791,7 @@ def build_app() -> Starlette:
             Route("/", endpoint=root, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
             Route("/miss-report", endpoint=miss_report, methods=["GET"]),
+            Route("/learning", endpoint=learning_page, methods=["GET"]),
             Route("/chat", endpoint=chat, methods=["POST", "OPTIONS"]),
             Route("/vision", endpoint=vision, methods=["POST", "OPTIONS"]),
             Route("/health", endpoint=health, methods=["GET"]),

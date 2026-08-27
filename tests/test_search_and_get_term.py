@@ -301,3 +301,66 @@ def test_ties_are_deterministic(monkeypatch):
     runs = [[h["id"] for h in c.search(query="pantone", limit=5)] for _ in range(5)]
     assert all(r == runs[0] for r in runs), "search order must be stable"
     assert runs[0] == sorted(runs[0]) or len(set(runs[0])) == len(runs[0])
+
+
+# --------------------------------------------------------------------------
+# Learning recorder (SD-0071 §9)
+# --------------------------------------------------------------------------
+
+def test_learning_records_only_failures(tmp_path):
+    from ptpge_mcp import learning
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    learning.record_search("gazebo", [])                                   # miss
+    learning.record_search("business cards", [{"id": "x", "score": 0.95}])  # fine
+    learning.record_search("poster frame", [{"id": "y", "score": 0.41}])    # weak
+    snap = learning.snapshot()
+    assert [r["key"] for r in snap["misses"]] == ["gazebo"]
+    assert [r["key"] for r in snap["weak"]] == ["poster frame"]
+    assert snap["totals"]["misses"] == 1
+
+
+def test_learning_counts_repeats(tmp_path):
+    from ptpge_mcp import learning
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    for _ in range(3):
+        learning.record_search("correx", [])
+    assert learning.snapshot()["misses"][0]["n"] == 3
+
+
+def test_learning_drops_anything_personal(tmp_path):
+    from ptpge_mcp import learning
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    learning.record_search("anna@example.com", [])            # address
+    learning.record_search("order 998877665544", [])          # long digit run
+    learning.record_search("x" * 200, [])                     # a prompt, not a term
+    assert learning.snapshot()["totals"]["misses"] == 0
+
+
+def test_learning_records_colour_questions(tmp_path):
+    from ptpge_mcp import learning
+    learning.reset(); learning.configure(str(tmp_path / "l.json"))
+    learning.record_colour_question(
+        "https://ptpge.org/v1/ordering/products/business-cards", "back", 1, 3)
+    row = learning.snapshot()["colour"][0]
+    assert row["surface"] == "back" and row["count"] == 1 and row["candidates"] == 3
+
+
+def test_learning_survives_a_restart(tmp_path):
+    from ptpge_mcp import learning
+    path = str(tmp_path / "l.json")
+    learning.reset(); learning.configure(path)
+    learning.record_search("wiro", [])
+    learning.flush()
+    # A fresh process starts with empty memory but the file still on disk —
+    # reset() would also wipe the file, which is not what a restart does.
+    learning._state.update({"misses": {}, "weak": {}, "colour": {}})
+    learning._path = None
+    learning.configure(path)
+    assert any(r["key"] == "wiro" for r in learning.snapshot()["misses"])
+
+
+def test_learning_disabled_is_silent():
+    from ptpge_mcp import learning
+    learning.reset(); learning.configure(None)
+    learning.record_search("anything", [])          # must not raise
+    assert learning.snapshot()["enabled"] is False
