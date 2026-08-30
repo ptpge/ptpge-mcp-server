@@ -45,6 +45,19 @@ SURFACES = ("front", "back")
 #: Pair notation: two counts separated by "/" or "+", spaces optional.
 _PAIR = re.compile(r"^\s*(\d{1,2})\s*([/+])\s*(\d{1,2})\s*$")
 
+#: Worded pair notation. Buyers say "double-sided" and "single-sided" far more
+#: often than they write 4/4 — Helloprint's own flyer configurator offers
+#: exactly those two words (coverage run 2026-08-30). They are NOT vocabulary
+#: terms and never will be: per the None-decision (SD-0068 spoken blankness),
+#: "single-sided" is x/0 — back bound to None deterministically, front count
+#: unknown — and "double-sided" is x/y with both counts unknown. Unknown counts
+#: are carried as None and produce needs_disambiguation, never a guess.
+_WORDED_SINGLE = re.compile(
+    r"^\s*(?:(?:single|one|1)[-\s]?sided(?:\s+print(?:ing)?)?|simplex)\s*$", re.I)
+_WORDED_DOUBLE = re.compile(
+    r"^\s*(?:(?:double|two|2)[-\s]?sided(?:\s+print(?:ing)?)?|duplex|both\s+sides(?:\s+printed)?)\s*$",
+    re.I)
+
 
 class NotationError(ValueError):
     """The string is not a color pair notation at all."""
@@ -52,10 +65,14 @@ class NotationError(ValueError):
 
 @dataclass(frozen=True)
 class Pair:
-    """A parsed pair notation."""
+    """A parsed pair notation.
 
-    front: int
-    back: int
+    Counts are `None` when the notation names the *shape* of the pair without
+    the numbers — "double-sided" says both surfaces carry ink but not how much.
+    """
+
+    front: int | None
+    back: int | None
     separator: str
     raw: str
 
@@ -69,7 +86,7 @@ class SurfaceResult:
     """Resolution outcome for one surface."""
 
     surface: str
-    count: int
+    count: int | None
     #: Every combination the template supports that sums to `count`. Each
     #: candidate is a tuple of color URIs, in print order.
     candidates: list[tuple[str, ...]] = field(default_factory=list)
@@ -91,10 +108,16 @@ def parse_pair(text: str) -> Pair:
     front then back (SD-0071); no market is known to write it the other way.
     """
     m = _PAIR.match(text or "")
-    if not m:
-        raise NotationError(f"not a color pair notation: {text!r}")
-    return Pair(front=int(m.group(1)), back=int(m.group(3)),
-                separator=m.group(2), raw=text.strip())
+    if m:
+        return Pair(front=int(m.group(1)), back=int(m.group(3)),
+                    separator=m.group(2), raw=text.strip())
+    if _WORDED_SINGLE.match(text or ""):
+        # x/0: the reverse is unprinted — a positive, deterministic statement
+        # (SD-0068). The front count stays open.
+        return Pair(front=None, back=0, separator="worded", raw=text.strip())
+    if _WORDED_DOUBLE.match(text or ""):
+        return Pair(front=None, back=None, separator="worded", raw=text.strip())
+    raise NotationError(f"not a color pair notation: {text!r}")
 
 
 def plus_is_ambiguous(pair: Pair) -> bool:
@@ -298,9 +321,23 @@ def resolve(text: str, supported: Sequence[str], channels: dict[str, int],
     """
     pair = parse_pair(text)
     first, second = (list(surfaces) + list(SURFACES))[:2]
+
+    def one(count: int | None, surface: str) -> SurfaceResult:
+        if count is not None:
+            return resolve_surface(count, supported, channels, surface)
+        # Worded shorthand left this count open. Never guess (SD-0071 §2):
+        # ask for the pair itself, with the notation as the example so the
+        # agent can relay a question the trade already answers daily.
+        r = SurfaceResult(surface=surface, count=None)
+        r.question = (
+            f"“{pair.raw}” does not say which colors the {surface} carries — "
+            "answer with a pair such as 4/4 (full color both sides), "
+            "4/1 (color front, black reverse) or 4/0 (front only).")
+        return r
+
     surfaces = {
-        first: resolve_surface(pair.front, supported, channels, first),
-        second: resolve_surface(pair.back, supported, channels, second),
+        first: one(pair.front, first),
+        second: one(pair.back, second),
     }
     res = PairResolution(pair=pair, surfaces=surfaces)
     if plus_is_ambiguous(pair):

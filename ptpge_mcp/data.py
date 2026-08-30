@@ -197,6 +197,29 @@ class VocabularyCache:
         tokens = [t for t in tokens if t]
         groups_filter = set(groups) if groups else None
 
+        # gsm-vakt: «250 gsm» er en VEKT, aldri et format. Uten vakten lot
+        # talltoleransen (SD-0072) 250 treffe «B4 (250 x 353 mm)» — funnet i
+        # Helloprint-dekningsmålingen 2026-08-30. I vektkontekst (gsm/g-m²
+        # i spørringen) hopper vi over format-termer helt, og ruter tallet
+        # til paper-weights-KLASSEN hvis definisjonsområde inneholder det
+        # (240–309 → Heavy Paper). Klassene bærer områdene i definisjonene
+        # sine, så vakten holder seg synkron med vokabularet av seg selv.
+        weight_ctx = bool(re.search(r"\b(gsm|g/m2|g/m²|gram)\b", q))
+        weight_n = None
+        if weight_ctx:
+            mnum = re.search(r"\b(\d{2,4})\b", q)
+            weight_n = int(mnum.group(1)) if mnum else None
+
+        def _gsm_range(entry: dict) -> tuple[int, int] | None:
+            d = entry.get("definition_en") or ""
+            m = re.search(r"(\d+)\s*[–—-]\s*(\d+)\s*gsm", d)
+            if m:
+                return int(m.group(1)), int(m.group(2))
+            m = re.search(r"above\s+(\d+)\s*gsm", d, re.I)
+            if m:
+                return int(m.group(1)), 10**6
+            return None
+
         results: list[tuple[float, dict[str, Any]]] = []
         # Dense (embedding) similarities, keyed by full term URI; None if the
         # semantic layer is unavailable (then we fall back to pure lexical).
@@ -207,6 +230,9 @@ class VocabularyCache:
         for entry in entries:
             if groups_filter and entry.get("group") not in groups_filter:
                 continue
+            eid = entry.get("id") or ""
+            if weight_ctx and "/configurations/formats/" in eid:
+                continue  # gsm-vakten: et vekttall skal aldri bli et ark-format
             notation = (entry.get("notation") or "").lower()
             labels = [
                 str(v).lower()
@@ -271,6 +297,12 @@ class VocabularyCache:
                         per_token = []
                         break  # AND semantics: one unmatched token kills the entry
                 score = min(per_token) if per_token else 0.0
+
+            # gsm-vakten, rutedelen: tallet lander i klassen som eier området.
+            if (weight_n is not None and "/paper-weights/" in eid):
+                rng = _gsm_range(entry)
+                if rng and rng[0] <= weight_n <= rng[1]:
+                    score = max(score, 0.92)
 
             if sems is not None:
                 # Hybrid: the embedding cosine should ADD recall for meaning-based
