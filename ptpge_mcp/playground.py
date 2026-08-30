@@ -499,6 +499,7 @@ async function doResolve() {
     chosen.sort((a, b) => a.i - b.i);
     const resolved = chosen.map(c => ({
       phrase: c.phrase, resolved: c.hit.prefLabel, uri: c.hit.id,
+      i: c.i, n: c.n,   // ordposisjon — flate-deteksjonen i assembleFingerprint trenger naboene
       notation: c.hit.notation || null, score: c.hit.score }));
     // Tell "redundant" (its meaning was already captured by another word mapping
     // to the SAME term, e.g. "leaflet" -> the same Folded Sheet Setup as "folded")
@@ -511,7 +512,7 @@ async function doResolve() {
       if (wordHit[k] && seenUri.has(wordHit[k].id)) redundant.push(w);
       else unresolved.push(w);
     });
-    LAST_RESOLVE = { resolved: resolved, numbers: numbers, raw: raw, productFallback: productFallback };
+    LAST_RESOLVE = { resolved: resolved, numbers: numbers, raw: raw, words: words, productFallback: productFallback };
     document.getElementById("fpassemble").style.display = resolved.length ? "" : "none";
     showInline("own",
       resolved.length + " attribute(s) resolved · " + cands.length + " lookups · ptpge_search_terms", {
@@ -542,24 +543,71 @@ const VAR_MAP = [
 function assembleFingerprint() {
   if (!LAST_RESOLVE) return;
   const rel = u => u.replace("https://ptpge.org/v1/", "");
+  // Flate-deteksjon: «full colour OUTSIDE, black only INSIDE» skal bli
+  // color-mode@outside + color-mode@inside — to lovlige bindinger — ikke to
+  // verdier på samme akse, som serveren med rette avviser som duplikat.
+  // cfs/1 har surface-kvalifikatoren for akkurat dette; se REF_ROWS under.
+  const WORDS = LAST_RESOLVE.words || [];
+  const OUT = /^(outside|cover|outer|exterior)$/, IN = /^(inside|inner|interior)$/;
+  const surfaceFor = r => {
+    if (r.i == null) return "";
+    const test = w => OUT.test(w) ? "outside" : (IN.test(w) ? "inside" : "");
+    // Framover først — engelsk setter flaten ETTER frasen («black only
+    // inside»). Et bakoverblikk først ville stjålet forrige frases flate.
+    for (let k = r.i; k < Math.min(WORDS.length, r.i + r.n + 4); k++) {
+      const s = test((WORDS[k] || "").toLowerCase()); if (s) return s;
+    }
+    for (let k = Math.max(0, r.i - 2); k < r.i; k++) {
+      const s = test((WORDS[k] || "").toLowerCase()); if (s) return s;
+    }
+    return "";
+  };
   let product = null; const bindings = []; const skipped = [];
   for (const r of LAST_RESOLVE.resolved) {
     const u = rel(r.uri);
     if (u.indexOf("ordering/products/") === 0) { if (!product) product = u; continue; }
     let mapped = null;
     for (const [frag, v] of VAR_MAP) if (u.indexOf(frag) !== -1) { mapped = v; break; }
-    if (mapped) bindings.push({ variable: mapped, value: u });
+    if (mapped) {
+      const b = { variable: mapped, value: u };
+      const s = surfaceFor(r); if (s) b.surface = s;
+      bindings.push(b);
+    }
     else skipped.push(r.resolved + " (" + u + ")");
   }
+  // Kolliderer to bindinger likevel på samme akse+flate, slå URI-verdier
+  // sammen til en uordnet values-liste (slik surface-finish bærer
+  // matte + spot-UV); alt annet beholder førstemann og rapporteres i stedet
+  // for å la serveren kaste Duplicate binding på publikum.
+  const byLhs = {};
+  for (const b of bindings) {
+    const lhs = b.variable + "@" + (b.surface || "");
+    const prev = byLhs[lhs];
+    if (!prev) { byLhs[lhs] = b; continue; }
+    const uriish = x => typeof x === "string";
+    if (uriish(b.value) && (prev.values || uriish(prev.value))) {
+      prev.values = (prev.values || [prev.value]).concat([b.value]);
+      delete prev.value;
+    } else {
+      skipped.push("duplicate on " + lhs + " → kept first, dropped " + b.value);
+    }
+  }
+  const deduped = Object.values(byLhs);
+  bindings.length = 0; Array.prototype.push.apply(bindings, deduped);
+  // Tallreglene går ETTER dedupliseringen, så de trenger sin egen vakt:
+  // «170 gsm» kan allerede være løst som paper-weight-TERM over — da skal
+  // tallet vike, ikke lage et nytt duplikat på samme akse.
+  const hasVar = v => bindings.some(b => b.variable === v);
   const raw = (LAST_RESOLVE.raw || "").toLowerCase();
   const nums = (LAST_RESOLVE.numbers || []).map(x => parseInt(x, 10)).filter(n => !isNaN(n));
   const qty = nums.filter(n => n >= 25).sort((a, b) => b - a)[0];
-  if (qty) bindings.push({ variable: "variables/order/quantity", value: qty });
-  if (/\b(page|pages|pp|sider)\b/.test(raw)) {
+  if (qty && !hasVar("variables/order/quantity"))
+    bindings.push({ variable: "variables/order/quantity", value: qty });
+  if (/\b(page|pages|pp|sider)\b/.test(raw) && !hasVar("variables/configuration/page-count")) {
     const pc = nums.filter(n => n >= 2 && n <= 96 && n !== qty)[0];
     if (pc) bindings.push({ variable: "variables/configuration/page-count", value: pc });
   }
-  if (/gsm/.test(raw)) {
+  if (/gsm/.test(raw) && !hasVar("variables/substrate/substrate-weight")) {
     const w = nums.filter(n => n >= 40 && n <= 600 && n !== qty)[0];
     if (w) bindings.push({ variable: "variables/substrate/substrate-weight", value: w });
   }
