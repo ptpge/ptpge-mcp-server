@@ -7,6 +7,27 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.22.0 — 2026-09-03
+
+- **Print condition and paper class are bindable (SD-0076).** `validate` now
+  knows two more axes with product envelopes: `variables/substrate/substrate-class`
+  (ISO 12647-2 PS1–PS5 → `supportsSubstrateClass`) and
+  `variables/configuration/back-orientation` (head-to-head / head-to-foot →
+  `supportsBackOrientation`). `supportsPrintStandard` is populated on the paper
+  templates, so a bound Fogra/GRACoL/CRPC condition is checked, not passed
+  through.
+- **Numeric range axes.** A small table (`NUMERIC_RANGE_AXES`) maps numeric
+  axes to their `{min, max, unit}` envelope: substrate thickness (SD-0070) and
+  the new `spine-thickness` (mm; books, photo books, notebooks). Out-of-range
+  values are reported with the template's range.
+- **Cross-axis rule `substrate_class_coating_mismatch`.** PS1–PS4 are coated,
+  PS5 is uncoated; a bound coating that contradicts the bound class is a
+  violation. Three new tests; 117 pass.
+- **Language-gated inflection.** «-er» / «-e» endings mark a plural in German,
+  Dutch and the Scandinavian languages, not in English — «mail → mailer» is a
+  different word. `variants()` takes the label's language tag; the false
+  «Mailer»/«Postal Mail» collision on Postcards is gone.
+
 ## 0.21.0 — 2026-08-27
 
 - **Products win ties, and only ties (SD-0073).** Where a phrase matches a

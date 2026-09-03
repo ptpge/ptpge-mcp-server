@@ -606,6 +606,9 @@ VARIABLE_ENVELOPE = {
     "variables/features/surface-finish": ("perSurfaceSupportsSurfaceFinish", "surface"),
     "variables/finishing/structural-finishing": ("supportsStructuralFinishing", "product"),
     "variables/configuration/shape":            ("supportsShape", "product"),
+    # SD-0076 (2026-09-03): substrate class (ISO 12647-2 PS1–PS5) and back orientation (XJDF LayoutIntent@Sides)
+    "variables/substrate/substrate-class":      ("supportsSubstrateClass", "product"),
+    "variables/configuration/back-orientation": ("supportsBackOrientation", "product"),
 }
 
 WEIGHT_VARIABLE = "variables/substrate/substrate-weight"
@@ -613,6 +616,19 @@ WEIGHT_ENVELOPE = "supportsSubstrateWeight"
 # SD-0070: numeric thickness (canonical mm) with per-template {min,max} range
 THICKNESS_VARIABLE = "variables/substrate/substrate-thickness"
 THICKNESS_ENVELOPE = "supportsSubstrateThickness"
+# SD-0076: spine thickness (mm) — same mechanics as SD-0070
+SPINE_VARIABLE = "variables/configuration/spine-thickness"
+SPINE_ENVELOPE = "supportsSpineThickness"
+NUMERIC_RANGE_AXES = {THICKNESS_VARIABLE: THICKNESS_ENVELOPE, SPINE_VARIABLE: SPINE_ENVELOPE}
+# SD-0076: substrate class vs coating consistency (PS1–PS4 coated, PS5 uncoated)
+_PC = "printing/substrates/sheet-materials/paper/paper-classes/"
+COATED_CLASSES = {_BASE + _PC + c for c in ("ps1-premium-coated", "ps2-improved-coated",
+                                            "ps3-standard-glossy-coated", "ps4-standard-matte-coated")}
+UNCOATED_CLASSES = {_BASE + _PC + "ps5-wood-free-uncoated"}
+COATED_URI = _BASE + "printing/substrates/sheet-materials/paper/paper-coatings/coated"
+UNCOATED_URI = _BASE + "printing/substrates/sheet-materials/paper/paper-coatings/uncoated"
+CLASS_VARIABLE = "variables/substrate/substrate-class"
+COATING_VARIABLE = "variables/substrate/substrate-coating"
 SCORING_URI = _BASE + "printing/completions/structural-finishing/scoring"
 # SD-0066: custom-mål
 CUSTOM_WIDTH_VARIABLE = "variables/configuration/custom-width"
@@ -772,6 +788,8 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     results, advisories, rules = [], [], []
     all_ok = True
     bound_weight = None
+    bound_class = None      # SD-0076
+    bound_coating = None    # SD-0076
     # SD-0066: custom-mål — samle kryssvariabel-kontekst under løkka.
     bound_format = None
     custom_dims: dict[str, float] = {}
@@ -779,6 +797,11 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
         var_uri = _full_uri(b.get("variable", ""))
         var_tail = var_uri[len(_BASE):]
         values = b.get("values") if "values" in b else [b.get("value")]
+        # SD-0076: remember class / coating for the cross-axis rule after the loop
+        if var_tail == CLASS_VARIABLE and isinstance(values[0], str):
+            bound_class = _full_uri(values[0])
+        if var_tail == COATING_VARIABLE and isinstance(values[0], str):
+            bound_coating = _full_uri(values[0])
         entry = {
             "variable": var_tail,
             "surface": b.get("surface") or None,
@@ -840,14 +863,15 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                     all_ok = False
             results.append(entry)
             continue
-        # SD-0070: numeric substrate-thickness (mm) against the template's range.
-        if var_tail == THICKNESS_VARIABLE and isinstance(values[0], (int, float)):
+        # SD-0070 / SD-0076: numeric mm axes (substrate-thickness, spine-thickness)
+        # against the template's {min,max} range.
+        if var_tail in NUMERIC_RANGE_AXES and isinstance(values[0], (int, float)):
             mm = values[0]
-            rng = product.get(THICKNESS_ENVELOPE)
+            env_key = NUMERIC_RANGE_AXES[var_tail]
+            rng = product.get(env_key)
             if rng is None:
                 entry.update(status="not_supported",
-                             note="Product declares no supportsSubstrateThickness "
-                                  "(closed semantics).")
+                             note=f"Product declares no {env_key} (closed semantics).")
                 all_ok = False
             else:
                 lo, hi = rng.get("min"), rng.get("max")
@@ -943,6 +967,17 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                     f"the rotation via variables/configuration/orientation="
                     f"landscape (SD-0066)."})
         all_ok = False
+
+    # SD-0076: substrate class and coating must agree (PS1–PS4 coated, PS5 uncoated).
+    if bound_class and bound_coating:
+        clash = ((bound_class in COATED_CLASSES and bound_coating == UNCOATED_URI) or
+                 (bound_class in UNCOATED_CLASSES and bound_coating == COATED_URI))
+        if clash:
+            rules.append({
+                "rule": "substrate_class_coating_mismatch", "status": "violation",
+                "note": "ISO 12647-2 classes PS1–PS4 are coated papers and PS5 is uncoated; "
+                        "the bound substrate-coating contradicts the bound substrate-class (SD-0076)."})
+            all_ok = False
 
     resp = {
         "product": _ref(cache, uri, language),

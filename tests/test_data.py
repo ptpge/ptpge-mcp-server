@@ -115,3 +115,20 @@ def test_a_product_wins_a_tie_but_never_a_better_match():
     # And the ordering stays total, so results never depend on index order.
     assert rank([(0.9, audience), (0.9, fmt), (0.9, product)]) == [
         product["id"], audience["id"], fmt["id"]]
+
+
+def test_er_is_a_plural_in_german_and_a_new_word_in_english():
+    """Language-gated suffixes. «Bild → Bilder» is grammar; «mail → mailer» is
+    a different word, and treating them alike reported a name collision that
+    did not exist."""
+    from ptpge_mcp.inflect import variants
+
+    assert "bilder" in variants("Bild", "de")
+    assert "mailer" not in variants("Mail", "en")
+    assert "printer" not in variants("Print", "en")
+    assert "korter" in variants("Kort", "nb")
+    # English keeps the number rules it does have.
+    assert variants("Mail", "en") == {"mails"}
+    assert "sticker" in variants("Stickers", "en")
+    # No language given: widest reading, for a caller checking one word alone.
+    assert "mailer" in variants("Mail")

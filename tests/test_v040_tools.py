@@ -288,3 +288,59 @@ def test_scoring_thresholds_match_source_data():
     assert props["standardFromWeight"] == 250
     fixture = TERMS[B + "printing/completions/structural-finishing/scoring"]["properties"]
     assert (fixture["recommendedFromWeight"], fixture["standardFromWeight"]) == (170, 250)
+
+
+# --- SD-0076: substrate class ⟂ coating, spine thickness range ---------------
+_PC = "https://ptpge.org/v1/printing/substrates/sheet-materials/paper/paper-classes/"
+_CO = "https://ptpge.org/v1/printing/substrates/sheet-materials/paper/paper-coatings/"
+
+
+class _SD76Cache(FakeCache):
+    def get_term(self, id_or_path):
+        t = super().get_term(id_or_path)
+        if t and t.get("elementType") == "product":
+            t = dict(t)
+            t["supportsSubstrateClass"] = [_PC + "ps1-premium-coated", _PC + "ps5-wood-free-uncoated"]
+            t["supportsSubstrateCoating"] = [_CO + "coated", _CO + "uncoated"]
+            t["supportsSpineThickness"] = {"min": 3, "max": 120, "unit": "mm"}
+        return t
+
+
+def _first_product_path():
+    for uri, t in FakeCache().terms.items() if hasattr(FakeCache(), "terms") else []:
+        if t.get("elementType") == "product":
+            return uri
+    return "ordering/products/brochures"
+
+
+def test_sd0076_class_coating_mismatch_is_a_violation():
+    out = tool_payload(_SD76Cache(), "ptpge_validate_config", {
+        "product": _first_product_path(),
+        "bindings": [
+            {"variable": "variables/substrate/substrate-class", "value": _PC + "ps1-premium-coated"},
+            {"variable": "variables/substrate/substrate-coating", "value": _CO + "uncoated"},
+        ]})
+    assert out.get("validInEnvelope") is False
+    assert any(r["rule"] == "substrate_class_coating_mismatch" for r in out.get("rules", []))
+
+
+def test_sd0076_class_coating_consistent_passes_rule():
+    out = tool_payload(_SD76Cache(), "ptpge_validate_config", {
+        "product": _first_product_path(),
+        "bindings": [
+            {"variable": "variables/substrate/substrate-class", "value": _PC + "ps5-wood-free-uncoated"},
+            {"variable": "variables/substrate/substrate-coating", "value": _CO + "uncoated"},
+        ]})
+    assert not any(r["rule"] == "substrate_class_coating_mismatch" for r in out.get("rules", []))
+
+
+def test_sd0076_spine_thickness_range():
+    out = tool_payload(_SD76Cache(), "ptpge_validate_config", {
+        "product": _first_product_path(),
+        "bindings": [{"variable": "variables/configuration/spine-thickness", "value": 23}]})
+    st = [b for b in out["bindings"] if b["variable"].endswith("spine-thickness")][0]
+    assert st["status"] == "in_range"
+    out2 = tool_payload(_SD76Cache(), "ptpge_validate_config", {
+        "product": _first_product_path(),
+        "bindings": [{"variable": "variables/configuration/spine-thickness", "value": 500}]})
+    assert out2["validInEnvelope"] is False

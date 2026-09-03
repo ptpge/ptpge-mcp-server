@@ -1,4 +1,4 @@
-"""Shared-htpasswd verification for Basic Auth (Private Beta).
+"""Shared-htpasswd verification for Basic Auth (Public Beta).
 
 The register app provisions ONE gate entry per beta user in the shared
 Apache htpasswd file (APR1-MD5 — see register-server gates.py). The same

@@ -34,6 +34,14 @@ from __future__ import annotations
 #: Languages whose labels get inflected forms. CJK is deliberately absent.
 INFLECTED = ("en", "de", "nb", "nn", "sv", "da", "nl", "es", "it", "fr", "pt")
 
+#: Where a bare «-er» or «-e» ending marks a PLURAL. In German and Dutch,
+#: Bild → Bilder is grammar. In English it is not: mail → mailer, print →
+#: printer, bind → binder are different words with different meanings, and
+#: treating them as one form is how «Mailer» on Postcards came to look like a
+#: name collision with Postal Mail. The rule is therefore language-gated —
+#: which we can do, because a label always arrives with its language tag.
+_ER_PLURAL = ("de", "nl", "nb", "nn", "da", "sv")
+
 _MIN = 4        # below this, a suffix rule is more likely noise than grammar
 
 #: Cutting letters OFF a word is the dangerous direction: «Poster» would yield
@@ -50,7 +58,7 @@ def _add(out: set, word: str) -> None:
         out.add(word)
 
 
-def variants(label: str) -> set[str]:
+def variants(label: str, lang: str | None = None) -> set[str]:
     """Plausible other number-forms of one label, lowercased.
 
     Deliberately generous in shape and conservative in effect: every form here
@@ -63,6 +71,11 @@ def variants(label: str) -> set[str]:
     w = (label or "").strip().lower()
     if len(w) < _MIN:
         return set()
+    # Unknown language keeps every rule: a caller checking one word in
+    # isolation should get the widest reading, and the tier below exact makes
+    # a spare form harmless. The indexer always knows, and always says.
+    base = (lang or "").split("-")[0]
+    er_plural = base in _ER_PLURAL or not base
     out: set[str] = set()
 
     # --- towards the plural -------------------------------------------------
@@ -74,15 +87,15 @@ def variants(label: str) -> set[str]:
         _add(out, w[:-1] + "ies")                # category -> categories
     if w.endswith("e"):
         _add(out, w + "n")                       # Karte -> Karten, Broschüre -> Broschüren
-    if not w.endswith(("e", "n", "s")):
+    if er_plural and not w.endswith(("e", "n", "s")):
         _add(out, w + "e")                       # Schild -> Schilde
         _add(out, w + "en")                      # Etikett -> Etiketten
         _add(out, w + "er")                      # Bild -> Bilder, kort -> korter
-    if w.endswith("er"):
+    if er_plural and w.endswith("er"):
         _add(out, w + "e")                       # hefter -> heftere (nb/da)
-    if not w.endswith("r"):
-        _add(out, w + "r")                       # brosjyre -> brosjyrer, kalender -> …
-    if not w.endswith(("ar", "er", "or")):
+    if er_plural and not w.endswith("r"):
+        _add(out, w + "r")                       # brosjyre -> brosjyrer
+    if er_plural and not w.endswith(("ar", "er", "or")):
         _add(out, w + "ar")                      # sv: pärm -> pärmar
 
     # --- towards the singular ----------------------------------------------
@@ -92,7 +105,7 @@ def variants(label: str) -> set[str]:
         _add(out, w[:-2])                        # boxes -> box
     if w.endswith("s") and not w.endswith("ss"):
         _add(out, w[:-1])                        # stickers -> sticker
-    for suffix in ("en", "er", "ar", "or", "n", "e"):
+    for suffix in (("en", "er", "ar", "or", "n", "e") if er_plural else ("s",)):
         if w.endswith(suffix) and len(w) - len(suffix) >= _MIN_TRUNCATED:
             _add(out, w[: -len(suffix)])         # Broschüren -> Broschüre
     # Scandinavian definite plurals: kortene, blokkene, flaggene
@@ -114,12 +127,12 @@ def index_for(entry: dict) -> tuple[frozenset, frozenset]:
     alts: set[str] = set()
     for lang, value in (entry.get("label") or {}).items():
         if lang.split("-")[0] in INFLECTED and value:
-            labels |= variants(str(value))
+            labels |= variants(str(value), lang)
     for lang, values in (entry.get("altLabels") or {}).items():
         if lang.split("-")[0] in INFLECTED:
             for value in (values or []):
                 if value:
-                    alts |= variants(str(value))
+                    alts |= variants(str(value), lang)
     # A form that is already an exact label must not also count as inflected.
     exact = {str(v).lower() for v in (entry.get("label") or {}).values() if v}
     exact |= {str(a).lower()
