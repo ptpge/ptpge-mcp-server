@@ -7,6 +7,13 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.23.0 — 2026-09-05
+
+- **Winding direction is bindable.** `validate` knows `variables/configuration/winding-direction`
+  (FINAT positions 1–8, adopted from XJDF `Component/@WindingResult`) against the
+  `supportsWindingDirection` envelope on roll-supplied products (labels, stickers).
+  A beta tester's kiss-cut sticker ticket on a roll asked for it. One new test; 118 pass.
+
 ## 0.22.0 — 2026-09-03
 
 - **Print condition and paper class are bindable (SD-0076).** `validate` now

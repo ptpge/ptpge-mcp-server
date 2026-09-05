@@ -344,3 +344,29 @@ def test_sd0076_spine_thickness_range():
         "product": _first_product_path(),
         "bindings": [{"variable": "variables/configuration/spine-thickness", "value": 500}]})
     assert out2["validInEnvelope"] is False
+
+
+# --- Peter #9 (2026-09-05): winding direction (FINAT 1–8, XJDF Component/@WindingResult) --
+_WD = "https://ptpge.org/v1/printing/configurations/winding-direction/"
+
+
+class _WindingCache(FakeCache):
+    def get_term(self, id_or_path):
+        t = super().get_term(id_or_path)
+        if t and t.get("elementType") == "product":
+            t = dict(t)
+            t["supportsWindingDirection"] = [_WD + f"finat-{n}" for n in range(1, 9)]
+        return t
+
+
+def test_winding_direction_is_checked_against_envelope():
+    ok = tool_payload(_WindingCache(), "ptpge_validate_config", {
+        "product": _first_product_path(),
+        "bindings": [{"variable": "variables/configuration/winding-direction", "value": _WD + "finat-3"}]})
+    wd = [b for b in ok["bindings"] if b["variable"].endswith("winding-direction")][0]
+    assert wd["status"] != "unknown_variable"
+    assert ok.get("validInEnvelope") is not False
+    bad = tool_payload(_WindingCache(), "ptpge_validate_config", {
+        "product": _first_product_path(),
+        "bindings": [{"variable": "variables/configuration/winding-direction", "value": _WD + "finat-9"}]})
+    assert bad["validInEnvelope"] is False
