@@ -7,6 +7,15 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.24.0 — 2026-09-08
+
+- **Polish (pl) is the tenth content language (SD-0077).** `label.pl`, `definition.pl`
+  and `altLabels.pl` on all 840 terms; `get_term(language="pl")` and search over
+  Polish buyer phrases now resolve. Embeddings rebuilt with Polish labels and
+  altLabels (523 vectors). Playground: Polish added to the convergence demo
+  (four products), «nine languages» → «ten languages» in all UI languages.
+  `llm-draft` in `ptpge:translationStatus`; professional review pending.
+
 ## 0.23.0 — 2026-09-05
 
 - **Winding direction is bindable.** `validate` knows `variables/configuration/winding-direction`
