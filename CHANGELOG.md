@@ -7,6 +7,27 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.25.0 — 2026-09-11
+
+- **`ptpge_expand_fingerprint` (new, 9 tools).** Read-back over MCP: a spec or
+  offer fingerprint (64-hex or 16-hex short form, URL prefix tolerated) →
+  profile, product, every binding with labels in the requested language,
+  canonical string, dataVersion. A lookup in the public resolver (ptpge.org/f/),
+  never an inversion — unregistered fingerprints return `status: "unknown"`
+  with an explanation. Closes the MIS/ERP rung Torben flagged 11.9 (Dataline /
+  MultiPress connector).
+- **`ptpge_fingerprint` description: no more «etc.».** The commercial cluster is
+  named as the closed list it is — quantity, lead-time, delivery-method,
+  incoterm (`variables/order/`, SD-0040); transaction data (file, delivery
+  date, price) is keyed by the offer fingerprint and never hashed into it.
+- **Elicitation contract stated once for all tools** (`ptpge_validate_config`
+  description): `needs_disambiguation` entries carry `field`, `question`
+  (verbatim to the user) and `candidates`; never infer, never fingerprint
+  before resolution. Same shape `ptpge_resolve_color_notation` has used since
+  SD-0071.
+- Tests: 121 (3 new for expansion — non-hex rejected, 404 → unknown, resolve +
+  relabel).
+
 ## 0.24.0 — 2026-09-08
 
 - **Polish (pl) is the tenth content language (SD-0077).** `label.pl`, `definition.pl`

@@ -128,6 +128,9 @@ import hashlib
 import json
 import logging
 import os
+import re
+import urllib.error
+import urllib.request
 import secrets
 import time
 
@@ -416,7 +419,13 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "thresholds). NOTE: this validates the ENVELOPE only — "
             "cross-variable legality (e.g. valid panel counts per fold "
             "topology) and vendor capability matching are Layer 2 "
-            "(Configurator) services."
+            "(Configurator) services; commercial values (date, price) are "
+            "not configuration and belong to the transaction layer. "
+            "Elicitation contract (shared by every ptpge_* tool): whenever a "
+            "result carries `needs_disambiguation`, each entry has a `field`, "
+            "a `question` that MUST be put to the user verbatim, and "
+            "`candidates` — never infer the answer, never fingerprint until "
+            "it is resolved."
         ),
         inputSchema={
             "type": "object",
@@ -493,10 +502,17 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "Compute the canonical ptpge-cfs/1 serialization and SHA-256 "
             "fingerprint of a resolved product configuration (SD-0040) — the "
             "vendor-neutral identity used as quote/order/cache key. Returns "
-            "both profiles: 'spec' (the manufacturable artifact, commercial "
-            "cluster excluded) and 'offer' (incl. quantity etc.). Input is "
-            "NOT validated against envelopes — call ptpge_validate_config "
-            "first if needed."
+            "both profiles in strict containment spec ⊂ offer: 'spec' = the "
+            "manufacturable artifact, commercial cluster excluded; 'offer' = "
+            "spec plus the commercial cluster, which is exactly the four "
+            "variables under variables/order/ — quantity, lead-time, "
+            "delivery-method, incoterm (closed list, SD-0040). Transaction "
+            "data (print-ready file, delivery date, price) is keyed BY the "
+            "offer fingerprint and never hashed into it. Input is NOT "
+            "validated against the configuration envelope — call "
+            "ptpge_validate_config first. Do not fingerprint an unresolved "
+            "configuration: if any tool returned needs_disambiguation, put "
+            "its question to the user first."
         ),
         inputSchema={
             "type": "object",
@@ -526,6 +542,32 @@ TOOL_DESCRIPTORS: list[Tool] = [
                 },
             },
             "required": ["product", "bindings"],
+        },
+    ),
+    Tool(
+        name="ptpge_expand_fingerprint",
+        description=(
+            "Expand a spec or offer fingerprint (ptpge-cfs/1, full 64-hex or "
+            "16-hex short form) back into its structured configuration — the "
+            "read-back path for MIS/ERP: matched profile, product, every "
+            "binding with resolved labels, the canonical string, and the "
+            "dataset version. This is a LOOKUP in the public resolver "
+            "(ptpge.org/f/), not an inversion of the hash: it resolves when "
+            "the fingerprint has been registered (every fingerprint computed "
+            "by ptpge_fingerprint is self-registered within seconds). An "
+            "unregistered fingerprint is still a valid identity — it simply "
+            "has no stored expansion yet; returns status 'unknown' then."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "fingerprint": {
+                    "type": "string",
+                    "description": "SHA-256 hex (64) or the 16-hex short form, with or without the resolver URL prefix.",
+                },
+                "language": {"type": "string", "default": "en"},
+            },
+            "required": ["fingerprint"],
         },
     ),
 ]
@@ -1087,6 +1129,71 @@ def fingerprint_payload(args: dict) -> object:
     return out
 
 
+_HEX = re.compile(r"[0-9a-f]{16}(?:[0-9a-f]{48})?$")
+
+
+def expand_payload(cache: "VocabularyCache", args: dict) -> object:
+    """ptpge_expand_fingerprint — look a fingerprint up in the public resolver.
+
+    The resolver page (ptpge.org/f/<hash>, content-negotiated JSON) is the
+    permanent record written at registration (SD-0058); this tool re-labels
+    its bindings in the requested language from the local vocabulary cache
+    so MIS/ERP integrators get the same read-back over MCP as over HTTP.
+    """
+    raw = str(args.get("fingerprint", "")).strip().lower()
+    raw = raw.rsplit("/", 1)[-1]
+    if raw.endswith(".json"):
+        raw = raw[:-5]
+    if not _HEX.match(raw):
+        raise ValueError("fingerprint must be a 64-hex SHA-256 or its 16-hex short form")
+    language = args.get("language", "en") or "en"
+    base = os.environ.get("PTPGE_RESOLVER_BASE", "https://ptpge.org/f/")
+    url = base + raw
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json",
+                                                   "User-Agent": f"ptpge-mcp/{__version__}"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            body = resp.read().decode("utf-8")
+            final = resp.geturl()
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {"status": "unknown", "fingerprint": raw, "resolverUrl": url,
+                    "note": ("Not registered with the resolver. A fingerprint is a hash — it "
+                             "cannot be inverted, only looked up. Compute it once through "
+                             "ptpge_fingerprint and it registers itself.")}
+        raise
+    doc = json.loads(body)
+    full = final.rsplit("/", 1)[-1]
+    bindings = []
+    for b in doc.get("bindings", []) or []:
+        nb = dict(b)
+        var = b.get("variable")
+        if var:
+            nb["variableLabel"] = _ref(cache, _full_uri(var), language).get("label")
+        val = b.get("value")
+        if isinstance(val, str) and val.startswith(("printing/", "ordering/", "variables/", "https://")):
+            nb["label"] = _ref(cache, _full_uri(val), language).get("label") or b.get("label")
+        bindings.append(nb)
+    prod = doc.get("product") or {}
+    if prod.get("uri"):
+        prod = dict(prod, label=_ref(cache, prod["uri"], language).get("label") or prod.get("label"))
+    return {
+        "status": "resolved",
+        "algorithm": doc.get("algorithm", "ptpge-cfs/1"),
+        "profile": doc.get("matchedProfile"),
+        "fingerprint": full if _HEX.match(full or "") else raw,
+        "resolverUrl": base + (full if _HEX.match(full or "") else raw),
+        "product": prod,
+        "bindings": bindings,
+        "canonical": doc.get("canonical"),
+        "dataVersion": cache.version.get("version"),
+        "note": ("Read-back for MIS/ERP. Bindings are the manufacturable configuration "
+                 "(profile 'spec') or that plus the commercial cluster (profile 'offer'); "
+                 "file, delivery date and price are transaction data keyed by the offer "
+                 "fingerprint and are never part of it."),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Shared tool dispatch — used by BOTH transports (SSE and Streamable HTTP).
 # Pure function of (cache, name, args) so it is unit-testable without an app.
@@ -1156,6 +1263,9 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
 
     if name == "ptpge_fingerprint":
         return fingerprint_payload(args)
+
+    if name == "ptpge_expand_fingerprint":
+        return expand_payload(cache, args)
 
     raise ValueError(f"Unknown tool: {name}")
 

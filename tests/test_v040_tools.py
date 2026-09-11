@@ -370,3 +370,37 @@ def test_winding_direction_is_checked_against_envelope():
         "product": _first_product_path(),
         "bindings": [{"variable": "variables/configuration/winding-direction", "value": _WD + "finat-9"}]})
     assert bad["validInEnvelope"] is False
+
+
+# --- 0.25.0: ptpge_expand_fingerprint --------------------------------------
+
+def test_expand_fingerprint_rejects_non_hex():
+    import pytest
+    with pytest.raises(ValueError):
+        tool_payload(FakeCache(), "ptpge_expand_fingerprint", {"fingerprint": "not-a-hash"})
+
+
+def test_expand_fingerprint_unknown_is_a_status_not_an_error(monkeypatch):
+    import urllib.error, urllib.request
+    def boom(req, timeout=0):
+        raise urllib.error.HTTPError(req.full_url, 404, "nf", {}, None)
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    out = tool_payload(FakeCache(), "ptpge_expand_fingerprint", {"fingerprint": "0" * 64})
+    assert out["status"] == "unknown" and out["resolverUrl"].endswith("0" * 64)
+
+
+def test_expand_fingerprint_resolves_and_relabels(monkeypatch):
+    import io, json as _json, urllib.request
+    doc = {"algorithm": "ptpge-cfs/1", "matchedProfile": "spec",
+           "product": {"uri": "https://ptpge.org/v1/ordering/products/brochures", "label": "Brochure"},
+           "bindings": [{"variable": "variables/configuration/page-count", "value": 8, "label": "8"}],
+           "canonical": "ptpge-cfs/1:spec;product=ordering/products/brochures;variables/configuration/page-count=8"}
+    class R(io.BytesIO):
+        def geturl(self): return "https://ptpge.org/f/" + "f" * 64
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=0: R(_json.dumps(doc).encode()))
+    out = tool_payload(FakeCache(), "ptpge_expand_fingerprint", {"fingerprint": "ptpge.org/f/" + "f" * 16})
+    assert out["status"] == "resolved" and out["profile"] == "spec"
+    assert out["fingerprint"] == "f" * 64 and out["bindings"][0]["value"] == 8
+    assert "never part of it" in out["note"]
