@@ -482,8 +482,15 @@ const DEMO_BINDINGS = [
 async function doResolve() {
   const raw = document.getElementById("prompt").value || "";
   const lang = document.getElementById("q-lang").value;
-  const STOP = new Set(("i want a an the on of with and or in to for it is be both sides side please order printed print copies copy gsm jeg vil ha en et pa med og eller som begge sider").split(" "));
-  const cleaned = raw.toLowerCase().replace(/[^a-z0-9\\s-]/g, " ");
+  const STOP = new Set(("i want a an the on of with and or in to for it is be both sides side please order printed print copies copy gsm " +
+    "jeg vil ha en et pa på med og eller som begge sider af av til det den ett " +          // nb / da / sv
+    "ich möchte ein eine mit auf und oder von für in zu das der die " +                       // de
+    "ik wil een met op en of van voor het " +                                                 // nl
+    "chcę z na i lub w do o " +                                                               // pl
+    "quiero un una con en y o de la el por para sobre").split(" ").filter(Boolean));         // es
+  // Unicode-aware: keep letters in every script (æ ø å ä ö ü ł ñ 日本語 …) — an ASCII class
+  // used to split "hæfter" into "h" + "fter" and "på" into "p".
+  const cleaned = raw.toLowerCase().replace(/[^\\p{L}\\p{N}\\s-]/gu, " ");
   const rawWords = cleaned.split(/\\s+/).filter(Boolean);
   const numbers = rawWords.filter(w => /^[0-9]/.test(w));
   const words = rawWords.filter(w => !STOP.has(w) && !/^[0-9]/.test(w));

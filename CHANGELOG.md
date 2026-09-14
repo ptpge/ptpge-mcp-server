@@ -7,6 +7,16 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.25.2 — 2026-09-14
+
+- **Playground own-prompt: Unicode-aware word splitting.** The n-gram stand-in
+  cut words at æ ø å ä ö ü ł ñ (and every non-Latin script): "hæfter" became
+  "h" + "fter" and matched Postpress Proofing, "på" became "p" and matched the
+  root. Letters in every script now survive, so "hæfter" resolves to Booklets
+  (0.95) as the search itself always did. Stop-word list extended with the
+  small connector words of nb/da/sv, de, nl, pl and es so they stop producing
+  candidate phrases.
+
 ## 0.25.1 — 2026-09-14
 
 - **Playground: every fingerprint result is now editable.** The canonical form
