@@ -388,6 +388,19 @@ function fmtJson(obj) {
         if (pr.qrSvg) { pr.qrSvg = "(rendered above)"; }
       }
       strip += "</div>";
+      // Editable canonical form + live SHA-256 (same trick as the convergence
+      // demo): edit a byte, the identity goes red; reset, it comes home green.
+      const sp = obj.profiles.spec;
+      const tt = key => (typeof UI !== "undefined" && ((UI[CUR_LANG] && UI[CUR_LANG][key]) || UI.en[key])) || key;
+      const escA = v => String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+      strip = '<div class="fpwrap" data-orig="' + escA(sp.canonical) + '" data-hash="' + escA(sp.sha256) + '">' +
+        '<div class="fpe-vis">' + strip + '</div>' +
+        '<div style="font-size:11px;color:#7fae97;margin:2px 0 4px">canonical · ptpge-cfs/1 ' +
+        '<span class="fpe-reset" style="cursor:pointer;color:#37d98a;margin-left:8px">reset</span></div>' +
+        '<div class="fpe-canon" contenteditable="true" spellcheck="false" style="white-space:pre-wrap;word-break:break-all;border:1px dashed #3a5a48;border-radius:6px;padding:6px 8px;color:#d8d8d8;outline:none">' + escA(sp.canonical) + '</div>' +
+        '<div class="fpe-hash" style="margin-top:6px;font-weight:700;color:#37d98a;word-break:break-all">' + escA(sp.sha256) + '</div>' +
+        '<div class="fpe-note" style="font-size:12px;color:#7fae97;margin-bottom:12px">\u2713 ' + tt("same") + ' \u00b7 ' + escA(sp.resolverUrl || "") + '</div>' +
+        '<div style="font-size:11px;color:#7fae97;margin-bottom:14px">' + tt("ed_hint") + '</div></div>';
     }
   } catch (e) { strip = ""; }
   const text = JSON.stringify(obj, null, 2);
@@ -398,6 +411,33 @@ function fmtJson(obj) {
     .replace(/: (-?\\d+(?:\\.\\d+)?)/g, ': <span class="n">$1</span>');
   return strip + colored;
 }
+// Live re-hash for every editable canonical form on the page (delegated, so it
+// works for results rendered later — own prompt, chain demo, transcript).
+(function () {
+  const tt = key => (typeof UI !== "undefined" && ((UI[CUR_LANG] && UI[CUR_LANG][key]) || UI.en[key])) || key;
+  async function reHash(wrap) {
+    const canon = wrap.querySelector(".fpe-canon"), hash = wrap.querySelector(".fpe-hash"),
+          note = wrap.querySelector(".fpe-note"), vis = wrap.querySelector(".fpe-vis");
+    const txt = canon.textContent, orig = wrap.getAttribute("data-orig");
+    if (txt === orig) {
+      hash.textContent = wrap.getAttribute("data-hash"); hash.style.color = "#37d98a";
+      note.innerHTML = "\u2713 " + tt("same"); if (vis) vis.style.opacity = "";
+      return;
+    }
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+    hash.textContent = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, "0")).join("");
+    hash.style.color = "#ff6b6b";
+    note.innerHTML = "\u2717 " + tt("ed_diff"); if (vis) vis.style.opacity = "0.25";
+  }
+  document.addEventListener("input", e => {
+    const w = e.target.closest && e.target.closest(".fpwrap"); if (w && e.target.classList.contains("fpe-canon")) reHash(w);
+  });
+  document.addEventListener("click", e => {
+    if (!e.target.classList || !e.target.classList.contains("fpe-reset")) return;
+    const w = e.target.closest(".fpwrap"); if (!w) return;
+    w.querySelector(".fpe-canon").textContent = w.getAttribute("data-orig"); reHash(w);
+  });
+})();
 
 function doSearch() {
   callTool("ptpge_search_terms", {
@@ -1275,7 +1315,7 @@ document.addEventListener("click", () => {
       `connected · server <b>${init.json.result.serverInfo.version}</b> · data <b>${payload.dataVersion}</b> · ${payload.termsTotal} terms`;
   } catch (e) {
     document.getElementById("status").textContent = "could not reach /mcp — " + e +
-      (_tok ? "" : " (tip: if tokens are required, open /playground?t=YOUR_TOKEN from your welcome email)");
+      (new URLSearchParams(location.search).get("t") ? "" : " (tip: if tokens are required, open /playground?t=YOUR_TOKEN from your welcome email)");
   }
 })();
 </script>

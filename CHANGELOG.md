@@ -7,6 +7,17 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.25.1 — 2026-09-14
+
+- **Playground: every fingerprint result is now editable.** The canonical form
+  under a `ptpge_fingerprint` result (own prompt, chain demo, transcript) is a
+  live field: change one byte and the SHA-256 recomputes in the browser and
+  turns red — "different bytes, different identity" — with the mark and QR
+  dimmed; `reset` brings the published hash back, green. Same mechanism as the
+  convergence demo, now wherever a fingerprint is shown, so a free-text prompt
+  can be taken all the way to identity and back on one page.
+- Fix: the "could not reach /mcp" hint referenced a variable out of scope.
+
 ## 0.25.0 — 2026-09-11
 
 - **`ptpge_expand_fingerprint` (new, 9 tools).** Read-back over MCP: a spec or
