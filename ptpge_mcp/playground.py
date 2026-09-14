@@ -269,7 +269,7 @@ footer a { color: #2a6045; }
 <details class="card">
   <summary><h2 data-i="t_own">Your own prompt — see what resolves</h2>
   <span class="expl" data-i="e_own">Describe a print job in your own words and see which pieces map to the Standard.</span></summary>
-  <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on heavy recycled paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
+  <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on 170 gsm silk paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
   <div class="row" style="margin-top:10px"><button onclick="doResolve()" data-i="b_resolve">Resolve phrases</button><button id="fpassemble" style="display:none" onclick="assembleFingerprint()" data-i="b_fp">Fingerprint this &rarr; mark + QR</button></div>
   <div class="hint">A real agent uses an LLM to decompose a prompt. This demo approximates that by searching 1–3 word n-grams and greedily keeping the best non-overlapping matches —
   commas and connectors as a rough stand-in, then look each fragment up <em>live</em> — so you
@@ -547,7 +547,7 @@ async function doResolve() {
     const resolved = chosen.map(c => ({
       phrase: c.phrase, resolved: c.hit.prefLabel, uri: c.hit.id,
       i: c.i, n: c.n,   // ordposisjon — flate-deteksjonen i assembleFingerprint trenger naboene
-      notation: c.hit.notation || null, score: c.hit.score }));
+      level: c.hit.level || null, notation: c.hit.notation || null, score: c.hit.score }));
     // Tell "redundant" (its meaning was already captured by another word mapping
     // to the SAME term, e.g. "leaflet" -> the same Folded Sheet Setup as "folded")
     // apart from words with no match at all ("unresolved").
@@ -568,7 +568,7 @@ async function doResolve() {
       numeric_or_layer2: numbers.length ? numbers : undefined,
       redundant_words: redundant.length ? redundant : undefined,
       unresolved_words: unresolved.length ? unresolved : undefined,
-      note: "Greedy non-overlapping n-gram resolution (the demo's stand-in for an LLM). 'redundant_words' already map to a term captured via another word (e.g. 'leaflet' -> the same Folded Sheet Setup as 'folded'). A real agent assembles these URIs into a validated, fingerprinted configuration; numbers like quantity/weight are Layer 2 / numeric axes.",
+      note: "Greedy non-overlapping n-gram resolution (the demo's stand-in for an LLM). 'redundant_words' already map to a term captured via another word (e.g. 'leaflet' -> the same Folded Sheet Setup as 'folded'). Press 'Fingerprint this' to assemble: value-level terms bind by their place in the tree, numbers bind by the unit word beside them, colour counts go through the resolver, and the configuration is validated before it is fingerprinted — the steps an agent takes, as rules.",
     });
   } finally {
     buttons.forEach(b => b.disabled = false);
@@ -576,102 +576,149 @@ async function doResolve() {
 }
 
 let LAST_RESOLVE = null;
-// Heuristic assembly (v1): URI-path -> variable. A real agent does this with
-// the envelope; this is the demo's stand-in so free text reaches the mark+QR.
+// Assembly v2 (2026-09-14): rules, not a model — but the rules a careful agent
+// would follow. (1) only VALUE-level terms bind (a group like "Paper Weights"
+// never does); (2) each term goes to the variable its place in the tree
+// implies; (3) numbers bind by the unit word beside them, in the ten
+// languages of the Standard; (4) "4 colours", "4/4", "4+1", "double-sided"
+// go through ptpge_resolve_color_notation — a count is not a colour;
+// (5) validate against the envelope, put any disambiguation question to the
+// user verbatim and STOP; (6) only then fingerprint. Same tools an agent calls.
 const VAR_MAP = [
   ["/configurations/formats/",      "variables/configuration/format"],
   ["/configurations/setup-models/", "variables/configuration/setup-model"],
   ["/features/colors/",             "variables/features/color-mode"],
+  ["/features/surface-finish/",     "variables/features/surface-finish"],
+  ["/features/embellishments/",     "variables/features/embellishment"],
+  ["/completions/binding/",         "variables/finishing/binding"],
+  ["/completions/structural-finishing/", "variables/finishing/structural-finishing"],
+  ["/completions/edge",             "variables/finishing/edge"],
+  ["/configurations/orientation/",  "variables/configuration/orientation"],
+  ["/configurations/back-orientation/", "variables/configuration/back-orientation"],
+  ["/configurations/shape",         "variables/configuration/shape"],
+  ["/standards/certifications/",    "variables/compliance/certification"],
+  ["/standards/print-standards/",   "variables/compliance/print-standard"],
+  ["/technologies/printing-technologies/", "variables/production/technology"],
   ["/paper-surfaces/",              "variables/substrate/substrate-finish"],
+  ["/paper-coatings/",              "variables/substrate/substrate-coating"],
+  ["/paper-color-shades/",          "variables/substrate/substrate-color"],
+  ["/paper-classes/",               "variables/substrate/substrate-class"],
   ["/paper-weights/",               "variables/substrate/substrate-weight"],
-  ["/laminations/",                 "variables/features/lamination"],
   ["/substrates/",                  "variables/substrate/substrate-type"],
 ];
-function assembleFingerprint() {
+// Unit words that give a bare number its axis — en de nb sv da nl pl es ja zh.
+const U_PAGES = "pages?|pp|sider|sidor|seiten|pagina'?s?|paginas?|stron|strony?|p[aá]ginas?|ページ|页|頁";
+const U_GSM   = "gsm|g\\\\/m[²2]|gram|gramos?|gramm|gr|g";
+const U_QTY   = "copies|pcs|pieces|units|stk|stk\\\\.|st|eks|eks\\\\.|ex|exemplare|exemplaren|st[üu]ck|szt|sztuk|ejemplares|unidades|部|份|件";
+const U_COL   = "colou?rs?|farver|farger|f[äa]rger|farben|kleuren|kolor[óo]w|kolory|colores|色|色数";
+const SIDES2  = /(\\b(2|to|two|double|both|dobbelt|dubbel)[- ]?(sided|sidet|sidig|seitig|zijdig|sides|sider|sidor)|tosidig|tosidet|beidseitig|zweiseitig|dubbelzijdig|dwustronn|a doble cara|両面|双面)/;
+const SIDES1  = /(\\b(1|one|single|enkelt?|een)[- ]?(sided|sidet|sidig|seitig|zijdig|side)|ensidig|ensidet|enkelsidig|einseitig|enkelzijdig|jednostronn|a una cara|片面|单面)/;
+function numWithUnit(raw, units) {
+  const m = new RegExp("(\\\\d+)\\\\s*(?:" + units + ")(?![\\\\p{L}])", "iu").exec(raw);
+  return m ? parseInt(m[1], 10) : null;
+}
+async function assembleFingerprint() {
   if (!LAST_RESOLVE) return;
   const rel = u => u.replace("https://ptpge.org/v1/", "");
-  // Flate-deteksjon: «full colour OUTSIDE, black only INSIDE» skal bli
-  // color-mode@outside + color-mode@inside — to lovlige bindinger — ikke to
-  // verdier på samme akse, som serveren med rette avviser som duplikat.
-  // cfs/1 har surface-kvalifikatoren for akkurat dette; se REF_ROWS under.
+  const raw = (LAST_RESOLVE.raw || "").toLowerCase();
+  const lang = document.getElementById("q-lang").value;
   const WORDS = LAST_RESOLVE.words || [];
-  const OUT = /^(outside|cover|outer|exterior)$/, IN = /^(inside|inner|interior)$/;
+  const OUT = /^(outside|cover|outer|exterior|utside|udvendig|außen|aussen|buitenkant)$/, IN = /^(inside|inner|interior|innside|indvendig|innen|binnenkant)$/;
   const surfaceFor = r => {
     if (r.i == null) return "";
     const test = w => OUT.test(w) ? "outside" : (IN.test(w) ? "inside" : "");
-    // Framover først — engelsk setter flaten ETTER frasen («black only
-    // inside»). Et bakoverblikk først ville stjålet forrige frases flate.
-    for (let k = r.i; k < Math.min(WORDS.length, r.i + r.n + 4); k++) {
-      const s = test((WORDS[k] || "").toLowerCase()); if (s) return s;
-    }
-    for (let k = Math.max(0, r.i - 2); k < r.i; k++) {
-      const s = test((WORDS[k] || "").toLowerCase()); if (s) return s;
-    }
+    for (let k = r.i; k < Math.min(WORDS.length, r.i + r.n + 4); k++) { const s = test((WORDS[k] || "").toLowerCase()); if (s) return s; }
+    for (let k = Math.max(0, r.i - 2); k < r.i; k++) { const s = test((WORDS[k] || "").toLowerCase()); if (s) return s; }
     return "";
   };
-  let product = null; const bindings = []; const skipped = [];
+  let product = null; const bindings = []; const skipped = []; const steps = [];
   for (const r of LAST_RESOLVE.resolved) {
     const u = rel(r.uri);
     if (u.indexOf("ordering/products/") === 0) { if (!product) product = u; continue; }
+    if (r.level && r.level !== "element") { skipped.push(r.resolved + " — a group, not a value"); continue; }
+    if (u === "printing" || u.indexOf("ordering/knowledge/") === 0) { skipped.push(r.resolved + " — not a configuration value"); continue; }
     let mapped = null;
     for (const [frag, v] of VAR_MAP) if (u.indexOf(frag) !== -1) { mapped = v; break; }
     if (mapped) {
+      if (mapped === "variables/substrate/substrate-weight" && numWithUnit(raw, U_GSM) != null) { skipped.push(r.resolved + " — the stated gsm wins over the band word"); continue; }
       const b = { variable: mapped, value: u };
       const s = surfaceFor(r); if (s) b.surface = s;
       bindings.push(b);
-    }
-    else skipped.push(r.resolved + " (" + u + ")");
+    } else skipped.push(r.resolved + " (" + u + ")");
   }
-  // Kolliderer to bindinger likevel på samme akse+flate, slå URI-verdier
-  // sammen til en uordnet values-liste (slik surface-finish bærer
-  // matte + spot-UV); alt annet beholder førstemann og rapporteres i stedet
-  // for å la serveren kaste Duplicate binding på publikum.
+  // Merge same axis+surface into a values list (matte + spot-UV); never send a duplicate.
   const byLhs = {};
   for (const b of bindings) {
-    const lhs = b.variable + "@" + (b.surface || "");
-    const prev = byLhs[lhs];
+    const lhs = b.variable + "@" + (b.surface || ""); const prev = byLhs[lhs];
     if (!prev) { byLhs[lhs] = b; continue; }
-    const uriish = x => typeof x === "string";
-    if (uriish(b.value) && (prev.values || uriish(prev.value))) {
-      prev.values = (prev.values || [prev.value]).concat([b.value]);
-      delete prev.value;
-    } else {
-      skipped.push("duplicate on " + lhs + " → kept first, dropped " + b.value);
-    }
+    if (typeof b.value === "string" && (prev.values || typeof prev.value === "string")) { prev.values = (prev.values || [prev.value]).concat([b.value]); delete prev.value; }
+    else skipped.push("duplicate on " + lhs + " → kept first");
   }
-  const deduped = Object.values(byLhs);
-  bindings.length = 0; Array.prototype.push.apply(bindings, deduped);
-  // Tallreglene går ETTER dedupliseringen, så de trenger sin egen vakt:
-  // «170 gsm» kan allerede være løst som paper-weight-TERM over — da skal
-  // tallet vike, ikke lage et nytt duplikat på samme akse.
+  bindings.length = 0; Array.prototype.push.apply(bindings, Object.values(byLhs));
+  // "full colour both sides" — a colour term with no surface word: two-sided prompts
+  // put it on both surfaces, one-sided prompts on the front only.
+  for (const b of bindings.slice()) {
+    if (b.variable !== "variables/features/color-mode" || b.surface) continue;
+    if (SIDES2.test(raw)) { b.surface = "front"; bindings.push({ variable: b.variable, surface: "back", value: b.value }); steps.push("colour → front + back (two-sided)"); }
+    else if (SIDES1.test(raw)) { b.surface = "front"; steps.push("colour → front (one-sided)"); }
+  }
   const hasVar = v => bindings.some(b => b.variable === v);
-  const raw = (LAST_RESOLVE.raw || "").toLowerCase();
-  const nums = (LAST_RESOLVE.numbers || []).map(x => parseInt(x, 10)).filter(n => !isNaN(n));
-  const qty = nums.filter(n => n >= 25).sort((a, b) => b - a)[0];
-  if (qty && !hasVar("variables/order/quantity"))
-    bindings.push({ variable: "variables/order/quantity", value: qty });
-  if (/\b(page|pages|pp|sider)\b/.test(raw) && !hasVar("variables/configuration/page-count")) {
-    const pc = nums.filter(n => n >= 2 && n <= 96 && n !== qty)[0];
-    if (pc) bindings.push({ variable: "variables/configuration/page-count", value: pc });
+  // Numbers by unit word. A number claimed by one rule is not offered to the next.
+  const claimed = new Set();
+  const pc = numWithUnit(raw, U_PAGES);
+  if (pc != null && !hasVar("variables/configuration/page-count")) { bindings.push({ variable: "variables/configuration/page-count", value: pc }); claimed.add(pc); steps.push(pc + " → page-count"); }
+  const gsm = numWithUnit(raw, U_GSM);
+  if (gsm != null && !hasVar("variables/substrate/substrate-weight")) { bindings.push({ variable: "variables/substrate/substrate-weight", value: gsm }); claimed.add(gsm); steps.push(gsm + " → substrate-weight (gsm)"); }
+  let qty = numWithUnit(raw, U_QTY);
+  if (qty == null) {   // no unit word: the largest number ≥ 25 that nothing else claimed
+    const nums = (LAST_RESOLVE.numbers || []).map(x => parseInt(x, 10)).filter(n => !isNaN(n) && !claimed.has(n));
+    qty = nums.filter(n => n >= 25).sort((a, b) => b - a)[0] || null;
   }
-  if (/gsm/.test(raw) && !hasVar("variables/substrate/substrate-weight")) {
-    const w = nums.filter(n => n >= 40 && n <= 600 && n !== qty)[0];
-    if (w) bindings.push({ variable: "variables/substrate/substrate-weight", value: w });
+  if (qty != null && !hasVar("variables/order/quantity")) { bindings.push({ variable: "variables/order/quantity", value: qty }); claimed.add(qty); steps.push(qty + " → quantity"); }
+  // Colours: "4/4", "4+1", "4 colours double-sided", "4 farver 2-sidet" → resolver, never a guess.
+  let notation = null;
+  const pair = /(\\d)\\s*[\\/+]\\s*(\\d)/.exec(raw);
+  if (pair) notation = pair[1] + "/" + pair[2];
+  else {
+    const nc = numWithUnit(raw, U_COL);
+    if (nc != null) notation = SIDES1.test(raw) ? nc + "/0" : (nc + "/" + nc);
   }
-  let prodNote = "";
-  if (!product && LAST_RESOLVE.productFallback) {
-    product = rel(LAST_RESOLVE.productFallback.id);
-    prodNote = " · product inferred: " + LAST_RESOLVE.productFallback.prefLabel +
-               " (score " + LAST_RESOLVE.productFallback.score + ")";
+  if (!product && LAST_RESOLVE.productFallback) product = rel(LAST_RESOLVE.productFallback.id);
+  if (!product) { showInline("own", "assembly", { note: "No product recognised in the prompt — include a product word (labels, poster, brochure, business card …)." }); return; }
+  if (notation && !hasVar("variables/features/color-mode")) {
+    showBusy("own", "assembly · " + notation + " → ptpge_resolve_color_notation …");
+    try {
+      const { json } = await rpc("tools/call", { name: "ptpge_resolve_color_notation", arguments: { product: product, notation: notation, language: lang } });
+      const cr = JSON.parse(json.result.content[0].text);
+      trAdd("ptpge_resolve_color_notation · " + notation + " on " + product, fmtJson(cr));
+      const qs = [];
+      for (const [sf, r] of Object.entries(cr.surfaces || {})) {
+        if (r.needs_disambiguation || (r.candidates && r.candidates.length > 1 && !r.binding)) qs.push({ surface: sf, question: r.question || (r.needs_disambiguation && r.needs_disambiguation.question) || "Which colour set is meant?", candidates: r.candidates });
+        else if (r.binding && r.binding.length && !r.invalid) bindings.push({ variable: "variables/features/color-mode", surface: sf, value: rel(r.binding[0]) });
+        else if (r.count === 0) { /* 4/0: nothing on that surface */ }
+        else if (r.invalid) skipped.push("colour " + notation + " on " + sf + ": invalid for this product");
+      }
+      steps.push(notation + " → color-mode per surface (resolver)");
+      if (qs.length) {
+        showInline("own", "assembly stopped — the resolver needs an answer (elicitation contract: never guess a colour)", { product: product, bindings: bindings, needs_disambiguation: qs, note: "An agent puts this question to the buyer verbatim and only then fingerprints. Rephrase the prompt with the answer (e.g. 'black on the back') and run again." });
+        return;
+      }
+    } catch (e) { skipped.push("colour notation " + notation + ": " + e); }
   }
-  if (!product) {
-    showInline("own", "heuristic assembly", { note: "No product recognised in the prompt — include a product word (labels, poster, brochure, business card …). Heuristic assembly needs one. (Steward note: if a common word like this SHOULD name a product, that is an altLabel proposal for the Standard.)" });
-    return;
-  }
-  trAdd("heuristic assembly: " + product + " + " + bindings.length + " binding(s)" + prodNote +
-    (skipped.length ? " · not mapped: " + skipped.join(", ") : "") +
-    " · an agent would assemble via the envelope — then ptpge_fingerprint(visuals)",
-    fmtJson({ product: product, bindings: bindings }));
+  trAdd("assembly: " + product + " + " + bindings.length + " binding(s) · " + steps.join(" · ") + (skipped.length ? " · left out: " + skipped.join(", ") : ""), fmtJson({ product: product, bindings: bindings }));
+  // Validate first — an agent never fingerprints an unvalidated configuration.
+  showBusy("own", "assembly · ptpge_validate_config …");
+  try {
+    const { json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } });
+    const vr = JSON.parse(json.result.content[0].text);
+    const bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
+    trAdd("ptpge_validate_config · " + (vr.validInEnvelope ? "valid in envelope" : "NOT valid") + (bad.length ? " · " + bad.map(b => b.variable + ": " + b.status).join(", ") : "") + ((vr.advisories || []).length ? " · advisories: " + vr.advisories.length : ""), fmtJson(vr));
+    if (vr.needs_disambiguation && vr.needs_disambiguation.length) { showInline("own", "validation asks a question — answer it in the prompt and run again", vr); return; }
+    if (vr.validInEnvelope === false) {
+      const why = bad.map(b => (b.value || "").toString().split("/").pop() + " is not in the " + product.split("/").pop() + " envelope for " + b.variable.split("/").pop()).join("; ");
+      showInline("own", "not valid in this product's envelope — " + why + " · an agent would ask the buyer here; the fingerprint is not computed", vr); return;
+    }
+  } catch (e) { trAdd("ptpge_validate_config failed: " + e, ""); }
   callTool("ptpge_fingerprint", { product: product, bindings: bindings, visuals: true }, "own");
 }
 function doEnvelope()    { callTool("ptpge_get_product_envelope", { id_or_path: DEMO_PRODUCT }, "chain"); }

@@ -1,3 +1,3 @@
 """PTPGE MCP Server — exposes the PTPGE Standard (Layer 1 vocabulary) to AI agents."""
 
-__version__ = "0.25.2"
+__version__ = "0.26.0"

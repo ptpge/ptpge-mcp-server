@@ -7,6 +7,28 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.26.0 — 2026-09-14
+
+- **Playground own-prompt: assembly v2 — the prompt is solved, not sketched.**
+  "Fingerprint this" now follows the steps an agent takes, as rules: only
+  value-level terms bind (a group such as "Paper Weights" or the root never
+  does); each term goes to the variable its place in the tree implies (binding,
+  substrate-finish/-coating/-color/-class, surface-finish, embellishment,
+  format, setup-model, orientation, certification, print-standard,
+  technology …); numbers bind by the unit word beside them in the ten
+  languages (24 sider → page-count, 110 g → substrate-weight, 500 stk →
+  quantity); "4 farver 2-sidet", "4/4", "4+1", "enkelsidigt" go through
+  `ptpge_resolve_color_notation` and a `needs_disambiguation` stops the run
+  with the question shown verbatim; the configuration is validated with
+  `ptpge_validate_config` before it is fingerprinted, and a value outside the
+  product's envelope stops it with a plain reason. The transcript shows every
+  call. The Danish booklet prompt that used to yield two bindings now yields
+  the same seven bindings — and the same fingerprint — as a Claude agent using
+  the connector.
+- Default example prompt changed to one inside the Brochures envelope
+  ("170 gsm silk paper"); "heavy recycled paper" was never a brochure
+  substrate finish and now says so instead of fingerprinting half a product.
+
 ## 0.25.2 — 2026-09-14
 
 - **Playground own-prompt: Unicode-aware word splitting.** The n-gram stand-in
