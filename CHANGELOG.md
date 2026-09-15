@@ -23,7 +23,7 @@ See SD-0044 for the versioning & changelog policy.
   run); interpreting free text is Layer-3 work, so this Layer-1 server never
   carries a model. *Your own Anthropic key* / *Your own OpenAI key*: kept only
   in the browser's localStorage and sent straight to the provider; the model
-  name is editable (defaults `claude-sonnet-5` / `gpt-4.1-mini`).
+  name is editable (defaults `claude-sonnet-5` / `gpt-5.4-mini`; OpenAI calls use `max_completion_tokens`, required by the GPT-5 series).
 - System prompt (`PTPGE-PLAYGROUND-AGENT/1`) encodes the same rules as
   assembly v2 — element-level terms only, variable by tree position, numbers
   by unit word, colour counts through the resolver and STOP on

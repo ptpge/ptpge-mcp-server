@@ -56,7 +56,7 @@ async def main():
             if req.method=="OPTIONS":
                 await route.fulfill(status=204, headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"*","Access-Control-Allow-Methods":"POST, OPTIONS"}); return
             assert req.headers.get("authorization")=="Bearer sk-oa-test"
-            body=json.loads(req.post_data); assert body["model"]=="gpt-4.1-mini" and body["messages"][0]["role"]=="system"
+            body=json.loads(req.post_data); assert body["model"]=="gpt-5.4-mini" and body["messages"][0]["role"]=="system"
             assert all(t["type"]=="function" and t["function"]["name"].startswith("ptpge_") for t in body["tools"])
             # rebuild anthropic-shaped view to reuse fake_model
             n=sum(1 for m in body["messages"] if m["role"]=="assistant")
@@ -113,7 +113,7 @@ async def main():
         h=STATE["anthropic_headers"]; assert h["x-api-key"]=="sk-ant-test" and h["anthropic-dangerous-direct-browser-access"]=="true" and h["anthropic-version"]=="2023-06-01", h
         assert await pg.evaluate("localStorage.getItem('ptpge-agent-key-anthropic')")=="sk-ant-test"
         await pg.select_option('#ag-mode','openai'); await pg.fill('#ag-key','sk-oa-test')
-        assert await pg.evaluate("document.getElementById('ag-model').value")=="gpt-4.1-mini"
+        assert await pg.evaluate("document.getElementById('ag-model').value")=="gpt-5.4-mini"
         await pg.evaluate("agentRun()")
         for _ in range(80):
             await pg.wait_for_timeout(400)

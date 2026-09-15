@@ -742,7 +742,7 @@ async function assembleFingerprint() {
 // conversation an agent has with the Standard — nothing is pre-scripted.
 const AGENT_PROXY = "https://engine.gutenlex.com";
 const AGENT_ROUNDS = 12;
-const AGENT_DEFAULT_MODEL = { anthropic: "claude-sonnet-5", openai: "gpt-4.1-mini" };
+const AGENT_DEFAULT_MODEL = { anthropic: "claude-sonnet-5", openai: "gpt-5.4-mini" };
 const AGENT_SYSTEM = [
   "PTPGE-PLAYGROUND-AGENT/1",
   "You are a print-buying agent talking to the PTPGE MCP server — the open vocabulary of print. Turn the buyer's free-text order into ONE validated, fingerprinted configuration, using only the tools. Never invent term URIs: use only URIs the tools return.",
@@ -812,7 +812,7 @@ async function agCallOpenAI(key, model, system, messages, tools) {
   }
   const r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({ model: model, messages: msgs, tools: agToolsOpenAI(tools), max_tokens: 1500 }) });
+    body: JSON.stringify({ model: model, messages: msgs, tools: agToolsOpenAI(tools), max_completion_tokens: 1500 }) });
   const j = await r.json();
   if (!r.ok) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
   const c = j.choices[0].message; const content = [];
