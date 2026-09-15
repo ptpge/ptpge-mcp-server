@@ -7,6 +7,33 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.27.0 — 2026-09-15
+
+- **Playground agent mode — a real model runs the loop.** Under "Your own
+  prompt", next to the rules-based path, the page can now hand the tools from
+  `tools/list` to an LLM and let it run the loop itself: search terms, read the
+  envelope, resolve colour notation, validate, fingerprint. The TOOL calls are
+  still made by the page against `/mcp`, so the transcript shows the complete
+  conversation an agent has with the Standard — model turns (with token
+  counts) and every `tools/call`. The result renders like the rules path:
+  mark, QR, editable canonical form, the agent's answer on top.
+- Three ways to bring a model. *Sponsored run* (default): model calls go
+  through `engine.gutenlex.com/agent/messages` (Engine 0.5.0), which holds the
+  key and caps runs (5 per address per day, 300 per day, 12 model calls per
+  run); interpreting free text is Layer-3 work, so this Layer-1 server never
+  carries a model. *Your own Anthropic key* / *Your own OpenAI key*: kept only
+  in the browser's localStorage and sent straight to the provider; the model
+  name is editable (defaults `claude-sonnet-5` / `gpt-4.1-mini`).
+- System prompt (`PTPGE-PLAYGROUND-AGENT/1`) encodes the same rules as
+  assembly v2 — element-level terms only, variable by tree position, numbers
+  by unit word, colour counts through the resolver and STOP on
+  `needs_disambiguation`, validate before fingerprint, never invent URIs.
+- Tests: `tests/test_playground_agent.py` (static wiring);
+  `tests/browser/agent_loop_check.py` (Playwright, model mocked with a scripted
+  policy, tools live) — sponsored, Anthropic and OpenAI paths all end in the
+  same fingerprint as rules mode on the leaflet prompt (`213fcf22d7218aad`),
+  headers and localStorage verified, no page errors.
+
 ## 0.26.0 — 2026-09-14
 
 - **Playground own-prompt: assembly v2 — the prompt is solved, not sketched.**

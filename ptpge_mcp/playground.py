@@ -271,11 +271,24 @@ footer a { color: #2a6045; }
   <span class="expl" data-i="e_own">Describe a print job in your own words and see which pieces map to the Standard.</span></summary>
   <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on 170 gsm silk paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
   <div class="row" style="margin-top:10px"><button onclick="doResolve()" data-i="b_resolve">Resolve phrases</button><button id="fpassemble" style="display:none" onclick="assembleFingerprint()" data-i="b_fp">Fingerprint this &rarr; mark + QR</button></div>
-  <div class="hint">A real agent uses an LLM to decompose a prompt. This demo approximates that by searching 1–3 word n-grams and greedily keeping the best non-overlapping matches —
-  commas and connectors as a rough stand-in, then look each fragment up <em>live</em> — so you
-  see which pieces map to canonical PTPGE terms and which don't. Assembling the hits into a
-  validated, fingerprinted configuration is the agent's job (the demo above shows that step).</div>
+  <div class="hint">Two ways to solve the same prompt. <b>Rules</b> (the buttons above): the page searches 1–3 word n-grams, keeps the best non-overlapping matches and assembles them by rule — an approximation of what an agent does, with no model involved. <b>Agent mode</b> (below): a real model is handed the tools and runs the loop itself. Both end in the same place — a validated configuration and one ptpge-cfs/1 fingerprint — and both log every call to the transcript.</div>
   <div class="res" id="res-own"></div>
+  <div id="agent-box" style="margin-top:14px;padding:12px 14px;border:1px solid #cfe0d6;border-radius:8px;background:#f4f9f6">
+    <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;margin:0">
+      <b data-i="ag_t" style="margin-right:4px">Agent mode — a real model runs the loop</b>
+      <select id="ag-mode" onchange="agModeChange()" style="padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+        <option value="sponsored" data-i="ag_o1">Sponsored run — we pay, 5 a day</option>
+        <option value="anthropic" data-i="ag_o2">Your own Anthropic key</option>
+        <option value="openai" data-i="ag_o3">Your own OpenAI key</option>
+      </select>
+      <input id="ag-key" type="password" autocomplete="off" placeholder="API key — stays in this browser" style="display:none;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;width:260px">
+      <input id="ag-model" autocomplete="off" placeholder="model" style="display:none;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;width:170px">
+      <button onclick="agentRun()" data-i="b_agent">Run agent &rarr; fingerprint</button>
+      <span id="ag-status" style="font-size:12px;color:#5b7a69"></span>
+    </div>
+    <div class="hint" data-i="ag_hint" style="margin-top:8px">The model is handed the same tools an AI agent gets from <code>tools/list</code> and runs the loop itself: search terms, read the envelope, resolve colour counts, validate, fingerprint — every model turn and every <code>tools/call</code> lands in the transcript. Sponsored runs go through <code>engine.gutenlex.com</code> (Layer 3), which holds the key; the open MCP server never carries a model. Your own key is kept only in this browser's localStorage and sent straight to the provider.</div>
+    <div class="res" id="res-agent"></div>
+  </div>
 </details>
 
 <details id="transcript">
@@ -721,6 +734,158 @@ async function assembleFingerprint() {
   } catch (e) { trAdd("ptpge_validate_config failed: " + e, ""); }
   callTool("ptpge_fingerprint", { product: product, bindings: bindings, visuals: true }, "own");
 }
+// ————— Agent mode (0.27.0): a real model runs the tool loop in the browser —————
+// Sponsored runs: the model calls go through engine.gutenlex.com/agent/messages
+// (Layer 3 holds the key; this Layer-1 server never carries a model). Own-key
+// runs go straight from the browser to the provider. In both cases the TOOL
+// calls are made by this page against /mcp, so the transcript shows the whole
+// conversation an agent has with the Standard — nothing is pre-scripted.
+const AGENT_PROXY = "https://engine.gutenlex.com";
+const AGENT_ROUNDS = 12;
+const AGENT_DEFAULT_MODEL = { anthropic: "claude-sonnet-5", openai: "gpt-4.1-mini" };
+const AGENT_SYSTEM = [
+  "PTPGE-PLAYGROUND-AGENT/1",
+  "You are a print-buying agent talking to the PTPGE MCP server — the open vocabulary of print. Turn the buyer's free-text order into ONE validated, fingerprinted configuration, using only the tools. Never invent term URIs: use only URIs the tools return.",
+  "Method:",
+  "1. Product first: ptpge_search_terms on the product word (limit 5) and take the ordering/products/... hit; then ptpge_get_product_envelope for it — the envelope says which variables and values this product allows.",
+  "2. For every attribute in the prompt, ptpge_search_terms (query_language = the prompt's language; language = \\"LANGCODE\\"). Bind only element-level terms, never a group. Each term goes to the variable its tree position implies: configurations/formats → variables/configuration/format; setup-models → variables/configuration/setup-model; features/colors → variables/features/color-mode; surface-finish → variables/features/surface-finish; embellishments → variables/features/embellishment; completions/binding → variables/finishing/binding; paper-surfaces → variables/substrate/substrate-finish; paper-coatings → variables/substrate/substrate-coating; paper-color-shades → variables/substrate/substrate-color; substrates → variables/substrate/substrate-type. Numbers: pages → variables/configuration/page-count; gsm → variables/substrate/substrate-weight (a stated gsm wins over a weight-band word); copies → variables/order/quantity. Add surface: front/back/outside/inside when the prompt says so.",
+  "3. Colour counts and notation (\\"4/4\\", \\"4+1\\", \\"4 colours double-sided\\", \\"black on the back\\") go through ptpge_resolve_color_notation on this product — never guess a colour set. If a surface comes back needs_disambiguation, STOP and return its question verbatim.",
+  "4. ptpge_validate_config with product and bindings. If validInEnvelope is false, or it asks a question, STOP and say why — do not fingerprint.",
+  "5. Only then ptpge_fingerprint with visuals: true.",
+  "Aim for at most 10 tool calls. Final answer: two to four plain sentences in the buyer's language — the product, the bindings, and the spec fingerprint's short id — or the open question.",
+].join("\\n");
+
+function agEl(id) { return document.getElementById(id); }
+function agModeChange() {
+  const m = agEl("ag-mode").value, own = m !== "sponsored";
+  agEl("ag-key").style.display = own ? "" : "none";
+  agEl("ag-model").style.display = own ? "" : "none";
+  if (own) {
+    try { agEl("ag-key").value = localStorage.getItem("ptpge-agent-key-" + m) || ""; } catch (e) {}
+    let mdl = ""; try { mdl = localStorage.getItem("ptpge-agent-model-" + m) || ""; } catch (e) {}
+    agEl("ag-model").value = mdl || AGENT_DEFAULT_MODEL[m];
+    agEl("ag-status").textContent = "";
+  } else agentStatus();
+}
+async function agentStatus() {
+  const s = agEl("ag-status"); if (!s) return;
+  try {
+    const r = await fetch(AGENT_PROXY + "/agent/status");
+    const j = await r.json();
+    s.textContent = j.enabled ? ("sponsored · " + j.model + " · " + j.remaining_today + " run(s) left today")
+                              : "sponsored runs are off right now — use your own key";
+  } catch (e) { s.textContent = "sponsored runs unreachable — use your own key"; }
+}
+function agToolsAnthropic(tools) {
+  return tools.map(t => ({ name: t.name, description: t.description || "", input_schema: t.inputSchema || { type: "object" } }));
+}
+function agToolsOpenAI(tools) {
+  return tools.map(t => ({ type: "function", function: { name: t.name, description: t.description || "", parameters: t.inputSchema || { type: "object" } } }));
+}
+async function agCallAnthropic(mode, key, model, system, messages, tools, runId) {
+  const sponsored = mode === "sponsored";
+  const url = sponsored ? AGENT_PROXY + "/agent/messages" : "https://api.anthropic.com/v1/messages";
+  const headers = { "Content-Type": "application/json" };
+  if (sponsored) headers["X-Agent-Run"] = runId;
+  else { headers["x-api-key"] = key; headers["anthropic-version"] = "2023-06-01"; headers["anthropic-dangerous-direct-browser-access"] = "true"; }
+  const body = { max_tokens: 1500, system: system, messages: messages, tools: agToolsAnthropic(tools) };
+  if (!sponsored) body.model = model;
+  const r = await fetch(url, { method: "POST", headers: headers, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && (j.error.message || j.error)) || ("HTTP " + r.status));
+  return j;
+}
+async function agCallOpenAI(key, model, system, messages, tools) {
+  const msgs = [{ role: "system", content: system }];
+  for (const m of messages) {
+    if (m.role === "user") {
+      if (typeof m.content === "string") { msgs.push({ role: "user", content: m.content }); continue; }
+      for (const b of m.content) {
+        if (b.type === "tool_result") msgs.push({ role: "tool", tool_call_id: b.tool_use_id, content: typeof b.content === "string" ? b.content : JSON.stringify(b.content) });
+        else if (b.type === "text") msgs.push({ role: "user", content: b.text });
+      }
+    } else {
+      const txt = m.content.filter(b => b.type === "text").map(b => b.text).join("\\n");
+      const tcs = m.content.filter(b => b.type === "tool_use").map(b => ({ id: b.id, type: "function", function: { name: b.name, arguments: JSON.stringify(b.input || {}) } }));
+      const am = { role: "assistant", content: txt || null }; if (tcs.length) am.tool_calls = tcs; msgs.push(am);
+    }
+  }
+  const r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+    body: JSON.stringify({ model: model, messages: msgs, tools: agToolsOpenAI(tools), max_tokens: 1500 }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
+  const c = j.choices[0].message; const content = [];
+  if (c.content) content.push({ type: "text", text: c.content });
+  for (const tc of (c.tool_calls || [])) { let inp = {}; try { inp = JSON.parse(tc.function.arguments || "{}"); } catch (e) {} content.push({ type: "tool_use", id: tc.id, name: tc.function.name, input: inp }); }
+  return { content: content, stop_reason: (c.tool_calls && c.tool_calls.length) ? "tool_use" : "end_turn",
+           usage: j.usage ? { input_tokens: j.usage.prompt_tokens, output_tokens: j.usage.completion_tokens } : undefined };
+}
+async function agentRun() {
+  const mode = agEl("ag-mode").value, key = (agEl("ag-key").value || "").trim(), model = (agEl("ag-model").value || "").trim();
+  const prompt = (agEl("prompt").value || "").trim(); const lang = agEl("q-lang").value;
+  if (!prompt) return;
+  if (mode !== "sponsored" && !key) { agEl("ag-status").textContent = "enter your API key first"; return; }
+  if (mode !== "sponsored") { try { localStorage.setItem("ptpge-agent-key-" + mode, key); localStorage.setItem("ptpge-agent-model-" + mode, model); } catch (e) {} }
+  const runId = "run-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  const buttons = document.querySelectorAll("button"); buttons.forEach(b => b.disabled = true);
+  showBusy("agent", "agent · tools/list …");
+  let rounds = 0, calls = 0, fp = null, finalText = "", stopped = "";
+  try {
+    const tl = await rpc("tools/list");
+    const tools = (tl.json.result && tl.json.result.tools) || [];
+    if (!tools.length) throw new Error("tools/list returned no tools");
+    trAdd("tools/list · " + tools.length + " tools handed to the model (" + mode + ")", fmtJson(tools.map(t => t.name)));
+    const system = AGENT_SYSTEM.replace("LANGCODE", lang);
+    const messages = [{ role: "user", content: prompt }];
+    for (; rounds < AGENT_ROUNDS; rounds++) {
+      showBusy("agent", "agent · model call " + (rounds + 1) + " …");
+      const resp = mode === "openai" ? await agCallOpenAI(key, model, system, messages, tools)
+                                     : await agCallAnthropic(mode, key, model, system, messages, tools, runId);
+      const blocks = resp.content || [];
+      const texts = blocks.filter(b => b.type === "text").map(b => b.text).join("\\n");
+      const uses = blocks.filter(b => b.type === "tool_use");
+      const u = resp.usage || {};
+      trAdd("model → " + (uses.length ? uses.map(x => x.name).join(", ") : "final answer") +
+            (u.input_tokens != null ? " · " + u.input_tokens + " in / " + u.output_tokens + " out" : "") +
+            (resp._sponsored ? " · sponsored " + resp._sponsored.model : ""),
+            fmtJson({ text: texts || undefined, tool_use: uses.length ? uses.map(x => ({ name: x.name, input: x.input })) : undefined }));
+      messages.push({ role: "assistant", content: blocks });
+      if (resp.stop_reason !== "tool_use" || !uses.length) { finalText = texts; break; }
+      const results = [];
+      for (const use of uses) {
+        showBusy("agent", "agent · tools/call " + use.name + " …");
+        const { json, ms, status } = await rpc("tools/call", { name: use.name, arguments: use.input || {} }); calls++;
+        let payload = json;
+        if (json.result && json.result.content && json.result.content[0]) { try { payload = JSON.parse(json.result.content[0].text); } catch (e) { payload = json.result; } }
+        else if (json.error) payload = json;
+        let forModel = payload;
+        if (use.name === "ptpge_fingerprint" && payload && payload.profiles) {
+          fp = payload;
+          forModel = JSON.parse(JSON.stringify(payload));
+          for (const pr of Object.values(forModel.profiles || {})) { delete pr.markSvg; delete pr.qrSvg; }
+        }
+        trAdd("tools/call " + use.name + " · HTTP " + status + " · " + ms + " ms · by the agent", fmtJson(payload));
+        results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify(forModel).slice(0, 24000) });
+      }
+      messages.push({ role: "user", content: results });
+    }
+    if (rounds >= AGENT_ROUNDS) stopped = "stopped at the round limit (" + AGENT_ROUNDS + ")";
+    const meta = "agent (" + mode + (mode !== "sponsored" && model ? " · " + model : "") + ") · " + Math.min(rounds + 1, AGENT_ROUNDS) +
+                 " model call(s) · " + calls + " tool call(s) · " + (fp ? "fingerprint " + fp.profiles.spec.short : "no fingerprint");
+    if (fp) showInline("agent", meta, Object.assign({ agent_answer: finalText || undefined }, fp));
+    else showInline("agent", meta, { agent_answer: finalText || "(no answer)", note: stopped || "the agent stopped before fingerprinting — its reason is in the answer and the transcript" });
+  } catch (e) {
+    showInline("agent", "agent failed", { error: String(e),
+      hint: mode === "sponsored" ? "Sponsored runs may be used up or switched off — choose your own key."
+                                 : "Check the key and model. The browser calls the provider directly; a network error here is usually CORS or a wrong key." });
+  } finally {
+    buttons.forEach(b => b.disabled = false);
+    if (mode === "sponsored") agentStatus();
+  }
+}
+agModeChange();
+
 function doEnvelope()    { callTool("ptpge_get_product_envelope", { id_or_path: DEMO_PRODUCT }, "chain"); }
 function doValidate()    { callTool("ptpge_validate_config", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS }, "chain"); }
 function doFingerprint() { callTool("ptpge_fingerprint", { product: DEMO_PRODUCT, bindings: DEMO_BINDINGS, visuals: true }, "chain"); }
