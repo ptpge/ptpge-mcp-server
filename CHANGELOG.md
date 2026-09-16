@@ -7,6 +7,29 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.27.1 — 2026-09-16
+
+- **Rules mode learns what the agent did on the leaflet prompt.** On 15 Sept the
+  agent and the rules path disagreed on the reference prompt ("folded leaflet …
+  full colour both sides"): the agent bound `folded-sheet/single-fold` and put
+  the colour on *outside/inside*; the rules bound no setup and used
+  *front/back*. Rules now do the same, explicitly: when the prompt says "folded"
+  (ten languages: folded, falset/falsede, gefalzt, gevouwen, plié, plegado,
+  składany, 折り …) and names no fold, the Single-Fold Setup is bound and the
+  transcript says *"folded, fold not named → single-fold (one fold — name the
+  fold to change it)"*. With any folded-sheet setup bound, a two-sided colour
+  goes to outside + inside instead of front + back, and the colour resolver's
+  front/back are read as outside/inside (logged). Both paths now give
+  `ac570760ad06a2e8` on the reference prompt.
+- The fold is an assumption, not the buyer's word — so if the product's
+  envelope rejects it (flyers, business cards), the binding is dropped, the
+  derived surfaces revert to front/back, and validation runs again; the
+  transcript shows the drop. Fingerprints for products without folded setups
+  are unchanged.
+- Trap fixed on the way: a `\b` written inside the Python source string
+  reached the browser as a backspace character; regex word boundaries in
+  `playground.py` must be written `\\b`. Test added.
+
 ## 0.27.0 — 2026-09-15
 
 - **Playground agent mode — a real model runs the loop.** Under "Your own

@@ -625,6 +625,8 @@ const U_GSM   = "gsm|g\\\\/m[²2]|gram|gramos?|gramm|gr|g";
 const U_QTY   = "copies|pcs|pieces|units|stk|stk\\\\.|st|eks|eks\\\\.|ex|exemplare|exemplaren|st[üu]ck|szt|sztuk|ejemplares|unidades|部|份|件";
 const U_COL   = "colou?rs?|farver|farger|f[äa]rger|farben|kleuren|kolor[óo]w|kolory|colores|色|色数";
 const SIDES2  = /(\\b(2|to|two|double|both|dobbelt|dubbel)[- ]?(sided|sidet|sidig|seitig|zijdig|sides|sider|sidor)|tosidig|tosidet|beidseitig|zweiseitig|dubbelzijdig|dwustronn|a doble cara|両面|双面)/;
+// 0.27.1: "folded" in the ten languages (a named fold — tri-fold, z-fold — resolves on its own)
+const FOLDW   = /(\\bfolded\\b|\\bfold\\b|\\bfals(et|ede|ad|ade)\\b|\\bfoldet\\b|\\bgefalzt\\w*|\\bgefaltet\\w*|\\bfalz\\b|\\bgevouwen\\b|\\bvouw\\b|\\bpli[ée]e?s?\\b|\\bplegad[oa]s?\\b|\\bdoblad[oa]s?\\b|\\bskładan[yae]\\w*|\\bzłożon[yae]\\w*|折り|折页|对折)/;
 const SIDES1  = /(\\b(1|one|single|enkelt?|een)[- ]?(sided|sidet|sidig|seitig|zijdig|side)|ensidig|ensidet|enkelsidig|einseitig|enkelzijdig|jednostronn|a una cara|片面|单面)/;
 function numWithUnit(raw, units) {
   const m = new RegExp("(\\\\d+)\\\\s*(?:" + units + ")(?![\\\\p{L}])", "iu").exec(raw);
@@ -645,10 +647,14 @@ async function assembleFingerprint() {
     return "";
   };
   let product = null; const bindings = []; const skipped = []; const steps = [];
+  let foldedGroup = false;   // 0.27.1: "folded" resolved to the Folded Sheet group, no fold named
   for (const r of LAST_RESOLVE.resolved) {
     const u = rel(r.uri);
     if (u.indexOf("ordering/products/") === 0) { if (!product) product = u; continue; }
-    if (r.level && r.level !== "element") { skipped.push(r.resolved + " — a group, not a value"); continue; }
+    if (r.level && r.level !== "element") {
+      if (u === "printing/configurations/setup-models/folded-sheet") foldedGroup = true;
+      skipped.push(r.resolved + " — a group, not a value"); continue;
+    }
     if (u === "printing" || u.indexOf("ordering/knowledge/") === 0) { skipped.push(r.resolved + " — not a configuration value"); continue; }
     let mapped = null;
     for (const [frag, v] of VAR_MAP) if (u.indexOf(frag) !== -1) { mapped = v; break; }
@@ -668,14 +674,27 @@ async function assembleFingerprint() {
     else skipped.push("duplicate on " + lhs + " → kept first");
   }
   bindings.length = 0; Array.prototype.push.apply(bindings, Object.values(byLhs));
+  const hasVar = v => bindings.some(b => b.variable === v);
+  // 0.27.1 — a folded product with no fold named: bind the Single-Fold Setup (one
+  // fold, the least assumption) and say so. Name the fold ("tri-fold", "z-fold")
+  // to change it. Same choice the agent made on this prompt (2026-09-15).
+  let assumedFold = false;
+  if ((foldedGroup || FOLDW.test(raw)) && !hasVar("variables/configuration/setup-model")) {
+    bindings.push({ variable: "variables/configuration/setup-model", value: "printing/configurations/setup-models/folded-sheet/single-fold" });
+    assumedFold = true;
+    steps.push("folded, fold not named → single-fold (one fold — name the fold to change it)");
+  }
+  // A folded sheet's two faces are outside/inside; a flat sheet's are front/back.
+  const folded = bindings.some(b => b.variable === "variables/configuration/setup-model" && String(b.value).indexOf("setup-models/folded-sheet/") !== -1);
+  const F1 = folded ? "outside" : "front", F2 = folded ? "inside" : "back";
+  const derivedSurface = new Set();   // bindings whose outside/inside came from the fold, not the buyer
   // "full colour both sides" — a colour term with no surface word: two-sided prompts
-  // put it on both surfaces, one-sided prompts on the front only.
+  // put it on both surfaces, one-sided prompts on the first surface only.
   for (const b of bindings.slice()) {
     if (b.variable !== "variables/features/color-mode" || b.surface) continue;
-    if (SIDES2.test(raw)) { b.surface = "front"; bindings.push({ variable: b.variable, surface: "back", value: b.value }); steps.push("colour → front + back (two-sided)"); }
-    else if (SIDES1.test(raw)) { b.surface = "front"; steps.push("colour → front (one-sided)"); }
+    if (SIDES2.test(raw)) { b.surface = F1; const b2 = { variable: b.variable, surface: F2, value: b.value }; bindings.push(b2); derivedSurface.add(b); derivedSurface.add(b2); steps.push("colour → " + F1 + " + " + F2 + " (two-sided)"); }
+    else if (SIDES1.test(raw)) { b.surface = F1; derivedSurface.add(b); steps.push("colour → " + F1 + " (one-sided)"); }
   }
-  const hasVar = v => bindings.some(b => b.variable === v);
   // Numbers by unit word. A number claimed by one rule is not offered to the next.
   const claimed = new Set();
   const pc = numWithUnit(raw, U_PAGES);
@@ -707,11 +726,11 @@ async function assembleFingerprint() {
       const qs = [];
       for (const [sf, r] of Object.entries(cr.surfaces || {})) {
         if (r.needs_disambiguation || (r.candidates && r.candidates.length > 1 && !r.binding)) qs.push({ surface: sf, question: r.question || (r.needs_disambiguation && r.needs_disambiguation.question) || "Which colour set is meant?", candidates: r.candidates });
-        else if (r.binding && r.binding.length && !r.invalid) bindings.push({ variable: "variables/features/color-mode", surface: sf, value: rel(r.binding[0]) });
+        else if (r.binding && r.binding.length && !r.invalid) { const cb = { variable: "variables/features/color-mode", surface: folded ? (sf === "front" ? "outside" : (sf === "back" ? "inside" : sf)) : sf, value: rel(r.binding[0]) }; bindings.push(cb); if (folded) derivedSurface.add(cb); }
         else if (r.count === 0) { /* 4/0: nothing on that surface */ }
         else if (r.invalid) skipped.push("colour " + notation + " on " + sf + ": invalid for this product");
       }
-      steps.push(notation + " → color-mode per surface (resolver)");
+      steps.push(notation + " → color-mode per surface (resolver" + (folded ? ", front/back read as outside/inside on a folded sheet" : "") + ")");
       if (qs.length) {
         showInline("own", "assembly stopped — the resolver needs an answer (elicitation contract: never guess a colour)", { product: product, bindings: bindings, needs_disambiguation: qs, note: "An agent puts this question to the buyer verbatim and only then fingerprints. Rephrase the prompt with the answer (e.g. 'black on the back') and run again." });
         return;
@@ -722,9 +741,20 @@ async function assembleFingerprint() {
   // Validate first — an agent never fingerprints an unvalidated configuration.
   showBusy("own", "assembly · ptpge_validate_config …");
   try {
-    const { json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } });
-    const vr = JSON.parse(json.result.content[0].text);
-    const bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
+    let { json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } });
+    let vr = JSON.parse(json.result.content[0].text);
+    let bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
+    // The assumed single-fold is an assumption, not the buyer's word: if this product's
+    // envelope does not allow it, drop it and validate again without it.
+    if (assumedFold && bad.some(b => b.variable === "variables/configuration/setup-model")) {
+      trAdd("ptpge_validate_config · single-fold is not in the " + product.split("/").pop() + " envelope → assumption dropped, validating again", fmtJson(vr));
+      const keep = bindings.filter(b => !(b.variable === "variables/configuration/setup-model" && String(b.value).indexOf("folded-sheet/single-fold") !== -1));
+      bindings.length = 0; Array.prototype.push.apply(bindings, keep);
+      for (const b of bindings) if (derivedSurface.has(b)) b.surface = (b.surface === "outside" ? "front" : (b.surface === "inside" ? "back" : b.surface));
+      ({ json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } }));
+      vr = JSON.parse(json.result.content[0].text);
+      bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
+    }
     trAdd("ptpge_validate_config · " + (vr.validInEnvelope ? "valid in envelope" : "NOT valid") + (bad.length ? " · " + bad.map(b => b.variable + ": " + b.status).join(", ") : "") + ((vr.advisories || []).length ? " · advisories: " + vr.advisories.length : ""), fmtJson(vr));
     if (vr.needs_disambiguation && vr.needs_disambiguation.length) { showInline("own", "validation asks a question — answer it in the prompt and run again", vr); return; }
     if (vr.validInEnvelope === false) {
