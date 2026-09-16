@@ -54,7 +54,16 @@ an identity. Fixed at the source, in the tools, not in the model:
   six-faced case needs its own notation rule.
 - Registered fingerprints are untouched (never retired); configurations that
   previously omitted an implied setup reproduce with it from now on.
-- Tests: 131 (six new SD-0083 tests incl. stated-vs-implied and D5 equality).
+- Playground: **Agent mode is the primary path** (rules buttons outlined, "Resolve
+  by rule"); the four presets get **Verify with a real model →** — the same
+  phrase, the same tools, and the answer "✓ same identity" or the model's
+  reason; the rules path shows the Standard's questions instead of a hash.
+  `agentRun(opts)` returns `{fp, answer}` for callers.
+- The ordered surface-finish stack may carry an embellishment as its top layer
+  (matte > spot-uv, the published worked example): membership is checked
+  against both per-surface envelopes. The reference brochure (`f2e377cb…`)
+  validates and is complete under the new rules.
+- Tests: 132 (seven new SD-0083 tests incl. stated-vs-implied and D5 equality).
 
 ## 0.27.1 — 2026-09-16
 

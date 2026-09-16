@@ -99,6 +99,7 @@ footer a { color: #2a6045; }
 #langlist a:hover { background: #f0f4f1; }
 #langlist a.on { color: #1f4a35; font-weight: 700; }
 .conv .langrow button { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35; }
+button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35; }
 .conv .langrow button:hover { background: #eef4f0; }
 .conv .langrow button.on { background: #1f4a35; color: #fff; }
 .conv .prodrow button { border-radius: 999px; background: #eef4f0; color: #1f4a35;
@@ -270,8 +271,8 @@ footer a { color: #2a6045; }
   <summary><h2 data-i="t_own">Your own prompt — see what resolves</h2>
   <span class="expl" data-i="e_own">Describe a print job in your own words and see which pieces map to the Standard.</span></summary>
   <textarea id="prompt" rows="3" style="width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px;font-family:inherit;resize:vertical" placeholder="Describe a print job in your own words, any language…">I want a folded leaflet on 170 gsm silk paper, matte lamination, full colour both sides, A4, 1000 copies</textarea>
-  <div class="row" style="margin-top:10px"><button onclick="doResolve()" data-i="b_resolve">Resolve phrases</button><button id="fpassemble" style="display:none" onclick="assembleFingerprint()" data-i="b_fp">Fingerprint this &rarr; mark + QR</button></div>
-  <div class="hint">Two ways to solve the same prompt. <b>Rules</b> (the buttons above): the page searches 1–3 word n-grams, keeps the best non-overlapping matches and assembles them by rule — an approximation of what an agent does, with no model involved. <b>Agent mode</b> (below): a real model is handed the tools and runs the loop itself. Both end in the same place — a validated configuration and one ptpge-cfs/1 fingerprint — and both log every call to the transcript.</div>
+  <div class="row" style="margin-top:10px"><button class="secondary" onclick="doResolve()" data-i="b_resolve">Resolve by rule</button><button id="fpassemble" class="secondary" style="display:none" onclick="assembleFingerprint()" data-i="b_fp">Fingerprint this &rarr; mark + QR</button></div>
+  <div class="hint">Two ways to solve the same prompt. <b>Agent mode</b> (the green box — the primary path): a real model is handed the tools and runs the loop itself, from the outside, like any AI agent. <b>Rules</b> (the outlined buttons): the page searches 1–3 word n-grams and assembles them by rule — no model, deterministic, an approximation of what an agent does. Both end in the same place — a validated, <i>complete</i> configuration and one ptpge-cfs/1 fingerprint — or in the Standard's question (SD-0083: no identity until the required axes are known). Both log every call to the transcript.</div>
   <div class="res" id="res-own"></div>
   <div id="agent-box" style="margin-top:14px;padding:12px 14px;border:1px solid #cfe0d6;border-radius:8px;background:#f4f9f6">
     <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;margin:0">
@@ -847,10 +848,11 @@ async function agCallOpenAI(key, model, system, messages, tools) {
   return { content: content, stop_reason: (c.tool_calls && c.tool_calls.length) ? "tool_use" : "end_turn",
            usage: j.usage ? { input_tokens: j.usage.prompt_tokens, output_tokens: j.usage.completion_tokens } : undefined };
 }
-async function agentRun() {
+async function agentRun(opts) {
+  opts = opts || {};
   const mode = agEl("ag-mode").value, key = (agEl("ag-key").value || "").trim(), model = (agEl("ag-model").value || "").trim();
-  const prompt = (agEl("prompt").value || "").trim(); const lang = agEl("q-lang").value;
-  if (!prompt) return;
+  const prompt = (opts.prompt || agEl("prompt").value || "").trim(); const lang = opts.lang || agEl("q-lang").value;
+  if (!prompt) return null;
   if (mode !== "sponsored" && !key) { agEl("ag-status").textContent = "enter your API key first"; return; }
   if (mode !== "sponsored") { try { localStorage.setItem("ptpge-agent-key-" + mode, key); localStorage.setItem("ptpge-agent-model-" + mode, model); } catch (e) {} }
   const runId = "run-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
@@ -901,6 +903,7 @@ async function agentRun() {
                  " model call(s) · " + calls + " tool call(s) · " + (fp ? "fingerprint " + fp.profiles.spec.short : "no fingerprint");
     if (fp) showInline("agent", meta, Object.assign({ agent_answer: finalText || undefined }, fp));
     else showInline("agent", meta, { agent_answer: finalText || "(no answer)", note: stopped || "the agent stopped before fingerprinting — its reason is in the answer and the transcript" });
+    return { fp: fp, answer: finalText, meta: meta };
   } catch (e) {
     showInline("agent", "agent failed", { error: String(e),
       hint: mode === "sponsored" ? "Sponsored runs may be used up or switched off — choose your own key."
@@ -1269,7 +1272,9 @@ async function convRun(idx) {
     '<div><div class="mono" style="font-size:17px;font-weight:700">' + spec.short + '</div>' +
     '<a href="' + spec.resolverUrl + '" target="_blank" rel="noopener">' + t("resolver") + '</a>' +
     '<div class="hint">offer (+ quantity): <span class="mono">' + offer.short +
-    '</span> · <a href="' + offer.resolverUrl + '" target="_blank" rel="noopener">/f/…</a></div></div></div></div>';
+    '</span> · <a href="' + offer.resolverUrl + '" target="_blank" rel="noopener">/f/…</a></div>' +
+    '<div style="margin-top:8px"><button class="secondary" onclick="convVerify(' + idx + ', &quot;' + spec.short + '&quot;)" id="cv-verify">' + t("verify") + '</button> <span id="cv-verify-out" style="font-size:12px;color:#5b7a69"></span></div>' +
+    '</div></div></div>';
   // history — convergence proof
   CONV_HISTORY.push({ label: L.label, code: L.code, spec: spec.short });
   const first = CONV_HISTORY[0].spec;
@@ -1279,6 +1284,22 @@ async function convRun(idx) {
     '<td class="fp">' + h.spec + '</td>' +
     '<td>' + (h.spec === first && CONV_HISTORY.length > 1 ? '<span class="same">= ' + t("same") + '</span>' : '') +
     '</td></tr>').join("");
+}
+// SD-0083: the preset is assembled by rule; a real model gets the same phrase and the
+// same tools and must land on the same identity — or say why not.
+async function convVerify(idx, presetShort) {
+  const P = PRODUCTS[CUR_PROD]; const L = P.langs[idx];
+  const out = document.getElementById("cv-verify-out"); const btn = document.getElementById("cv-verify");
+  const t = key => (UI[CUR_LANG] && UI[CUR_LANG][key]) || UI.en[key];
+  if (btn) btn.disabled = true; if (out) out.textContent = t("verifying");
+  try {
+    const r = await agentRun({ prompt: L.phrase, lang: L.code });
+    if (!r) { if (out) out.textContent = ""; return; }
+    if (r.fp && r.fp.profiles.spec.short === presetShort) out.innerHTML = '<span class="same">✓ ' + t("verify_same") + ' · ' + escH(r.fp.profiles.spec.short) + '</span>';
+    else if (r.fp) out.innerHTML = '<span style="color:#b3261e">✗ ' + t("verify_diff") + ' ' + escH(r.fp.profiles.spec.short) + '</span> — ' + t("verify_see");
+    else out.innerHTML = '<span style="color:#b3261e">' + t("verify_asked") + '</span> — ' + escH((r.answer || "").slice(0, 160));
+  } catch (e) { if (out) out.textContent = String(e); }
+  finally { if (btn) btn.disabled = false; }
 }
 PRODUCTS[0].langs = CONV;
 document.getElementById("conv-btns").innerHTML = CONV.map((L, i) =>
@@ -1293,7 +1314,8 @@ const UI = {
 en: { s01:"Raw specification", s02:"Matched against the vocabulary",
   tag02:"pre-scripted — the agent's job", s03:"Canonical form", tag04:"deterministic function, not the model",
   s05:"Identity", live:"checked live", resolver:"resolves on the public register ↗",
-  same:"same identity", "try":"Try:", b_col:"collapse", b_exp:"expand", p1:"Brochure", p2:"Business cards", p3:"Booklet", p4:"Panel print", ed_hint:"Try editing a character in the canonical form — the SHA-256 recomputes live in your browser. Restore it and the identity comes back.", ed_diff:"different bytes — different identity" },
+  same:"same identity", "try":"Try:",
+  verify:"Verify with a real model →", verifying:"a real model is running the same phrase with the same tools…", verify_same:"same identity — rule and model agree", verify_diff:"the model landed on", verify_see:"see Agent mode below for its reasoning", verify_asked:"the model asked a question instead of assuming — see Agent mode below", b_col:"collapse", b_exp:"expand", p1:"Brochure", p2:"Business cards", p3:"Booklet", p4:"Panel print", ed_hint:"Try editing a character in the canonical form — the SHA-256 recomputes live in your browser. Restore it and the identity comes back.", ed_diff:"different bytes — different identity" },
 de: { sub:"Jeder Button sendet einen echten MCP-<code>tools/call</code> (JSON-RPC über Streamable HTTP) an <code>/mcp</code> — genau wie ein KI-Agent.",
   t_conv:"Gleiches Produkt · jede Sprache · ein Fingerprint",
   i_conv:"Vier echte Produkte, vier Aufbau-Modelle — Broschüre (Falzbogen), Visitenkarten (Planobogen), Heft (mehrseitig) und Paneldruck (Sondermaß auf Platte) — je in zehn Sprachen formuliert. Wählen Sie Produkt und Sprache und sehen Sie dieselbe Identität entstehen.",

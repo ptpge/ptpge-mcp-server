@@ -1000,6 +1000,11 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
             continue
         env_key, _scope = mapping
         env = product.get(env_key)
+        # The ordered surface-finish STACK (SD-0040 §9: matte > spot-uv) may carry an
+        # embellishment as its top layer — membership is checked against both
+        # per-surface envelopes. Keeps the published worked example valid.
+        if var_tail == "variables/features/surface-finish" and env is not None:
+            env = list(env) + list(product.get("perSurfaceSupportsEmbellishment") or [])
         if env is None:
             entry.update(status="not_supported", envelope=env_key,
                          note=f"Product declares no {env_key} (closed semantics).")

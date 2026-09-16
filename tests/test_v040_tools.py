@@ -518,3 +518,23 @@ def test_sd0083_d5_unscoped_face_attribute_applies_to_every_face():
     b = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": explicit})
     assert a["profiles"]["spec"]["sha256"] == b["profiles"]["spec"]["sha256"]
     assert "@outside=" in a["profiles"]["spec"]["canonical"] and "@inside=" in a["profiles"]["spec"]["canonical"]
+
+
+def test_surface_finish_stack_may_top_with_an_embellishment():
+    """SD-0040 §9 worked example: surface-finish@outside = matte > spot-uv. The stack's
+    top layer may be an embellishment; the validator checks both per-surface envelopes."""
+    class C(FakeCache):
+        def get_term(self, id_or_path):
+            t = super().get_term(id_or_path)
+            if t and t.get("elementType") == "product":
+                t = dict(t)
+                t["perSurfaceSupportsSurfaceFinish"] = [B + "printing/features/surface-finish/lamination/matte"]
+                t["perSurfaceSupportsEmbellishment"] = [B + "printing/features/embellishments/spot-uv-varnish"]
+            return t
+    out = tool_payload(C(), "ptpge_validate_config", {"product": PRODUCT, "bindings": [
+        {"variable": "variables/configuration/format", "value": "printing/configurations/formats/a-series/a5"},
+        {"variable": "variables/features/color-mode", "surface": "outside", "value": "printing/features/colors/cmyk"},
+        {"variable": "variables/features/surface-finish", "surface": "outside",
+         "values": ["printing/features/surface-finish/lamination/matte",
+                    "printing/features/embellishments/spot-uv-varnish"]}]})
+    assert out["validInEnvelope"] is True and out["complete"] is True
