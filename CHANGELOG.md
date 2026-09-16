@@ -7,6 +7,18 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.1 — 2026-09-16
+
+**cfs/1 § 11 — resolution is one module, four homes.** The SD-0083 steps that
+decide the *bytes* of an identity (setup envelope-implied, D5 face expansion,
+required-axes check) moved out of `server.py` into `ptpge_mcp/cfs_resolution.py`,
+a byte-identical copy of the Standard's reference `tools/cfs_resolution.py`
+(also in the configurator and the engine; `tests/test_cfs_conformance.py` in the
+main repo refuses drift and checks four-way equality on the SD-0083 vectors).
+`ptpge_fingerprint` behaviour is unchanged (same hashes, same refusals); the
+`not_fingerprintable` payload additionally carries `resolution: {errors,
+incomplete}`. Spec: `docs/CONFIGURATION-FINGERPRINT.md` § 11 (v0.2). 132 tests.
+
 ## 0.28.0 — 2026-09-16
 
 **SD-0083 — one specified product, one identity.** Two runs of the same model on

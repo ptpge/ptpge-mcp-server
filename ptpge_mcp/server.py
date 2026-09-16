@@ -154,6 +154,7 @@ from . import colornotation
 from . import learning
 from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
+from .cfs_resolution import resolve as _cfs_resolve
 from .htpasswd import HtpasswdVerifier
 from .playground import PLAYGROUND_HTML
 from . import completeness
@@ -1184,7 +1185,6 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
     validator's questions instead of a hash."""
     implied: list[dict] = []
     validation = None
-    surface_fill: dict = {}
     if cache is not None and args.get("product"):
         validation = validate_payload(cache, {"product": args.get("product"),
                                               "bindings": [dict(b) for b in (args.get("bindings", []) or [])],
@@ -1201,13 +1201,8 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
                         "validation": validation,
                         "note": ("No identity is issued for an incomplete or invalid configuration "
                                  "(SD-0083). Answer the questions (or fix the surfaces) and call again.")}
-            implied = [r for r in validation.get("bindings", []) if r.get("status") == "envelope_implied"]
-            surface_fill = {}
-            for r in validation.get("bindings", []):
-                if r.get("surface_provenance") == "envelope-implied":
-                    surface_fill.setdefault((r["variable"], None), []).append(r["surface"])
-    config = {"product": _full_uri(args.get("product", "")),
-              "bindings": []}
+    # Normalize to cfs/1 form (full URIs, numbers kept) before resolution.
+    norm: list[dict] = []
     for b in args.get("bindings", []) or []:
         nb = {"variable": _full_uri(b.get("variable", ""))}
         if "values" in b:
@@ -1222,17 +1217,24 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
             nb["value"] = v if isinstance(v, (int, float)) else _full_uri(v)
         if b.get("surface"):
             nb["surface"] = b["surface"]
-            config["bindings"].append(nb)
-        else:
-            tail = nb["variable"][len(_BASE):]
-            faces = surface_fill.get((tail, None))
-            if faces:
-                for f in faces:
-                    nb2 = dict(nb); nb2["surface"] = f; config["bindings"].append(nb2)
-            else:
-                config["bindings"].append(nb)
-    for ib in implied:
-        config["bindings"].append({"variable": _full_uri(ib["variable"]), "value": _full_uri(ib["value"])})
+        norm.append(nb)
+    config = {"product": _full_uri(args.get("product", "")), "bindings": norm}
+    if validation is not None and "error" not in validation:
+        # The normative resolution step (cfs/1 § 11, SD-0083): the same module
+        # runs in tools/, the configurator and the engine — one resolved
+        # configuration from any implementation. The validator above decides
+        # the refusal; resolution decides the bytes.
+        res = _cfs_resolve(cache.get_term(config["product"]) or {}, norm, cache.get_term)
+        if not res["ok"]:
+            return {"error": "not_fingerprintable",
+                    "reason": "not_valid_in_envelope" if res["errors"] else "incomplete",
+                    "needs_disambiguation": validation.get("needs_disambiguation", []),
+                    "resolution": {"errors": res["errors"], "incomplete": res["incomplete"]},
+                    "validation": validation,
+                    "note": ("No identity is issued for an incomplete or invalid configuration "
+                             "(SD-0083). Answer the questions (or fix the surfaces) and call again.")}
+        config["bindings"] = res["bindings"]
+        implied = [{"variable": ib["variable"][len(_BASE):], "value": ib["value"]} for ib in res["implied"]]
     out = {"algorithm": "ptpge-cfs/1", "profiles": {}}
     visuals = bool(args.get("visuals"))
     for profile in ("spec", "offer"):
