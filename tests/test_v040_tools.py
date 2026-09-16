@@ -34,13 +34,25 @@ TERMS = {
         "supportsSubstrateWeight": [B + "printing/substrates/sheet-materials/paper/paper-weights/medium-paper"],
         "perSurfaceSupportsColorMode": [B + "printing/features/colors/cmyk",
                                         B + "printing/features/colors/black"],
+        "supportsSubstrate": [B + "printing/substrates/sheet-materials/paper"],
+        "perSurfaceSupportsSurfaceFinish": [B + "printing/features/surface-finish/lamination/matte",
+                                            B + "printing/features/embellishments/spot-uv-varnish"],
+        # SD-0083
+        "requiredVariables": [B + "variables/configuration/setup-model",
+                              B + "variables/configuration/format",
+                              B + "variables/features/color-mode"],
+        "recommendedVariables": [B + "variables/substrate/substrate-type",
+                                 B + "variables/substrate/substrate-weight",
+                                 B + "variables/features/surface-finish"],
         "typicalPageCount": 6, "fulfilmentClass": "folded",
     },
     # — values —
     B + "printing/configurations/setup-models/folded-sheet/single-fold": {
         "id": B + "printing/configurations/setup-models/folded-sheet/single-fold",
         "level": "element", "elementType": "value", "notation": "P:CF§ACCORDION-FOLD",
-        "label": {"en": "Accordion-Fold Setup", "nb": "Trekkspill-fold oppsett"}},
+        "label": {"en": "Accordion-Fold Setup", "nb": "Trekkspill-fold oppsett"},
+        "surfaces": [{"id": "outside", "panels": [{"id": "outside-left"}, {"id": "outside-right"}]},
+                     {"id": "inside", "panels": [{"id": "inside-left"}, {"id": "inside-right"}]}]},
     B + "printing/configurations/formats/a-series/a5": {
         "id": B + "printing/configurations/formats/a-series/a5",
         "level": "element", "elementType": "value", "notation": "P:CF§A5",
@@ -188,7 +200,7 @@ def test_validate_weight_advisory_boundaries():
         out = tool_payload(FakeCache(), "ptpge_validate_config", {
             "product": PRODUCT,
             "bindings": [{"variable": "variables/substrate/substrate-weight", "value": gsm}]})
-        return [a["type"] for a in out["advisories"]]
+        return [a["type"] for a in out["advisories"] if a["type"].startswith("creasing")]
     assert adv(169) == []                          # below the recommended floor
     assert adv(170) == ["creasing_recommended"]    # inclusive lower bound
     assert adv(249) == ["creasing_recommended"]    # just under standard
@@ -252,9 +264,15 @@ def test_fingerprint_deterministic_under_shuffle():
         {"variable": "variables/configuration/format",
          "value": "printing/configurations/formats/a-series/a5"},
         {"variable": "variables/substrate/substrate-weight", "value": 170},
+        {"variable": "variables/features/color-mode", "surface": "outside",
+         "value": "printing/features/colors/cmyk"},
         {"variable": "variables/order/quantity", "value": 500},
     ]}
     ref = tool_payload(FakeCache(), "ptpge_fingerprint", args)
+    # SD-0083 D1: the only setup is written into the identity as envelope-implied
+    assert ref["envelopeImplied"] == [{"variable": "variables/configuration/setup-model",
+                                       "value": B + "printing/configurations/setup-models/folded-sheet/single-fold"}]
+    assert "setup-model=" in ref["profiles"]["spec"]["canonical"]
     shuffled = json.loads(json.dumps(args))
     random.shuffle(shuffled["bindings"])
     out = tool_payload(FakeCache(), "ptpge_fingerprint", shuffled)
@@ -263,8 +281,12 @@ def test_fingerprint_deterministic_under_shuffle():
 
 def test_fingerprint_duplicate_binding_is_tool_error():
     args = {"product": PRODUCT, "bindings": [
-        {"variable": "variables/configuration/format", "value": "x/a"},
-        {"variable": "variables/configuration/format", "value": "x/b"},
+        {"variable": "variables/configuration/format",
+         "value": "printing/configurations/formats/a-series/a5"},
+        {"variable": "variables/configuration/format",
+         "value": "printing/configurations/formats/a-series/a5"},
+        {"variable": "variables/features/color-mode", "surface": "outside",
+         "value": "printing/features/colors/cmyk"},
     ]}
     with pytest.raises(ValueError):
         tool_payload(FakeCache(), "ptpge_fingerprint", args)
@@ -404,3 +426,95 @@ def test_expand_fingerprint_resolves_and_relabels(monkeypatch):
     assert out["status"] == "resolved" and out["profile"] == "spec"
     assert out["fingerprint"] == "f" * 64 and out["bindings"][0]["value"] == 8
     assert "never part of it" in out["note"]
+
+
+# -------------------- SD-0083: one specified product, one identity --------------------
+
+def _v(bindings):
+    return tool_payload(FakeCache(), "ptpge_validate_config", {"product": PRODUCT, "bindings": bindings})
+
+
+def test_sd0083_missing_colour_is_a_question_not_an_identity():
+    out = _v([{"variable": "variables/configuration/format",
+               "value": "printing/configurations/formats/a-series/a5"}])
+    assert out["validInEnvelope"] is True and out["complete"] is False
+    q = out["needs_disambiguation"]
+    assert [e["field"] for e in q] == ["variables/features/color-mode"]
+    assert q[0]["surface"] == "outside" and q[0]["reason"] == "required_axis_missing"
+    assert [c["id"].rsplit("/", 1)[-1] for c in q[0]["candidates"]] == ["cmyk", "black"]
+    fp = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": [
+        {"variable": "variables/configuration/format", "value": "printing/configurations/formats/a-series/a5"}]})
+    assert fp["error"] == "not_fingerprintable" and fp["reason"] == "incomplete"
+    assert fp["needs_disambiguation"][0]["field"] == "variables/features/color-mode"
+
+
+def test_sd0083_surface_must_be_a_face_of_the_setup():
+    out = _v([{"variable": "variables/configuration/format",
+               "value": "printing/configurations/formats/a-series/a5"},
+              {"variable": "variables/features/color-mode", "surface": "front",
+               "value": "printing/features/colors/cmyk"}])
+    bad = [b for b in out["bindings"] if b.get("status") == "surface_not_in_setup"]
+    assert bad and bad[0]["allowed_surfaces"] == ["outside", "inside"]
+    assert out["validInEnvelope"] is False
+    fp = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": [
+        {"variable": "variables/configuration/format", "value": "printing/configurations/formats/a-series/a5"},
+        {"variable": "variables/features/color-mode", "surface": "front", "value": "printing/features/colors/cmyk"}]})
+    assert fp["error"] == "not_fingerprintable" and fp["reason"] == "not_valid_in_envelope"
+
+
+def test_sd0083_panels_are_accepted_and_implied_setup_reported():
+    out = _v([{"variable": "variables/configuration/format",
+               "value": "printing/configurations/formats/a-series/a5"},
+              {"variable": "variables/features/color-mode", "surface": "outside",
+               "value": "printing/features/colors/cmyk"},
+              {"variable": "variables/features/embellishment", "surface": "outside-left",
+               "value": "printing/features/embellishments/spot-uv-varnish"}])
+    assert out["complete"] is True
+    assert out["setup"]["implied"] is True and out["setup"]["surfaces"] == ["outside", "inside"]
+    implied = [b for b in out["bindings"] if b["status"] == "envelope_implied"]
+    assert implied[0]["variable"] == "variables/configuration/setup-model"
+    types = [a["type"] for a in out["advisories"]]
+    assert "surface_unspecified" in types and "unspecified_axes" in types
+
+
+def test_sd0083_same_identity_stated_or_implied():
+    """An agent that states the only setup and one that omits it get the same hash (D1)."""
+    common = [{"variable": "variables/configuration/format",
+               "value": "printing/configurations/formats/a-series/a5"},
+              {"variable": "variables/features/color-mode", "surface": "outside",
+               "value": "printing/features/colors/cmyk"}]
+    a = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": common})
+    b = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": common + [
+        {"variable": "variables/configuration/setup-model",
+         "value": "printing/configurations/setup-models/folded-sheet/single-fold"}]})
+    assert a["profiles"]["spec"]["sha256"] == b["profiles"]["spec"]["sha256"]
+    assert a["validated"] is True and "envelopeImplied" in a and "envelopeImplied" not in b
+
+
+def test_sd0083_colour_resolver_takes_faces_from_setup():
+    out = tool_payload(FakeCache(), "ptpge_resolve_color_notation",
+                       {"product": PRODUCT, "notation": "4/1"})
+    assert list(out["surfaces"].keys()) == ["outside", "inside"]
+    assert "single-fold" in out["surfaces_note"]
+
+
+def test_sd0083_d5_unscoped_face_attribute_applies_to_every_face():
+    """"matte lamination" with no face on a two-faced setup → one binding per face,
+    and the same hash as stating both faces explicitly."""
+    unscoped = [{"variable": "variables/configuration/format",
+                 "value": "printing/configurations/formats/a-series/a5"},
+                {"variable": "variables/features/color-mode", "value": "printing/features/colors/cmyk"},
+                {"variable": "variables/features/surface-finish",
+                 "value": "printing/features/surface-finish/lamination/matte"}]
+    explicit = [unscoped[0]] + [
+        {"variable": "variables/features/color-mode", "surface": f, "value": "printing/features/colors/cmyk"} for f in ("outside", "inside")] + [
+        {"variable": "variables/features/surface-finish", "surface": f,
+         "value": "printing/features/surface-finish/lamination/matte"} for f in ("outside", "inside")]
+    v = tool_payload(FakeCache(), "ptpge_validate_config", {"product": PRODUCT, "bindings": unscoped})
+    assert v["complete"] is True
+    faces = sorted((b["variable"].rsplit("/", 1)[-1], b["surface"]) for b in v["bindings"] if b.get("surface_provenance") == "envelope-implied")
+    assert faces == [("color-mode", "inside"), ("color-mode", "outside"), ("surface-finish", "inside"), ("surface-finish", "outside")]
+    a = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": unscoped})
+    b = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": explicit})
+    assert a["profiles"]["spec"]["sha256"] == b["profiles"]["spec"]["sha256"]
+    assert "@outside=" in a["profiles"]["spec"]["canonical"] and "@inside=" in a["profiles"]["spec"]["canonical"]

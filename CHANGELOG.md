@@ -7,6 +7,55 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.0 — 2026-09-16
+
+**SD-0083 — one specified product, one identity.** Two runs of the same model on
+the same prompt had produced two identities (15/16 Sept): the Standard let two
+spellings of a folded sheet's faces through, and let an *assumed* fold become
+an identity. Fixed at the source, in the tools, not in the model:
+
+- **Surfaces follow the setup model.** Every setup term already declares its
+  faces (`surfaces`: flat-sheet front/back, folded-sheet outside/inside,
+  multi-page front-cover … back-cover, roll face/back, display-system graphic,
+  structural outside/inside, multi-part parts). `ptpge_validate_config` now
+  rejects a surface that is not a face (or panel) of the bound setup — status
+  `surface_not_in_setup` with the allowed faces — never a silent rename, so
+  `ptpge-cfs/1` stays byte-defined. `ptpge_get_product_envelope` returns
+  `surfacesBySetup`. `ptpge_resolve_color_notation` takes the faces from the
+  new `setup` argument (or the product's only setup): "4/1" on a tri-fold
+  lands on outside/inside.
+- **No identity without the required axes.** Product templates carry
+  `requiredVariables` / `recommendedVariables` (dataVersion 2026-09-16; the
+  56-row table in `docs/sd-0083/`). Missing required axis → `needs_disambiguation`
+  with the question and the envelope's candidates (which fold, which format,
+  how many pages, which binding, which colour on the first face, which shape
+  where shape is the product); missing recommended axis → advisory
+  `unspecified_axes`. New result field `complete`.
+- **`ptpge_fingerprint` validates first and refuses** (`error:
+  not_fingerprintable`, reason `not_valid_in_envelope` | `incomplete`, with the
+  validator's questions) — no hash for an incomplete or invalid configuration.
+  A complete result carries `validated: true`, `bindingsUsed`, `envelopeImplied`.
+- **D1 — envelope-implied values are written into the identity.** A required
+  axis with exactly one allowed value (flat-sheet for a flyer) is bound with
+  provenance `envelope-implied` and appears in the canonical string, so an
+  agent that states it and one that omits it get the same hash.
+- **D5 — a face attribute stated without a face applies to every face.**
+  "full colour", "matte lamination" on a two-faced setup expand to one binding
+  per face (`surface_provenance: envelope-implied`); "4/0", "one-sided",
+  "outside only" say otherwise. "1000 Flyer A5, 170 g, 4/4" and "1000 flyers
+  A5, 170 gsm, full colour" now share `445aa8c9df3fa52e`.
+- **The Standard never assumes.** The 0.27.1 rule that bound single-fold for
+  "folded" is withdrawn; the rules path shows the validator's question instead
+  ("no identity yet — the Standard asks"). Playground agent instructions
+  updated: relay the question, never assume a fold, size or colour; pass
+  `setup` to the colour resolver. Provenance enum gains `envelope-implied`.
+- Known limit: pair notation ("4/4") on multi-page setups still maps to
+  front/back and the validator then asks for the front-cover colour — the
+  six-faced case needs its own notation rule.
+- Registered fingerprints are untouched (never retired); configurations that
+  previously omitted an implied setup reproduce with it from now on.
+- Tests: 131 (six new SD-0083 tests incl. stated-vs-implied and D5 equality).
+
 ## 0.27.1 — 2026-09-16
 
 - **Rules mode learns what the agent did on the leaflet prompt.** On 15 Sept the

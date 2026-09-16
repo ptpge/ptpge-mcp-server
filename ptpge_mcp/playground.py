@@ -678,14 +678,14 @@ async function assembleFingerprint() {
   // 0.27.1 — a folded product with no fold named: bind the Single-Fold Setup (one
   // fold, the least assumption) and say so. Name the fold ("tri-fold", "z-fold")
   // to change it. Same choice the agent made on this prompt (2026-09-15).
-  let assumedFold = false;
-  if ((foldedGroup || FOLDW.test(raw)) && !hasVar("variables/configuration/setup-model")) {
-    bindings.push({ variable: "variables/configuration/setup-model", value: "printing/configurations/setup-models/folded-sheet/single-fold" });
-    assumedFold = true;
-    steps.push("folded, fold not named → single-fold (one fold — name the fold to change it)");
-  }
+  // SD-0083 (0.28.0): "folded" with no fold named is NOT assumed any more — the
+  // validator asks "which fold?" and no identity is issued until it is answered.
+  // (0.27.1 bound single-fold here; withdrawn: the Standard never assumes.)
+  if ((foldedGroup || FOLDW.test(raw)) && !hasVar("variables/configuration/setup-model"))
+    steps.push("folded, fold not named → the validator will ask which fold (SD-0083)");
   // A folded sheet's two faces are outside/inside; a flat sheet's are front/back.
   const folded = bindings.some(b => b.variable === "variables/configuration/setup-model" && String(b.value).indexOf("setup-models/folded-sheet/") !== -1);
+  const boundSetup = (bindings.find(b => b.variable === "variables/configuration/setup-model") || {}).value || null;
   const F1 = folded ? "outside" : "front", F2 = folded ? "inside" : "back";
   const derivedSurface = new Set();   // bindings whose outside/inside came from the fold, not the buyer
   // "full colour both sides" — a colour term with no surface word: two-sided prompts
@@ -720,7 +720,8 @@ async function assembleFingerprint() {
   if (notation && !hasVar("variables/features/color-mode")) {
     showBusy("own", "assembly · " + notation + " → ptpge_resolve_color_notation …");
     try {
-      const { json } = await rpc("tools/call", { name: "ptpge_resolve_color_notation", arguments: { product: product, notation: notation, language: lang } });
+      const cnArgs = { product: product, notation: notation, language: lang }; if (boundSetup) cnArgs.setup = boundSetup;
+      const { json } = await rpc("tools/call", { name: "ptpge_resolve_color_notation", arguments: cnArgs });
       const cr = JSON.parse(json.result.content[0].text);
       trAdd("ptpge_resolve_color_notation · " + notation + " on " + product, fmtJson(cr));
       const qs = [];
@@ -744,19 +745,14 @@ async function assembleFingerprint() {
     let { json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } });
     let vr = JSON.parse(json.result.content[0].text);
     let bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
-    // The assumed single-fold is an assumption, not the buyer's word: if this product's
-    // envelope does not allow it, drop it and validate again without it.
-    if (assumedFold && bad.some(b => b.variable === "variables/configuration/setup-model")) {
-      trAdd("ptpge_validate_config · single-fold is not in the " + product.split("/").pop() + " envelope → assumption dropped, validating again", fmtJson(vr));
-      const keep = bindings.filter(b => !(b.variable === "variables/configuration/setup-model" && String(b.value).indexOf("folded-sheet/single-fold") !== -1));
-      bindings.length = 0; Array.prototype.push.apply(bindings, keep);
-      for (const b of bindings) if (derivedSurface.has(b)) b.surface = (b.surface === "outside" ? "front" : (b.surface === "inside" ? "back" : b.surface));
-      ({ json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } }));
-      vr = JSON.parse(json.result.content[0].text);
-      bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
-    }
+    void derivedSurface;
     trAdd("ptpge_validate_config · " + (vr.validInEnvelope ? "valid in envelope" : "NOT valid") + (bad.length ? " · " + bad.map(b => b.variable + ": " + b.status).join(", ") : "") + ((vr.advisories || []).length ? " · advisories: " + vr.advisories.length : ""), fmtJson(vr));
-    if (vr.needs_disambiguation && vr.needs_disambiguation.length) { showInline("own", "validation asks a question — answer it in the prompt and run again", vr); return; }
+    if (vr.needs_disambiguation && vr.needs_disambiguation.length) {
+      const qs = vr.needs_disambiguation.map(q => "• " + q.question + (q.candidates && q.candidates.length ? "  (" + q.candidates.map(c => (c.label || c.id || c)).slice(0, 8).join(", ") + (q.candidates.length > 8 ? ", …" : "") + ")" : "")).join("\\n");
+      showInline("own", "no identity yet — the Standard asks (SD-0083): answer in the prompt and run again", Object.assign({ questions: qs.split("\\n") }, vr));
+      trAdd("ptpge_validate_config · complete: false · " + vr.needs_disambiguation.length + " question(s) — no fingerprint until answered", fmtJson(vr));
+      return;
+    }
     if (vr.validInEnvelope === false) {
       const why = bad.map(b => (b.value || "").toString().split("/").pop() + " is not in the " + product.split("/").pop() + " envelope for " + b.variable.split("/").pop()).join("; ");
       showInline("own", "not valid in this product's envelope — " + why + " · an agent would ask the buyer here; the fingerprint is not computed", vr); return;
@@ -780,8 +776,8 @@ const AGENT_SYSTEM = [
   "1. Product first: ptpge_search_terms on the product word (limit 5) and take the ordering/products/... hit; then ptpge_get_product_envelope for it — the envelope says which variables and values this product allows.",
   "2. For every attribute in the prompt, ptpge_search_terms (query_language = the prompt's language; language = \\"LANGCODE\\"). Bind only element-level terms, never a group. Each term goes to the variable its tree position implies: configurations/formats → variables/configuration/format; setup-models → variables/configuration/setup-model; features/colors → variables/features/color-mode; surface-finish → variables/features/surface-finish; embellishments → variables/features/embellishment; completions/binding → variables/finishing/binding; paper-surfaces → variables/substrate/substrate-finish; paper-coatings → variables/substrate/substrate-coating; paper-color-shades → variables/substrate/substrate-color; substrates → variables/substrate/substrate-type. Numbers: pages → variables/configuration/page-count; gsm → variables/substrate/substrate-weight (a stated gsm wins over a weight-band word); copies → variables/order/quantity. Add surface: front/back/outside/inside when the prompt says so.",
   "3. Colour counts and notation (\\"4/4\\", \\"4+1\\", \\"4 colours double-sided\\", \\"black on the back\\") go through ptpge_resolve_color_notation on this product — never guess a colour set. If a surface comes back needs_disambiguation, STOP and return its question verbatim.",
-  "4. ptpge_validate_config with product and bindings. If validInEnvelope is false, or it asks a question, STOP and say why — do not fingerprint.",
-  "5. Only then ptpge_fingerprint with visuals: true.",
+  "4. ptpge_validate_config with product and bindings. If validInEnvelope is false, fix what it names (a surface must be one of the bound setup's faces: flat-sheet front/back, folded-sheet outside/inside, multi-page front-cover…back-cover). If it returns needs_disambiguation (a REQUIRED axis is missing — which fold, which format, how many pages, which binding, which colour on the first face), STOP and return the question(s) verbatim with the candidates — never assume a fold, a size or a colour. When one is missing from the prompt you cannot fingerprint. Pass setup to ptpge_resolve_color_notation so the faces match the fold.",
+  "5. Only when complete is true: ptpge_fingerprint with visuals: true. The tool refuses incomplete configurations (error not_fingerprintable) — that refusal is the answer, relay its questions.",
   "Aim for at most 10 tool calls. Final answer: two to four plain sentences in the buyer's language — the product, the bindings, and the spec fingerprint's short id — or the open question.",
 ].join("\\n");
 

@@ -29,16 +29,16 @@ def test_own_key_never_leaves_browser_path():
     assert "ptpge-agent-key-" in H                        # localStorage only
 
 
-def test_0271_rules_fold_assumption_is_explicit_and_regex_is_literal():
-    """0.27.1: 'folded' with no fold named binds Single-Fold and says so; a folded
-    sheet's faces are outside/inside; the assumption is dropped again if the
-    product's envelope rejects it. The regex must reach the browser with a
-    literal backslash-b — a bare \\b inside the Python string is a backspace
+def test_0280_rules_never_assume_the_fold_and_regex_is_literal():
+    """0.28.0 (SD-0083): 'folded' with no fold named is not assumed; the validator
+    asks and no identity is issued. A folded sheet's faces are outside/inside.
+    The FOLDW regex must reach the browser with a literal backslash-b — a bare \\b inside the Python string is a backspace
     (trap hit 2026-09-16)."""
-    assert "single-fold (one fold — name the fold to change it)" in H
-    assert "printing/configurations/setup-models/folded-sheet/single-fold" in H
-    assert "assumption dropped, validating again" in H
-    assert "derivedSurface" in H and 'folded ? "outside" : "front"' in H
+    # 0.28.0 / SD-0083: the fold is no longer assumed — the validator asks.
+    assert "the validator will ask which fold (SD-0083)" in H
+    assert "single-fold (one fold — name the fold to change it)" not in H
+    assert "no identity yet — the Standard asks (SD-0083)" in H
+    assert 'folded ? "outside" : "front"' in H
     i = H.index("const FOLDW"); line = H[i:H.index("\n", i)]
     assert "\\bfolded\\b" in line and "\b" not in line   # literal \b, no backspace char
     assert "gefalzt" in line and "gevouwen" in line and "fals(et|ede|ad|ade)" in line

@@ -156,6 +156,7 @@ from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
 from .htpasswd import HtpasswdVerifier
 from .playground import PLAYGROUND_HTML
+from . import completeness
 
 logger = logging.getLogger(__name__)
 
@@ -425,7 +426,16 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "result carries `needs_disambiguation`, each entry has a `field`, "
             "a `question` that MUST be put to the user verbatim, and "
             "`candidates` — never infer the answer, never fingerprint until "
-            "it is resolved."
+            "it is resolved. SD-0083: the validator also checks completeness "
+            "— a missing REQUIRED axis of the product (setup/fold, format, "
+            "page count, binding, colour on the first face, shape where shape "
+            "is the product) returns needs_disambiguation with the envelope's "
+            "candidates; a required axis with exactly one allowed value is "
+            "bound for you as envelope-implied; a surface name that is not a "
+            "face of the bound setup (faces: flat-sheet front/back, "
+            "folded-sheet outside/inside, multi-page front-cover…back-cover) "
+            "is rejected with the allowed faces. `complete: true` means an "
+            "identity can be issued."
         ),
         inputSchema={
             "type": "object",
@@ -443,7 +453,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
                             "surface": {"type": "string", "description": "Surface slug for surface-scoped bindings (e.g. 'outside')."},
                             "provenance": {
                                 "type": "string",
-                                "enum": ["confirmed", "inferred", "policy-default"],
+                                "enum": ["confirmed", "inferred", "policy-default", "envelope-implied"],
                                 "description": (
                                     "How this value came about (SD-0071): 'confirmed' — the "
                                     "buyer chose it; 'inferred' — you derived it without "
@@ -486,10 +496,17 @@ TOOL_DESCRIPTORS: list[Tool] = [
                 "notation": {"type": "string", "description": "Pair notation, e.g. '4/4', '4 / 1', '4+4'."},
                 "surfaces": {
                     "type": "array",
-                    "description": ("Optional surface slugs in notation order. Defaults to "
-                                    "['front','back']; folded products may use "
-                                    "['outside','inside']."),
+                    "description": ("Optional surface slugs in notation order. Without them the "
+                                    "faces come from 'setup' (or the product's only setup): "
+                                    "flat-sheet front/back, folded-sheet outside/inside, roll "
+                                    "face/back (SD-0083)."),
                     "items": {"type": "string"},
+                },
+                "setup": {
+                    "type": "string",
+                    "description": ("Optional setup-model URI/path (e.g. 'printing/configurations/"
+                                    "setup-models/folded-sheet/tri-fold') so the surfaces match "
+                                    "the fold. Required for products with several setups."),
                 },
                 "language": {"type": "string", "default": "en"},
             },
@@ -508,11 +525,15 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "variables under variables/order/ — quantity, lead-time, "
             "delivery-method, incoterm (closed list, SD-0040). Transaction "
             "data (print-ready file, delivery date, price) is keyed BY the "
-            "offer fingerprint and never hashed into it. Input is NOT "
-            "validated against the configuration envelope — call "
-            "ptpge_validate_config first. Do not fingerprint an unresolved "
-            "configuration: if any tool returned needs_disambiguation, put "
-            "its question to the user first."
+            "offer fingerprint and never hashed into it. SD-0083: the input "
+            "is validated first and an identity is issued ONLY for a valid, "
+            "complete configuration — every required axis of the product "
+            "bound (or envelope-implied where the envelope offers one value; "
+            "those are written into the identity) and every surface one of "
+            "the bound setup's faces. Otherwise the result is "
+            "error=not_fingerprintable with the validator's "
+            "needs_disambiguation: put each question to the user verbatim, "
+            "bind the answer, call again. Never guess a missing axis."
         ),
         inputSchema={
             "type": "object",
@@ -754,6 +775,19 @@ def envelope_payload(cache: "VocabularyCache", id_or_path: str, language: str) -
             out["typical"][key] = [_ref(cache, u, language) for u in value]
         elif key in ("typicalPageCount", "fulfilmentClass"):
             out["typical"][key] = value
+    # SD-0083: what must be known before an identity is issued, what is
+    # advisory, and which faces each setup has (surfaces follow the setup).
+    out["required"] = [_ref(cache, u, language) for u in (term.get("requiredVariables") or [])]
+    out["recommended"] = [_ref(cache, u, language) for u in (term.get("recommendedVariables") or [])]
+    out["surfacesBySetup"] = {}
+    for su in term.get("supportsSetupModel") or []:
+        faces, panels = completeness.setup_faces(cache, su)
+        if faces:
+            out["surfacesBySetup"][su] = {"surfaces": faces, "panels": panels}
+    out["identityRule"] = ("Required axes must be bound (or envelope-implied where the envelope "
+                           "offers one value) before ptpge_fingerprint issues an identity; a "
+                           "missing one returns needs_disambiguation. Surface names must be the "
+                           "bound setup's faces. Recommended axes are advisory (SD-0083).")
     return out
 
 
@@ -782,6 +816,27 @@ def color_notation_payload(cache: "VocabularyCache", args: dict) -> object:
     channels = {u: n for u in supported
                 if (n := colornotation.channel_count(cache.get_term(u))) is not None}
     surfaces = [s for s in (args.get("surfaces") or []) if isinstance(s, str)]
+    # SD-0083: faces follow the setup. Without explicit surfaces, take them from
+    # the given setup, or from the product's only setup; two-faced setups map
+    # the pair notation directly (front/back, outside/inside, face/back).
+    setup_note = None
+    if not surfaces:
+        setup_uri = _full_uri(args["setup"]) if args.get("setup") else None
+        if not setup_uri:
+            sup = product.get("supportsSetupModel") or []
+            setup_uri = sup[0] if len(sup) == 1 else None
+        if setup_uri:
+            faces, _panels = completeness.setup_faces(cache, setup_uri)
+            if len(faces) == 2:
+                surfaces = faces
+                setup_note = f"faces from setup {setup_uri.rsplit('/', 1)[-1]}: {faces[0]}/{faces[1]}"
+            elif faces:
+                setup_note = (f"setup {setup_uri.rsplit('/', 1)[-1]} has {len(faces)} faces "
+                              f"({', '.join(faces)}); pair notation mapped to the default "
+                              "front/back — pass 'surfaces' to place it")
+        else:
+            setup_note = ("product has several setups and none was given — surfaces default to "
+                          "front/back; pass 'setup' (or 'surfaces') so the faces match the fold")
 
     try:
         resolution = colornotation.resolve(
@@ -796,6 +851,8 @@ def color_notation_payload(cache: "VocabularyCache", args: dict) -> object:
 
     payload = resolution.to_dict()
     payload["product"] = _ref(cache, uri, language)
+    if setup_note:
+        payload["surfaces_note"] = setup_note
     # Label the URIs so the agent can put the question to a human unaided.
     for entry in payload.get("needs_disambiguation", []):
         if entry.get("reason") != "surface_count":
@@ -1022,9 +1079,38 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                         "the bound substrate-coating contradicts the bound substrate-class (SD-0076)."})
             all_ok = False
 
+    # SD-0083: surfaces follow the setup; required axes; envelope-implied values.
+    comp = completeness.completeness(cache, product, list(args.get("bindings", []) or []),
+                                     lambda u: _ref(cache, u, language), language)
+    for e in comp["surface_errors"]:
+        for r in results:
+            if r["variable"] == e["variable"] and r.get("surface") == e["surface"]:
+                r.update(status="surface_not_in_setup", allowed_surfaces=e["allowed"], note=e["note"])
+        all_ok = False
+    for b in args.get("bindings", []) or []:
+        if b.get("_implied_surface"):
+            tail = completeness._tail(_full_uri(b.get("variable", "")))
+            for r in list(results):
+                if r["variable"] == tail and r.get("surface") is None:
+                    r["surface"] = b["_implied_surface"]; r["surface_provenance"] = "envelope-implied"
+                    for extra in (b.get("_expand_to") or []):
+                        r2 = dict(r); r2["surface"] = extra
+                        r2["note"] = "Stated without a face → applies to every face of the setup (SD-0083 D5)."
+                        results.append(r2)
+                    if b.get("_expand_to"):
+                        r["note"] = "Stated without a face → applies to every face of the setup (SD-0083 D5)."
+            b.pop("_implied_surface", None); b.pop("_expand_to", None)
+    for ib in comp["implied"]:
+        results.append({"variable": ib["variable"], "surface": None, "value": ib["value"],
+                        "provenance": "envelope-implied", "status": "envelope_implied",
+                        "note": "The envelope offers exactly one value; it is written into the identity (SD-0083 D1)."})
+    advisories.extend(comp["advisories"])
+    complete = not comp["needs_disambiguation"] and not comp["surface_errors"]
+
     resp = {
         "product": _ref(cache, uri, language),
         "validInEnvelope": all_ok,
+        "complete": complete,
         "bindings": results,
         "advisories": advisories,
         "scope": "Layer 1 envelope validation only. Cross-variable legality "
@@ -1033,6 +1119,13 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     }
     if rules:
         resp["rules"] = rules
+    if comp["setup"]:
+        resp["setup"] = comp["setup"]
+    if comp["needs_disambiguation"]:
+        resp["needs_disambiguation"] = comp["needs_disambiguation"]
+        resp["guidance"] = ("Put each question to the user verbatim and bind the answer. "
+                            "ptpge_fingerprint refuses until the configuration is complete — "
+                            "one specified product, one identity (SD-0083).")
 
     # SD-0071: surface what was never confirmed by the buyer. The envelope is
     # still valid — an inferred value can be perfectly legal — but a vendor or
@@ -1079,7 +1172,35 @@ def browse_payload(cache: "VocabularyCache", id_or_path: str | None, language: s
             "children": children}
 
 
-def fingerprint_payload(args: dict) -> object:
+def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> object:
+    """SD-0083: an identity is issued only for a valid, complete configuration.
+    Validation runs first; envelope-implied bindings are written into the
+    canonical string; a missing required axis or a wrong surface returns the
+    validator's questions instead of a hash."""
+    implied: list[dict] = []
+    validation = None
+    surface_fill: dict = {}
+    if cache is not None and args.get("product"):
+        validation = validate_payload(cache, {"product": args.get("product"),
+                                              "bindings": [dict(b) for b in (args.get("bindings", []) or [])],
+                                              "language": args.get("language", "en")})
+        if isinstance(validation, dict) and "error" not in validation:
+            refusal = None
+            if not validation.get("validInEnvelope", True):
+                refusal = "not_valid_in_envelope"
+            elif validation.get("needs_disambiguation"):
+                refusal = "incomplete"
+            if refusal:
+                return {"error": "not_fingerprintable", "reason": refusal,
+                        "needs_disambiguation": validation.get("needs_disambiguation", []),
+                        "validation": validation,
+                        "note": ("No identity is issued for an incomplete or invalid configuration "
+                                 "(SD-0083). Answer the questions (or fix the surfaces) and call again.")}
+            implied = [r for r in validation.get("bindings", []) if r.get("status") == "envelope_implied"]
+            surface_fill = {}
+            for r in validation.get("bindings", []):
+                if r.get("surface_provenance") == "envelope-implied":
+                    surface_fill.setdefault((r["variable"], None), []).append(r["surface"])
     config = {"product": _full_uri(args.get("product", "")),
               "bindings": []}
     for b in args.get("bindings", []) or []:
@@ -1096,7 +1217,17 @@ def fingerprint_payload(args: dict) -> object:
             nb["value"] = v if isinstance(v, (int, float)) else _full_uri(v)
         if b.get("surface"):
             nb["surface"] = b["surface"]
-        config["bindings"].append(nb)
+            config["bindings"].append(nb)
+        else:
+            tail = nb["variable"][len(_BASE):]
+            faces = surface_fill.get((tail, None))
+            if faces:
+                for f in faces:
+                    nb2 = dict(nb); nb2["surface"] = f; config["bindings"].append(nb2)
+            else:
+                config["bindings"].append(nb)
+    for ib in implied:
+        config["bindings"].append({"variable": _full_uri(ib["variable"]), "value": _full_uri(ib["value"])})
     out = {"algorithm": "ptpge-cfs/1", "profiles": {}}
     visuals = bool(args.get("visuals"))
     for profile in ("spec", "offer"):
@@ -1121,8 +1252,19 @@ def fingerprint_payload(args: dict) -> object:
             else:
                 entry["qrNote"] = "qrcode package not installed on server — QR omitted"
         out["profiles"][profile] = entry
-    out["note"] = ("Input was serialized as given — not validated against the "
-                   "product envelope. Use ptpge_validate_config for that.")
+    if validation is not None and "error" not in validation:
+        out["validated"] = True
+        out["bindingsUsed"] = [{"variable": nb["variable"][len(_BASE):], "surface": nb.get("surface"),
+                                "value": nb.get("values", nb.get("value"))} for nb in config["bindings"]]
+        if implied:
+            out["envelopeImplied"] = [{"variable": ib["variable"], "value": ib["value"]} for ib in implied]
+        out["note"] = ("Validated and complete (SD-0083): required axes bound, surfaces on the "
+                       "setup's faces; envelope-implied values written into the identity.")
+        if validation.get("advisories"):
+            out["advisories"] = validation["advisories"]
+    else:
+        out["note"] = ("Input was serialized as given — no vocabulary cache available for "
+                       "validation in this context.")
     out["registration"] = ("Fingerprints are auto-registered with the public resolver "
                            "(best-effort, self-verifying) — the resolverUrl becomes a "
                            "permanent page within seconds.")
@@ -1262,7 +1404,7 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
         return color_notation_payload(cache, args)
 
     if name == "ptpge_fingerprint":
-        return fingerprint_payload(args)
+        return fingerprint_payload(args, cache)
 
     if name == "ptpge_expand_fingerprint":
         return expand_payload(cache, args)
