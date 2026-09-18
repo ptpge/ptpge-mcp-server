@@ -154,7 +154,7 @@ from . import colornotation
 from . import learning
 from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
-from .cfs_resolution import resolve as _cfs_resolve
+from .cfs_resolution import resolve as _cfs_resolve, entailed_substrate_type as _cfs_entailed_type
 from .htpasswd import HtpasswdVerifier
 from .playground import PLAYGROUND_HTML
 from . import completeness
@@ -1110,8 +1110,36 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
         results.append({"variable": ib["variable"], "surface": None, "value": ib["value"],
                         "provenance": "envelope-implied", "status": "envelope_implied",
                         "note": "The envelope offers exactly one value; it is written into the identity (SD-0083 D1)."})
+    # SD-0083 R5: a value under a material entails the substrate type.
+    _ent = {}
+    _stated_type = None
+    for b in args.get("bindings", []) or []:
+        _v = completeness._tail(_full_uri(b.get("variable", "")))
+        if _v == "variables/substrate/substrate-type":
+            _stated_type = _full_uri(b.get("value", "")) if isinstance(b.get("value"), str) else _stated_type
+            continue
+        for val in ([b.get("value")] if "value" in b else list(b.get("values") or [])):
+            m = _cfs_entailed_type(val)
+            if m:
+                _ent.setdefault(m, _v)
+    if _ent:
+        mats = sorted(_ent)
+        if len(mats) > 1 or (_stated_type and _stated_type not in mats):
+            results.append({"variable": "variables/substrate/substrate-type", "surface": None,
+                            "value": _stated_type, "status": "substrate_type_conflict",
+                            "entailed": [m[len(_BASE):] for m in mats],
+                            "note": "The bound substrate values sit under a different material than the "
+                                    "stated (or each other's) substrate type (SD-0083 R5)."})
+            all_ok = False
+        elif not _stated_type:
+            results.append({"variable": "variables/substrate/substrate-type", "surface": None,
+                            "value": mats[0][len(_BASE):], "provenance": "entailed", "status": "entailed",
+                            "entailedBy": _ent[mats[0]],
+                            "note": "Follows from the bound " + _ent[mats[0]].rsplit("/", 1)[-1] +
+                                    " value; written into the identity (SD-0083 R5)."})
     advisories.extend(comp["advisories"])
-    complete = not comp["needs_disambiguation"] and not comp["surface_errors"]
+    complete = not comp["needs_disambiguation"] and not comp["surface_errors"] \
+        and not any(r.get("status") == "substrate_type_conflict" for r in results)
 
     resp = {
         "product": _ref(cache, uri, language),

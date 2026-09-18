@@ -30,6 +30,13 @@ Rules (spec: docs/CONFIGURATION-FINGERPRINT.md § 11):
       multi-page / multi-part setups and never for the others.
   R4  Resolution is idempotent: resolving a resolved configuration changes
       nothing.
+  R5  Entailment. A value under printing/substrates/<class>/<material>/
+      (a paper surface, weight class, coating, colour shade …) entails
+      substrate-type = printing/substrates/<class>/<material>. If the
+      substrate type is unbound it is bound (entailed); if it is bound to a
+      different material the configuration is in error — no identity.
+      Nothing else is entailed: resolution adds what follows from the
+      statement, never what the buyer did not say.
 
 Bindings use the cfs/1 form: {"variable", "surface"?, "value"|"values", "ordered"?}.
 Any other key (provenance, notes) is carried through untouched.
@@ -47,6 +54,8 @@ CUSTOM_WIDTH = "variables/configuration/custom-width"
 CUSTOM_HEIGHT = "variables/configuration/custom-height"
 CUSTOMIZED_FORMAT = BASE + "printing/configurations/formats/customized"
 MULTI_SETUPS = ("setup-models/multi-page", "setup-models/multi-part")
+SUBSTRATE_TYPE = "variables/substrate/substrate-type"
+SUBSTRATES = "printing/substrates/"
 
 # Variables whose vocabulary term carries scope = "surface".
 SURFACE_SCOPED = frozenset({
@@ -89,6 +98,25 @@ def faces_of(setup_term: dict | None) -> tuple[list[str], list[str]]:
     return surfaces, panels
 
 
+def entailed_substrate_type(value) -> str | None:
+    """R5: the material a substrate value sits under, or None.
+
+    printing/substrates/sheet-materials/paper/paper-surfaces/silk-paper
+      -> https://ptpge.org/v1/printing/substrates/sheet-materials/paper
+    A value that *is* a class or material (four segments or fewer) entails
+    nothing; literals (weights, thicknesses) entail nothing.
+    """
+    if not isinstance(value, str):
+        return None
+    t = tail(value)
+    if not t.startswith(SUBSTRATES):
+        return None
+    seg = t.split("/")
+    if len(seg) < 5:
+        return None
+    return full("/".join(seg[:4]))
+
+
 def resolve(product: dict, bindings: list[dict],
             setup_term: Callable[[str], dict | None]) -> dict:
     """Resolve `bindings` for `product` (the raw template term).
@@ -101,7 +129,8 @@ def resolve(product: dict, bindings: list[dict],
                   expanded, envelope-implied bindings appended)
       implied     [{variable, value}] bound by R1/R3 (full URIs)
       expanded    [{variable, surfaces}] bindings expanded by R2
-      errors      [{rule, variable, surface, allowed}] — R1 violations
+      errors      [{rule, variable, ...}] — R1 (surface_not_in_setup) and
+                  R5 (substrate_type_conflict) violations
       incomplete  [{variable, surface?, candidates}] — R3 questions
       setup       the setup URI in force, or None
     """
@@ -191,6 +220,29 @@ def resolve(product: dict, bindings: list[dict],
                                           "needs": [full(CUSTOM_WIDTH), full(CUSTOM_HEIGHT)]})
             continue
         out["incomplete"].append({"variable": full(var), "candidates": env})
+
+    # R5 — entailment: a value under a material entails the substrate type
+    entailed: dict[str, str] = {}
+    for b in bindings:
+        var = tail(b.get("variable", ""))
+        if var == SUBSTRATE_TYPE:
+            continue
+        vals = [b.get("value")] if "value" in b else list(b.get("values") or [])
+        for v in vals:
+            m = entailed_substrate_type(v)
+            if m:
+                entailed.setdefault(m, full(var))
+    if entailed:
+        stated = [full(b["value"]) for b in bound.get(SUBSTRATE_TYPE, [])
+                  if isinstance(b.get("value"), str)]
+        materials = sorted(entailed)
+        if len(materials) > 1 or (stated and stated[0] not in materials):
+            out["errors"].append({"rule": "substrate_type_conflict", "variable": full(SUBSTRATE_TYPE),
+                                  "stated": stated, "entailed": materials,
+                                  "from": [entailed[m] for m in materials]})
+        elif not stated:
+            out["implied"].append({"variable": full(SUBSTRATE_TYPE), "value": materials[0],
+                                   "entailedBy": entailed[materials[0]]})
 
     for ib in out["implied"]:
         resolved.append({"variable": ib["variable"], "value": ib["value"]})

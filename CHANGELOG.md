@@ -7,6 +7,31 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.2 — 2026-09-18
+
+**cfs/1 § 11 R5 — entailment: "170 gsm silk" *is* paper.** Patrik ran the same
+tri-fold prompt through two agents and got two identities. Half the drift was an
+agent adding `substrate-type = paper` that the other left out; the other half was
+an agent scoping "matte lamination" to `@outside` alone. Two fixes:
+
+- `cfs_resolution.py` R5: a bound value under
+  `printing/substrates/<class>/<material>/` (a paper surface, weight class,
+  coating, shade, supplier) entails `substrate-type = <material>`; unbound →
+  bound (*entailed*), bound to another material → `substrate_type_conflict`
+  (refuse). Byte-identical in the four homes; conformance vectors
+  `trifold-silk-untyped` == `trifold-silk-typed`, conflict refused.
+- `ptpge_validate_config` reports the entailed type (`status: entailed`,
+  `entailedBy`) so an agent sees it before hashing; a conflict fails
+  `validInEnvelope` and `complete`.
+- Playground agent prompt (marker `PTPGE-PLAYGROUND-AGENT/1` unchanged — the Engine proxy checks it), new rule 2b: bind exactly
+  what the buyer stated — a face attribute without a face is bound without a
+  surface (the validator spreads it, D5); never add an axis the buyer did not
+  state. Same text in `present/live` and `dl/live`.
+
+Nothing else is entailed. Agent-introduced choices remain visible as different
+identities — the Standard promises *same configuration → same identity*, not
+*same words → same identity* beyond what follows from the words.
+
 ## 0.28.1 — 2026-09-16
 
 **cfs/1 § 11 — resolution is one module, four homes.** The SD-0083 steps that

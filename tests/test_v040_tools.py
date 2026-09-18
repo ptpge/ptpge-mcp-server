@@ -538,3 +538,29 @@ def test_surface_finish_stack_may_top_with_an_embellishment():
          "values": ["printing/features/surface-finish/lamination/matte",
                     "printing/features/embellishments/spot-uv-varnish"]}]})
     assert out["validInEnvelope"] is True and out["complete"] is True
+
+
+# -------------------- SD-0083 R5 (2026-09-18) --------------------
+
+def test_validate_entails_substrate_type_from_paper_value():
+    """A value under a material entails the substrate type; a stated type under
+    another material is a conflict."""
+    silk = {"variable": "variables/substrate/substrate-finish",
+            "value": "printing/substrates/sheet-materials/paper/paper-surfaces/silk-paper"}
+    out = tool_payload(FakeCache(), "ptpge_validate_config",
+                       {"product": PRODUCT, "bindings": _bindings_ok() + [silk]})
+    ent = [r for r in out["bindings"] if r["variable"] == "variables/substrate/substrate-type"]
+    assert ent and ent[0]["status"] == "entailed"
+    assert ent[0]["value"] == "printing/substrates/sheet-materials/paper"
+    assert ent[0]["entailedBy"] == "variables/substrate/substrate-finish"
+    typed = {"variable": "variables/substrate/substrate-type",
+             "value": "printing/substrates/sheet-materials/paper"}
+    out2 = tool_payload(FakeCache(), "ptpge_validate_config",
+                        {"product": PRODUCT, "bindings": _bindings_ok() + [silk, typed]})
+    assert not [r for r in out2["bindings"] if r.get("status") == "entailed"]
+    wrong = {"variable": "variables/substrate/substrate-type",
+             "value": "printing/substrates/sheet-materials/cardstock"}
+    out3 = tool_payload(FakeCache(), "ptpge_validate_config",
+                        {"product": PRODUCT, "bindings": _bindings_ok() + [silk, wrong]})
+    assert out3["validInEnvelope"] is False and out3["complete"] is False
+    assert [r for r in out3["bindings"] if r.get("status") == "substrate_type_conflict"]
