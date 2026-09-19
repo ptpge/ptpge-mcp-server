@@ -7,6 +7,12 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.4 — 2026-09-19
+
+**Term vectors rebuilt after the sv/da/nl altLabel pass** (Standard dataVersion
+2026-09-19: 802 buyer words on the 56 product templates; Dutch «folder» moved
+from Flyers to Brochures). 521 of 521 eligible terms. No code change.
+
 ## 0.28.3 — 2026-09-19
 
 **Term vectors rebuilt.** `term_embeddings.npz` was from 2026-09-08 and missed the
