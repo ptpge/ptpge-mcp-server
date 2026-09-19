@@ -7,6 +7,14 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.3 — 2026-09-19
+
+**Term vectors rebuilt.** `term_embeddings.npz` was from 2026-09-08 and missed the
+altLabel edits of 13.09 and the June duplicate clean-up (two retired URIs still
+carried vectors). Now 521 of 521 eligible terms, built 19.09. No code change;
+search weights unchanged. The dashboard's Search Relevance Tuning panel now
+reports coverage and staleness of this file, so the drift is visible next time.
+
 ## 0.28.2 — 2026-09-18
 
 **cfs/1 § 11 R5 — entailment: "170 gsm silk" *is* paper.** Patrik ran the same
