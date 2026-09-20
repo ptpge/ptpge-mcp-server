@@ -37,6 +37,13 @@ Rules (spec: docs/CONFIGURATION-FINGERPRINT.md § 11):
       different material the configuration is in error — no identity.
       Nothing else is entailed: resolution adds what follows from the
       statement, never what the buyer did not say.
+  R6  What may stand together (SD-0084). A variable may declare
+      `exclusiveGroups` (rule at-most-one); a value may declare `standalone`
+      (no company on the same face) or `multiInstance` (may repeat). Two
+      values from one group, a standalone value with company, or a repeated
+      value that is not multi-instance → `exclusive_group_conflict`, no
+      identity. No valid identity changes: R6 only refuses statements that
+      were never a product.
 
 Bindings use the cfs/1 form: {"variable", "surface"?, "value"|"values", "ordered"?}.
 Any other key (provenance, notes) is carried through untouched.
@@ -121,7 +128,11 @@ def resolve(product: dict, bindings: list[dict],
             setup_term: Callable[[str], dict | None]) -> dict:
     """Resolve `bindings` for `product` (the raw template term).
 
-    `setup_term(uri)` returns the setup-model term (dict) or None.
+    `setup_term(uri)` returns a term (dict) or None — used for the setup
+    model (R1) and, since R6, for the variable and value terms whose
+    `exclusiveGroups` / `standalone` / `multiInstance` it reads. A loader
+    that cannot supply those returns None and R6 is skipped (no refusal it
+    cannot justify).
 
     Returns
       ok          True when the configuration may be fingerprinted
@@ -129,8 +140,8 @@ def resolve(product: dict, bindings: list[dict],
                   expanded, envelope-implied bindings appended)
       implied     [{variable, value}] bound by R1/R3 (full URIs)
       expanded    [{variable, surfaces}] bindings expanded by R2
-      errors      [{rule, variable, ...}] — R1 (surface_not_in_setup) and
-                  R5 (substrate_type_conflict) violations
+      errors      [{rule, variable, ...}] — R1 (surface_not_in_setup),
+                  R5 (substrate_type_conflict), R6 (exclusive_group_conflict)
       incomplete  [{variable, surface?, candidates}] — R3 questions
       setup       the setup URI in force, or None
     """
@@ -243,6 +254,53 @@ def resolve(product: dict, bindings: list[dict],
         elif not stated:
             out["implied"].append({"variable": full(SUBSTRATE_TYPE), "value": materials[0],
                                    "entailedBy": entailed[materials[0]]})
+
+    # R6 — what may stand together: each multi-value binding (after R2, so per
+    # face) is checked against the variable's exclusiveGroups and the values'
+    # standalone / multiInstance. Two bindings with the same lhs are not merged
+    # here — that is a malformed statement, refused by the serializer (§ 8).
+    per_face: list[tuple[str, str | None, list[str]]] = []
+    for b in resolved:
+        var = tail(b.get("variable", ""))
+        vals = [full(v) for v in (b.get("values") or []) if isinstance(v, str)]
+        if len(vals) >= 2:
+            per_face.append((var, b.get("surface") or None, vals))
+    _term_cache: dict[str, dict | None] = {}
+
+    def _t(uri: str):
+        if uri not in _term_cache:
+            try:
+                _term_cache[uri] = setup_term(uri)
+            except Exception:  # pragma: no cover — a loader that fails is "cannot supply"
+                _term_cache[uri] = None
+        return _term_cache[uri]
+
+    for var, sf, vals in per_face:
+        vterm = _t(full(var))
+        groups = (vterm or {}).get("exclusiveGroups") or []
+        # repeats: only a multiInstance value may appear twice
+        seen: dict[str, int] = {}
+        for v in vals:
+            seen[v] = seen.get(v, 0) + 1
+        for v, n in seen.items():
+            if n > 1 and not ((_t(v) or {}).get("multiInstance") is True):
+                out["errors"].append({"rule": "exclusive_group_conflict", "variable": full(var),
+                                      "surface": sf, "reason": "repeated_value", "value": v, "count": n})
+        distinct = list(seen)
+        # standalone: a value that tolerates no company
+        for v in distinct:
+            if (_t(v) or {}).get("standalone") is True and len(distinct) > 1:
+                out["errors"].append({"rule": "exclusive_group_conflict", "variable": full(var),
+                                      "surface": sf, "reason": "standalone", "value": v,
+                                      "with": [x for x in distinct if x != v]})
+        # groups: at most one from each
+        for g in groups:
+            members = {full(str(u)) for u in (g.get("values") or [])}
+            hit = [v for v in distinct if v in members]
+            if len(hit) > 1:
+                out["errors"].append({"rule": "exclusive_group_conflict", "variable": full(var),
+                                      "surface": sf, "reason": "group", "group": g.get("name"),
+                                      "values": hit})
 
     for ib in out["implied"]:
         resolved.append({"variable": ib["variable"], "value": ib["value"]})

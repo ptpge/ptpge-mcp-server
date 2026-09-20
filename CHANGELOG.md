@@ -7,6 +7,19 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.5 — 2026-09-20
+
+**R6 — what may stand together (SD-0084).** `cfs_resolution.py` (byte-identical
+with tools/, the configurator and the Engine) now reads three data fields from
+the Standard: `exclusiveGroups` on a variable (rule `at-most-one`), `standalone`
+and `multiInstance` on a value. A binding carrying two values of one group
+(CMYK + CMYKOGV, black + CMYK), a standalone value with company (none + spot) or
+a repeated value that is not multi-instance is refused with
+`exclusive_group_conflict`; three named spot inks remain legal and serialize as
+three instances. `ptpge_validate_config` reports the violation under `rules`
+and sets `complete: false`; `ptpge_fingerprint` refuses with
+`reason: exclusive_group_conflict`. No valid identity changes. Tests 134.
+
 ## 0.28.4 — 2026-09-19
 
 **Term vectors rebuilt after the sv/da/nl altLabel pass** (Standard dataVersion

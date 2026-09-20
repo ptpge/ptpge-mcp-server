@@ -1138,8 +1138,24 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                             "note": "Follows from the bound " + _ent[mats[0]].rsplit("/", 1)[-1] +
                                     " value; written into the identity (SD-0083 R5)."})
     advisories.extend(comp["advisories"])
+    # SD-0084 R6 — what may stand together: read from the same resolution module
+    # as the fingerprint (exclusive groups, standalone, multi-instance).
+    try:
+        _r6 = _cfs_resolve(product, list(args.get("bindings", []) or []), cache.get_term)
+        _r6_errors = [e for e in _r6["errors"] if e.get("rule") == "exclusive_group_conflict"]
+    except Exception:  # pragma: no cover
+        _r6_errors = []
+    for e in _r6_errors:
+        rules.append({"rule": "exclusive_group_conflict", "status": "violation",
+                      "variable": str(e.get("variable", ""))[len(_BASE):], "surface": e.get("surface"),
+                      "reason": e.get("reason"), "group": e.get("group"),
+                      "values": [str(v)[len(_BASE):] for v in (e.get("values") or ([e["value"]] if e.get("value") else []))],
+                      "note": ("These values cannot stand together on one face (Standard data: "
+                               "exclusiveGroups / standalone / multiInstance, SD-0084 R6). No identity is issued.")})
+        all_ok = False
     complete = not comp["needs_disambiguation"] and not comp["surface_errors"] \
-        and not any(r.get("status") == "substrate_type_conflict" for r in results)
+        and not any(r.get("status") == "substrate_type_conflict" for r in results) \
+        and not _r6_errors
 
     resp = {
         "product": _ref(cache, uri, language),
@@ -1219,7 +1235,9 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
                                               "language": args.get("language", "en")})
         if isinstance(validation, dict) and "error" not in validation:
             refusal = None
-            if not validation.get("validInEnvelope", True):
+            if any(r.get("rule") == "exclusive_group_conflict" for r in (validation.get("rules") or [])):
+                refusal = "exclusive_group_conflict"          # SD-0084 R6
+            elif not validation.get("validInEnvelope", True):
                 refusal = "not_valid_in_envelope"
             elif validation.get("needs_disambiguation"):
                 refusal = "incomplete"
@@ -1255,7 +1273,8 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
         res = _cfs_resolve(cache.get_term(config["product"]) or {}, norm, cache.get_term)
         if not res["ok"]:
             return {"error": "not_fingerprintable",
-                    "reason": "not_valid_in_envelope" if res["errors"] else "incomplete",
+                    "reason": ("exclusive_group_conflict" if any(e.get("rule") == "exclusive_group_conflict" for e in res["errors"])
+                               else "not_valid_in_envelope" if res["errors"] else "incomplete"),
                     "needs_disambiguation": validation.get("needs_disambiguation", []),
                     "resolution": {"errors": res["errors"], "incomplete": res["incomplete"]},
                     "validation": validation,

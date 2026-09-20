@@ -67,6 +67,13 @@ TERMS = {
     B + "printing/features/colors/black": {
         "id": B + "printing/features/colors/black", "level": "element",
         "elementType": "value", "notation": "P:FT§BLACK", "label": {"en": "Black"}},
+    # — SD-0084 R6 machinery: the colour-mode variable with its process group —
+    B + "variables/features/color-mode": {
+        "id": B + "variables/features/color-mode", "level": "element",
+        "elementType": "variable", "datatype": "enum", "cardinality": "multiple", "scope": "surface",
+        "label": {"en": "Color Mode"}, "valueDomain": B + "printing/features/colors",
+        "exclusiveGroups": [{"name": "process", "rule": "at-most-one",
+                             "values": [B + "printing/features/colors/black", B + "printing/features/colors/cmyk"]}]},
     # — weight machinery —
     B + "variables/substrate/substrate-weight": {
         "id": B + "variables/substrate/substrate-weight", "level": "element",
@@ -564,3 +571,16 @@ def test_validate_entails_substrate_type_from_paper_value():
                         {"product": PRODUCT, "bindings": _bindings_ok() + [silk, wrong]})
     assert out3["validInEnvelope"] is False and out3["complete"] is False
     assert [r for r in out3["bindings"] if r.get("status") == "substrate_type_conflict"]
+
+
+def test_validate_refuses_two_process_colours_on_one_face():
+    """SD-0084 R6: black + CMYK on one face are two process colours — a
+    violation named from the Standard's exclusiveGroups; no identity."""
+    both = {"variable": "variables/features/color-mode", "surface": "outside",
+            "values": ["printing/features/colors/cmyk", "printing/features/colors/black"]}
+    bindings = [b for b in _bindings_ok() if b["variable"] != "variables/features/color-mode"] + [both]
+    out = tool_payload(FakeCache(), "ptpge_validate_config", {"product": PRODUCT, "bindings": bindings})
+    r6 = [r for r in out.get("rules", []) if r["rule"] == "exclusive_group_conflict"]
+    assert r6 and r6[0]["group"] == "process" and out["complete"] is False
+    fp = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": bindings, "validate": True})
+    assert fp.get("error") == "not_fingerprintable" and fp.get("reason") == "exclusive_group_conflict"
