@@ -7,6 +7,15 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.6 — 2026-09-22
+
+**SD-0088 — the null value is always in a feature envelope.** For colour mode,
+embellishment and surface finish, `…/none` is a member of every template's
+per-face envelope without being listed: `ptpge_get_product_envelope` appends it
+to `perSurfaceSupports*` (only when the term exists in the vocabulary) and
+`ptpge_validate_config` accepts it as `in_envelope`. New Layer 1 values
+`surface-finish/none` and `embellishments/none` (standalone). Two tests.
+
 ## 0.28.5 — 2026-09-20
 
 **R6 — what may stand together (SD-0084).** `cfs_resolution.py` (byte-identical

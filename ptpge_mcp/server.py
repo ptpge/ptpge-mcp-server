@@ -678,6 +678,22 @@ VARIABLE_ENVELOPE = {
 
 WEIGHT_VARIABLE = "variables/substrate/substrate-weight"
 WEIGHT_ENVELOPE = "supportsSubstrateWeight"
+# SD-0088 (2026-09-22): the null value of a per-face feature axis — «none» — is
+# always permitted. A template envelope lists what may be APPLIED to a face;
+# «nothing applied» is a statement every face can carry (it stands alone, SD-0084),
+# and it is different from leaving the axis unspecified. The null value is
+# appended to the envelope here (validation and the envelope payload) so the
+# 56 templates need not list it and a vendor profile cannot narrow it away.
+NULL_VALUES = {
+    "variables/features/color-mode":     _BASE + "printing/features/colors/none",
+    "variables/features/embellishment":  _BASE + "printing/features/embellishments/none",
+    "variables/features/surface-finish": _BASE + "printing/features/surface-finish/none",
+}
+NULL_BY_ENVELOPE = {
+    "perSurfaceSupportsColorMode":      NULL_VALUES["variables/features/color-mode"],
+    "perSurfaceSupportsEmbellishment":  NULL_VALUES["variables/features/embellishment"],
+    "perSurfaceSupportsSurfaceFinish":  NULL_VALUES["variables/features/surface-finish"],
+}
 # SD-0070: numeric thickness (canonical mm) with per-template {min,max} range
 THICKNESS_VARIABLE = "variables/substrate/substrate-thickness"
 THICKNESS_ENVELOPE = "supportsSubstrateThickness"
@@ -769,7 +785,11 @@ def envelope_payload(cache: "VocabularyCache", id_or_path: str, language: str) -
     }
     for key, value in term.items():
         if key.startswith("perSurfaceSupports") and isinstance(value, list):
-            out["perSurface"][key] = [_ref(cache, u, language) for u in value]
+            vals = list(value)
+            null = NULL_BY_ENVELOPE.get(key)     # SD-0088: the null value rides along
+            if null and null not in vals and cache.get_term(null) is not None:
+                vals.append(null)
+            out["perSurface"][key] = [_ref(cache, u, language) for u in vals]
         elif key.startswith("supports") and isinstance(value, list):
             out["envelope"][key] = [_ref(cache, u, language) for u in value]
         elif key in ("typicalUse", "typicalAudience") and isinstance(value, list):
@@ -1006,6 +1026,9 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
         # per-surface envelopes. Keeps the published worked example valid.
         if var_tail == "variables/features/surface-finish" and env is not None:
             env = list(env) + list(product.get("perSurfaceSupportsEmbellishment") or [])
+        # SD-0088: «none» is always in a feature envelope
+        if var_tail in NULL_VALUES and env is not None and NULL_VALUES[var_tail] not in env:
+            env = list(env) + [NULL_VALUES[var_tail]]
         if env is None:
             entry.update(status="not_supported", envelope=env_key,
                          note=f"Product declares no {env_key} (closed semantics).")

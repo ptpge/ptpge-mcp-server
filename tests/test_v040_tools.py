@@ -584,3 +584,41 @@ def test_validate_refuses_two_process_colours_on_one_face():
     assert r6 and r6[0]["group"] == "process" and out["complete"] is False
     fp = tool_payload(FakeCache(), "ptpge_fingerprint", {"product": PRODUCT, "bindings": bindings, "validate": True})
     assert fp.get("error") == "not_fingerprintable" and fp.get("reason") == "exclusive_group_conflict"
+
+
+# -------------------- SD-0088: the null value is always in a feature envelope --------------------
+
+def _with_null_terms():
+    """A cache whose vocabulary also carries the «none» values (the fixture above has none of them)."""
+    extra = {
+        B + "printing/features/surface-finish/none": {
+            "id": B + "printing/features/surface-finish/none", "level": "element", "elementType": "value",
+            "notation": "P:FT§NO-SURFACE-FINISH", "label": {"en": "None (no surface finish)"}, "standalone": True},
+        B + "printing/features/colors/none": {
+            "id": B + "printing/features/colors/none", "level": "element", "elementType": "value",
+            "notation": "P:FT§NONE", "label": {"en": "None (no color)"}, "standalone": True},
+    }
+    c = FakeCache()
+    merged = dict(TERMS); merged.update(extra)
+    c.get_term = lambda uri, _m=merged: _m.get(uri)
+    return c
+
+
+def test_sd0088_none_rides_in_envelope_payload():
+    out = tool_payload(_with_null_terms(), "ptpge_get_product_envelope", {"id_or_path": PRODUCT, "language": "en"})
+    sf = [r["id"] for r in out["perSurface"]["perSurfaceSupportsSurfaceFinish"]]
+    assert sf[-1] == B + "printing/features/surface-finish/none" and len(sf) == 3
+    cm = [r["id"] for r in out["perSurface"]["perSurfaceSupportsColorMode"]]
+    assert cm[-1] == B + "printing/features/colors/none"
+    # the fixture without the terms: nothing appended (no dangling reference)
+    out0 = tool_payload(FakeCache(), "ptpge_get_product_envelope", {"id_or_path": PRODUCT, "language": "en"})
+    assert len(out0["perSurface"]["perSurfaceSupportsSurfaceFinish"]) == 2
+
+
+def test_sd0088_none_validates_in_envelope():
+    b = _bindings_ok() + [{"variable": "variables/features/surface-finish", "surface": "outside",
+                           "values": ["printing/features/surface-finish/none"]}]
+    out = tool_payload(_with_null_terms(), "ptpge_validate_config", {"product": PRODUCT, "bindings": b})
+    by_var = {r["variable"]: r for r in out["bindings"]}
+    assert by_var["variables/features/surface-finish"]["status"] == "in_envelope"
+    assert out["validInEnvelope"] is True
