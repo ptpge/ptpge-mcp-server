@@ -619,6 +619,7 @@ const VAR_MAP = [
   ["/technologies/printing-technologies/", "variables/production/technology"],
   ["/paper-surfaces/",              "variables/substrate/substrate-finish"],
   ["/paper-coatings/",              "variables/substrate/substrate-coating"],
+  ["/paper-fibre/",                 "variables/substrate/substrate-fibre"],
   ["/paper-color-shades/",          "variables/substrate/substrate-color"],
   ["/paper-classes/",               "variables/substrate/substrate-class"],
   ["/paper-weights/",               "variables/substrate/substrate-weight"],

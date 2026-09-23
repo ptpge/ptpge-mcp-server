@@ -660,6 +660,7 @@ VARIABLE_ENVELOPE = {
     "variables/substrate/substrate-finish": ("supportsSubstrateFinish", "product"),
     "variables/substrate/substrate-color": ("supportsSubstrateColor", "product"),
     "variables/substrate/substrate-coating": ("supportsSubstrateCoating", "product"),
+    "variables/substrate/substrate-fibre":   ("supportsSubstrateFibre", "product"),
     "variables/production/technology":      ("supportsTechnology", "product"),
     "variables/production/press-type":      ("supportsPressType", "product"),
     "variables/compliance/certification":   ("supportsCertification", "product"),
@@ -705,7 +706,8 @@ NUMERIC_RANGE_AXES = {THICKNESS_VARIABLE: THICKNESS_ENVELOPE, SPINE_VARIABLE: SP
 _PC = "printing/substrates/sheet-materials/paper/paper-classes/"
 COATED_CLASSES = {_BASE + _PC + c for c in ("ps1-premium-coated", "ps2-improved-coated",
                                             "ps3-standard-glossy-coated", "ps4-standard-matte-coated")}
-UNCOATED_CLASSES = {_BASE + _PC + "ps5-wood-free-uncoated"}
+UNCOATED_CLASSES = {_BASE + _PC + c for c in ("ps5-wood-free-uncoated", "ps6-super-calendered",
+                                              "ps7-improved-uncoated", "ps8-standard-uncoated")}   # PS6–PS8 added 2026-09-23
 COATED_URI = _BASE + "printing/substrates/sheet-materials/paper/paper-coatings/coated"
 UNCOATED_URI = _BASE + "printing/substrates/sheet-materials/paper/paper-coatings/uncoated"
 CLASS_VARIABLE = "variables/substrate/substrate-class"
