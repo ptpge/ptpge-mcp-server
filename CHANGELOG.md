@@ -7,6 +7,17 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.7 — 2026-09-23
+
+**Twelve languages (SD-0089).** The playground speaks Portuguese and Hindi:
+language menu, the full UI string set for both, and the four convergence
+products (brochure, business cards, booklet, panel print) phrased in `pt` and
+`hi`; «ten languages» reads «twelve» in every UI language. The `get_term` /
+`search` language selectors list `pt` and `hi`. `term_embeddings.npz` rebuilt
+from the 843 terms with the new labels and altLabels (523 value/product/
+reference vectors; same model). Lexical search already matched the new labels
+the moment the data refreshed (2026-09-23).
+
 ## 0.28.6 — 2026-09-22
 
 **SD-0088 — the null value is always in a feature envelope.** For colour mode,
