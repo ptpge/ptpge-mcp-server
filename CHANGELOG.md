@@ -16,7 +16,9 @@ products (brochure, business cards, booklet, panel print) phrased in `pt` and
 `search` language selectors list `pt` and `hi`. `term_embeddings.npz` rebuilt
 from the 843 terms with the new labels and altLabels (523 value/product/
 reference vectors; same model). Lexical search already matched the new labels
-the moment the data refreshed (2026-09-23).
+the moment the data refreshed (2026-09-23). The language button is the same
+flag pill as the editor, the configurator and the storefront (flag + code;
+flag + native name in the list) — Patrik.
 
 ## 0.28.6 — 2026-09-22
 

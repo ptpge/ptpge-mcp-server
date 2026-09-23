@@ -87,14 +87,17 @@ footer a { color: #2a6045; }
         text-decoration: none; display: inline-flex; align-items: center;
         gap: 7px; cursor: pointer; white-space: nowrap; }
 .pill:hover { border-color: #1f4a35; }
-#langbtn { position: relative; }
+#langbtn { position: relative; border-radius: 8px; padding: 6px 10px; font-size: 11px;
+           letter-spacing: .05em; color: #555; }
+#langbtn .fl, #langlist .fl { font-size: 16px; line-height: 1; }
+#langlist .fl { margin-right: 9px; }
 #langbtn .car { font-size: 10px; color: #777; }
-#langlist { position: absolute; top: 40px; right: -6px; background: #fff;
+#langlist { position: absolute; top: 36px; right: 0; background: #fff;
             border: 1px solid #e0e0dd; border-radius: 12px; padding: 6px;
             display: none; min-width: 150px; max-height: 340px; overflow: auto;
             box-shadow: 0 6px 24px rgba(0,0,0,.08); z-index: 5; }
-#langlist a { display: block; padding: 7px 12px; border-radius: 8px;
-              color: #1a1a1a; text-decoration: none; font-size: 14px;
+#langlist a { display: flex; align-items: center; padding: 6px 10px; border-radius: 8px;
+              color: #1a1a1a; text-decoration: none; font-size: 13px; letter-spacing: 0;
               font-weight: 400; cursor: pointer; }
 #langlist a:hover { background: #f0f4f1; }
 #langlist a.on { color: #1f4a35; font-weight: 700; }
@@ -138,8 +141,7 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
     <div class="hdr-left">
       <h1>PTPGE MCP — Playground <span class="badge">LIVE</span></h1>
       <span class="pill" id="langbtn" onclick="langMenu(event)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.7-3.8 9s1.3 6.4 3.8 9"/></svg>
-        <b id="langcode">EN</b> <span class="car">▼</span>
+        <span class="fl" id="langflag">🇬🇧</span> <b id="langcode">EN</b> <span class="car">▾</span>
         <span id="langlist"></span>
       </span>
     </div>
@@ -1335,9 +1337,9 @@ document.getElementById("conv-btns").innerHTML = CONV.map((L, i) =>
   '<button onclick="convRun(' + i + ')">' + L.label + '</button>').join("");
 
 // ————— v2: 13-language UI (same set as gutenlex.org) —————
-const LANG_NAMES = [["en","English"],["de","Deutsch"],["nb","Norsk"],["nl","Nederlands"],
-  ["sv","Svenska"],["da","Dansk"],["fi","Suomi"],["is","Íslenska"],["fr","Français"],
-  ["pl","Polski"],["es","Español"],["ja","日本語"],["zh","中文"],["pt","Português"],["hi","हिन्दी"]];
+const LANG_NAMES = [["en","English","🇬🇧"],["de","Deutsch","🇩🇪"],["nb","Norsk","🇳🇴"],["nl","Nederlands","🇳🇱"],
+  ["sv","Svenska","🇸🇪"],["da","Dansk","🇩🇰"],["fi","Suomi","🇫🇮"],["is","Íslenska","🇮🇸"],["fr","Français","🇫🇷"],
+  ["pl","Polski","🇵🇱"],["es","Español","🇪🇸"],["ja","日本語","🇯🇵"],["zh","中文","🇨🇳"],["pt","Português","🇵🇹"],["hi","हिन्दी","🇮🇳"]];
 let CUR_LANG = "en";
 const UI = {
 en: { s01:"Raw specification", s02:"Matched against the vocabulary",
@@ -1612,6 +1614,7 @@ function setLang(l) {
   if (typeof renderProdBtns === "function") renderProdBtns();
   try { localStorage.setItem("ptpge-playground-lang", l); } catch (e) {}
   document.getElementById("langcode").textContent = l.toUpperCase();
+  const _lf = LANG_NAMES.find(p => p[0] === l); if (_lf) document.getElementById("langflag").textContent = _lf[2];
   document.querySelectorAll("#langlist a").forEach(a =>
     a.classList.toggle("on", a.getAttribute("data-l") === l));
 }
@@ -1626,7 +1629,7 @@ document.addEventListener("click", () => {
 });
 (function initLang() {
   document.getElementById("langlist").innerHTML = LANG_NAMES.map(p =>
-    '<a data-l="' + p[0] + '">' + p[1] + '</a>').join("");
+    '<a data-l="' + p[0] + '"><span class="fl">' + p[2] + '</span>' + p[1] + '</a>').join("");
   document.querySelectorAll("#langlist a").forEach(a =>
     a.addEventListener("click", () => setLang(a.getAttribute("data-l"))));
   let l = new URLSearchParams(location.search).get("lang");
