@@ -185,6 +185,7 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
       <option value="en" selected>en</option><option value="nb">nb</option>
       <option value="de">de</option><option value="ja">ja</option>
       <option value="es">es</option><option value="zh-Hans">zh-Hans</option>
+      <option value="pt">pt</option><option value="hi">hi</option>
     </select>
     <button onclick="doSearch()" data-i="b_search">Search</button>
   </div>
@@ -208,6 +209,7 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
       <option value="en" selected>en</option><option value="nb">nb</option>
       <option value="de">de</option><option value="ja">ja</option>
       <option value="es">es</option><option value="zh-Hans">zh-Hans</option>
+      <option value="pt">pt</option><option value="hi">hi</option>
     </select>
     <button onclick="doGet()" data-i="b_get">Get term</button>
   </div>
