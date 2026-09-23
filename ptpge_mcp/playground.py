@@ -94,7 +94,7 @@ footer a { color: #2a6045; }
 #langbtn .car { font-size: 10px; color: #777; }
 #langlist { position: absolute; top: 36px; right: 0; background: #fff;
             border: 1px solid #e0e0dd; border-radius: 12px; padding: 6px;
-            display: none; min-width: 150px; max-height: 340px; overflow: auto;
+            display: none; min-width: 170px; max-height: calc(100vh - 70px); overflow: auto;
             box-shadow: 0 6px 24px rgba(0,0,0,.08); z-index: 5; }
 #langlist a { display: flex; align-items: center; padding: 6px 10px; border-radius: 8px;
               color: #1a1a1a; text-decoration: none; font-size: 13px; letter-spacing: 0;
