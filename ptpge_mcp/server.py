@@ -1949,6 +1949,18 @@ def build_app() -> Starlette:
             await mcp_server.run(streams[0], streams[1], mcp_server.create_initialization_options())
         return Response()
 
+    def _mcp_cors_headers() -> dict:
+        """CORS for /mcp (0.28.8): a browser page on another origin may call the
+        open server directly — trykkverk.no/prompt/ runs the agent's tool calls
+        from the buyer's browser. Default '*' (the server is open, cost is gated
+        elsewhere); PTPGE_MCP_CORS_ORIGIN locks it to one origin, '0' turns it off."""
+        o = os.getenv("PTPGE_MCP_CORS_ORIGIN", "*")
+        if o == "0":
+            return {}
+        return {"Access-Control-Allow-Origin": o, "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "content-type, if-none-match, mcp-protocol-version",
+                "Access-Control-Expose-Headers": "ETag", "Access-Control-Max-Age": "86400", "Vary": "Origin"}
+
     async def handle_mcp_http(request: Request) -> Response:
         """Streamable HTTP transport endpoint (stateless JSON mode).
 
@@ -1956,9 +1968,19 @@ def build_app() -> Starlette:
         out. Notifications get 202 Accepted with no body. GET/DELETE return
         405 — this server opens no server-initiated streams and keeps no
         sessions, by design (see v0.3.0 note in the module docstring).
+        OPTIONS answers the browser's CORS preflight (0.28.8).
         """
+        cors = _mcp_cors_headers()
+        if request.method == "OPTIONS":
+            return Response(status_code=204, headers=cors)
+        resp = await _handle_mcp_post(request)
+        for k, v in cors.items():
+            resp.headers[k] = v
+        return resp
+
+    async def _handle_mcp_post(request: Request) -> Response:
         if request.method != "POST":
-            return Response(status_code=405, headers={"Allow": "POST"})
+            return Response(status_code=405, headers={"Allow": "POST, OPTIONS"})
         try:
             body = await request.json()
         except Exception:
@@ -2310,7 +2332,7 @@ def build_app() -> Starlette:
             Route("/healthz", endpoint=health, methods=["GET"]),  # standard alias (matches the commercial side)
             # Streamable HTTP (recommended). GET/DELETE answered with 405
             # inside the handler — stateless servers open no streams.
-            Route("/mcp", endpoint=handle_mcp_http, methods=["POST", "GET", "DELETE"]),
+            Route("/mcp", endpoint=handle_mcp_http, methods=["POST", "GET", "DELETE", "OPTIONS"]),
             # Legacy SSE transport (MCP Inspector, mcp-remote bridges).
             # NOTE: /mcp/messages/ must stay mounted AFTER /mcp so the more
             # specific Route above wins for exact /mcp requests.

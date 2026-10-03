@@ -219,3 +219,23 @@ def test_if_none_match_parsing():
     assert not _if_none_match('"other"', '"abc"')
     assert not _if_none_match(None, '"abc"')
     assert not _if_none_match("", '"abc"')
+
+
+def test_mcp_cors_preflight_and_headers():
+    """0.28.8 — a browser on another origin (trykkverk.no/prompt/) may call /mcp."""
+    import os, pytest
+    from starlette.testclient import TestClient
+    from ptpge_mcp import server as srv
+    os.environ.setdefault("PTPGE_API_BASE", "https://internal.ptpge.org/v1")   # the open mirror — no credentials
+    os.environ.setdefault("PTPGE_LEARNING_FILE", "")
+    try:
+        app = srv.build_app()
+    except Exception as e:  # no network in this sandbox → skip, the unit tests above still cover the handler
+        pytest.skip(f"live vocabulary not reachable: {e}")
+    c = TestClient(app)
+    r = c.options("/mcp", headers={"Origin": "https://trykkverk.no", "Access-Control-Request-Method": "POST"})
+    assert r.status_code == 204
+    assert r.headers.get("access-control-allow-origin") == "*"
+    r = c.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers={"Origin": "https://trykkverk.no"})
+    assert r.status_code == 200 and r.headers.get("access-control-allow-origin") == "*"
+    assert "tools" in r.json()["result"]

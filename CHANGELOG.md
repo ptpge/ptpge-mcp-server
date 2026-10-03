@@ -7,6 +7,16 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.8 — 2026-10-03
+
+- `/mcp` answers CORS: `OPTIONS` → 204, and every response carries
+  `Access-Control-Allow-Origin` (default `*`; `PTPGE_MCP_CORS_ORIGIN` locks it
+  to one origin, `0` switches it off). A browser page on another origin can now
+  call the open server directly — first user: trykkverk.no/prompt/, where the
+  buyer's typed or spoken order is turned into a configuration by an agent whose
+  tool calls run from the buyer's browser. Nothing changes for same-origin
+  clients (playground) or for MCP clients.
+
 ## 0.28.7 — 2026-09-23
 
 **Twelve languages (SD-0089).** The playground speaks Portuguese and Hindi:
