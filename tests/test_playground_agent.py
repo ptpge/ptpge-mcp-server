@@ -37,7 +37,7 @@ def test_0280_rules_never_assume_the_fold_and_regex_is_literal():
     # 0.28.0 / SD-0083: the fold is no longer assumed — the validator asks.
     assert "the validator will ask which fold (SD-0083)" in H
     assert "single-fold (one fold — name the fold to change it)" not in H
-    assert "no identity yet — the Standard asks (SD-0083)" in H
+    assert "no identity yet — the specification asks (SD-0083)" in H
     assert 'folded ? "outside" : "front"' in H
     i = H.index("const FOLDW"); line = H[i:H.index("\n", i)]
     assert "\\bfolded\\b" in line and "\b" not in line   # literal \b, no backspace char

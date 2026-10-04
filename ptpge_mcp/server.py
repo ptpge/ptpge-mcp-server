@@ -1,4 +1,4 @@
-"""PTPGE MCP server — exposes the PTPGE Standard (Layer 1 vocabulary) via the Model Context Protocol.
+"""PTPGE MCP server — exposes the PTPGE specification (the open vocabulary of print) via the Model Context Protocol.
 
 v0.4.0 — four new tools (tool surface v2, additive):
     - ptpge_browse                — hierarchy navigation (children of a node;
@@ -282,7 +282,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
     Tool(
         name="ptpge_search_terms",
         description=(
-            "Free-text search over the PTPGE Standard vocabulary. Returns a ranked list "
+            "Free-text search over the PTPGE vocabulary — the open specification of print. Returns a ranked list "
             "of matching terms with their URI, notation, preferred label, "
             "level (top-concept / group / category / sub-category / element), "
             "group, and a relevance score (0.0–1.0)."
@@ -1507,7 +1507,7 @@ LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[-1]
 # overgangen er additiv.
 
 SERVER_INSTRUCTIONS = (
-    "PTPGE Standard vocabulary server (printing & graphic industry). "
+    "PTPGE vocabulary server — the open specification of print (printing & graphic industry). "
     "Use ptpge_search_terms to find terms, ptpge_get_term for full context "
     "on one term, ptpge_get_version for dataset version/statistics."
 )
@@ -1519,7 +1519,7 @@ def negotiate_protocol_version(requested: object) -> str:
     return LATEST_PROTOCOL_VERSION
 
 
-_SERVER_INFO = {"name": "ptpge-mcp", "title": "PTPGE Standard MCP"}
+_SERVER_INFO = {"name": "ptpge-mcp", "title": "PTPGE MCP — the open specification of print"}
 
 
 def _rpc_result(msg_id: object, result: dict) -> dict:
@@ -1610,7 +1610,7 @@ def handle_jsonrpc_message(cache: "VocabularyCache", msg: object) -> dict | None
             "capabilities": {"tools": {"listChanged": False}},
             "serverInfo": {
                 "name": "ptpge-mcp",
-                "title": "PTPGE Standard MCP",
+                "title": "PTPGE MCP — the open specification of print",
                 "version": __version__,
             },
             "instructions": SERVER_INSTRUCTIONS,
@@ -2178,8 +2178,8 @@ def build_app() -> Starlette:
         v = cache.version.get("version") if cache.version else None
         return JSONResponse(
             {
-                "service": "PTPGE Standard MCP",
-                "description": "Model Context Protocol server for the PTPGE Standard vocabulary.",
+                "service": "PTPGE MCP — the open specification of print",
+                "description": "Model Context Protocol server for PTPGE, the open specification of print: vocabulary, identity, formats. CC BY 4.0.",
                 "server_version": __version__,
                 "data_version": v,
                 "endpoints": {

@@ -1,11 +1,21 @@
 # MCP Server — Changelog
 
-The PTPGE MCP server exposes the open Layer 1 Standard to AI agents over the
+The PTPGE MCP server exposes the PTPGE specification — the open vocabulary of print — to AI agents over the
 Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticated
 `open.mcp.ptpge.org`).
 
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
+
+## 0.28.9 — 2026-10-05
+
+- Wording (SD-0095): "PTPGE Standard" / "GutenLex Standard" / "the Standard" →
+  "PTPGE specification" everywhere the server speaks: `_SERVER_INFO` title,
+  root JSON (`service`, `description`), tool descriptions, module docstring,
+  Playground UI strings and the `e_own` explainer in all 14 UI languages.
+- Playground: the example prompt is now complete (A4 portrait, roll fold …)
+  so «Run agent → fingerprint» ends in a fingerprint; a hint under the button
+  says the agent asks (SD-0083) when fold or orientation is left out.
 
 ## 0.28.8 — 2026-10-03
 
