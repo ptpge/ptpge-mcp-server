@@ -143,7 +143,7 @@ __FRAME_HEADER__
 <header>
   <div class="hdr-row">
     <div class="hdr-left">
-      <h1>Playground <span class="badge">LIVE</span></h1>
+      <h1>Playground</h1>
     </div>
   </div>
   <div class="sub" style="margin-top:8px"><span id="status">connecting…</span></div>
@@ -305,7 +305,7 @@ __FRAME_HEADER__
 </details>
 
 </main>
-<p class="sub" style="max-width:1040px;margin:28px auto 0;padding:0 24px;position:relative;z-index:1"><span data-i="sub">Every button above sends a real MCP <code>tools/call</code> (JSON-RPC over Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span></p>
+<p class="sub" style="max-width:960px;margin:40px auto 56px;padding:0 24px;position:relative;z-index:1;font-size:12.5px;color:#8a8a82;text-align:center"><span data-i="sub">Every button above sends a real MCP <code>tools/call</code> (JSON-RPC over Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span></p>
 __FRAME_FOOTER__
 
 <script>
