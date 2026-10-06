@@ -149,7 +149,6 @@ __FRAME_HEADER__
         <span id="langlist"></span>
       </span>
     </div>
-    <a class="pill" href="https://ptpge.org/developers/">← Developers</a>
   </div>
   <div class="sub" style="margin-top:8px"><span data-i="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
   Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span>
