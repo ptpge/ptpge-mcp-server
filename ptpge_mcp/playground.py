@@ -90,7 +90,7 @@ footer a { color: #2a6045; }
         text-decoration: none; display: inline-flex; align-items: center;
         gap: 7px; cursor: pointer; white-space: nowrap; }
 .pill:hover { border-color: #1f4a35; }
-#langbtn { position: relative; border-radius: 8px; padding: 6px 10px; font-size: 11px;
+#langbtn { position: relative; border-radius: 8px; padding: 7px 11px; font-size: 12.5px; background: transparent; margin-left: 8px; color: #5b5b54; border-color: #e4e2dc;
            letter-spacing: .05em; color: #555; }
 #langbtn .fl, #langlist .fl { font-size: 16px; line-height: 1; }
 #langlist .fl { margin-right: 9px; }
@@ -144,16 +144,15 @@ __FRAME_HEADER__
   <div class="hdr-row">
     <div class="hdr-left">
       <h1>Playground <span class="badge">LIVE</span></h1>
-      <span class="pill" id="langbtn" onclick="langMenu(event)">
-        <span class="fl" id="langflag">🇬🇧</span> <b id="langcode">EN</b> <span class="car">▾</span>
-        <span id="langlist"></span>
-      </span>
     </div>
   </div>
-  <div class="sub" style="margin-top:8px"><span data-i="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
-  Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span>
-  <span id="status">connecting…</span></div>
+  <div class="sub" style="margin-top:8px"><span id="status">connecting…</span></div>
 </header>
+<template id="langtpl"><span class="pill" id="langbtn" onclick="langMenu(event)">
+        <span class="fl" id="langflag">🇬🇧</span> <b id="langcode">EN</b> <span class="car">▾</span>
+        <span id="langlist"></span>
+      </span></template>
+<script>(function(){var t=document.getElementById('langtpl'),b=document.getElementById('themebtn');if(t&&b){b.parentNode.insertBefore(t.content.cloneNode(true),b);}})();</script>
 <main>
 
 <details class="card conv" open>
@@ -306,6 +305,7 @@ __FRAME_HEADER__
 </details>
 
 </main>
+<p class="sub" style="max-width:1040px;margin:28px auto 0;padding:0 24px;position:relative;z-index:1"><span data-i="sub">Every button above sends a real MCP <code>tools/call</code> (JSON-RPC over Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span></p>
 __FRAME_FOOTER__
 
 <script>
