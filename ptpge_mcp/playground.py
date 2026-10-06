@@ -10,19 +10,22 @@ On the stealth server the page sits behind the same Basic Auth as
 everything else, so it works there too once the browser has credentials.
 """
 
-PLAYGROUND_HTML = """<!DOCTYPE html>
+_PLAYGROUND_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4a35'/%3E%3C/svg%3E">
-<title>PTPGE MCP — Playground</title>
+<title>Playground — PTPGE</title>
+<style>__FRAME_CSS__</style>
 <style>
 * { box-sizing: border-box; }
-body { font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+body { font: 15px/1.55 var(--pf-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
        color: #1a1a1a; background: #f7f7f5; margin: 0; padding: 0; }
 header { background: #fff; border-bottom: 1px solid #e0e0dd; padding: 18px 28px; }
+header, main { position: relative; z-index: 1; }
+body { background: transparent; }
 header h1 { font-size: 18px; margin: 0; }
 header .sub { color: #777; font-size: 13px; margin-top: 4px; }
 header .sub code { background: #f0f0ee; padding: 1px 6px; border-radius: 4px; }
@@ -136,16 +139,17 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 </style>
 </head>
 <body>
+__FRAME_HEADER__
 <header>
   <div class="hdr-row">
     <div class="hdr-left">
-      <h1>PTPGE MCP — Playground <span class="badge">LIVE</span></h1>
+      <h1>Playground <span class="badge">LIVE</span></h1>
       <span class="pill" id="langbtn" onclick="langMenu(event)">
         <span class="fl" id="langflag">🇬🇧</span> <b id="langcode">EN</b> <span class="car">▾</span>
         <span id="langlist"></span>
       </span>
     </div>
-    <a class="pill" href="https://gutenlex.org/preview/">← GutenLex</a>
+    <a class="pill" href="https://ptpge.org/developers/">← Developers</a>
   </div>
   <div class="sub" style="margin-top:8px"><span data-i="sub">Every button below sends a real MCP <code>tools/call</code> (JSON-RPC over
   Streamable HTTP) to <code>/mcp</code> on this server — exactly what an AI agent does.</span>
@@ -303,10 +307,7 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 </details>
 
 </main>
-<footer>
-  PTPGE — the open specification of print · CC BY 4.0 ·
-  <a href="/">server info</a> · <a href="https://ptpge.org">ptpge.org</a>
-</footer>
+__FRAME_FOOTER__
 
 <script>
 let rpcId = 0;
@@ -1658,3 +1659,10 @@ document.addEventListener("click", () => {
 </body>
 </html>
 """
+
+try:
+    from ._frame import FRAME_CSS, FRAME_HEADER, FRAME_FOOTER
+except Exception:  # pragma: no cover — frame module missing: render without it
+    FRAME_CSS, FRAME_HEADER, FRAME_FOOTER = "", "", ""
+PLAYGROUND_HTML = (_PLAYGROUND_TEMPLATE.replace("__FRAME_CSS__", FRAME_CSS)
+                   .replace("__FRAME_HEADER__", FRAME_HEADER).replace("__FRAME_FOOTER__", FRAME_FOOTER))

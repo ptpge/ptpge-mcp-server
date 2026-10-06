@@ -7,6 +7,13 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.28.10 — 2026-10-06
+
+- Playground wears the ptpge.org frame: mark + PTPGE + nav + group stripe + footer,
+  Fraunces/Inter via `ptpge.org/assets/fonts`, contour background. «← GutenLex» →
+  «← Developers» (ptpge.org/developers/). Frame is generated into `ptpge_mcp/_frame.py`
+  by `tools/export_frame.py` (do not edit by hand).
+
 ## 0.28.9 — 2026-10-05
 
 - Wording (SD-0095): "PTPGE Standard" / "GutenLex Standard" / "the Standard" →
