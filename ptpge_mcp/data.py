@@ -158,8 +158,14 @@ class VocabularyCache:
         limit: int = 10,
         groups: list[str] | None = None,
         language: str = "en",
+        include_deprecated: bool = False,
     ) -> list[dict[str, Any]]:
         """Tokenized, language-agnostic search over the search index (v0.3.2).
+
+        SD-0097 (0.29.0): deprecated terms are skipped unless include_deprecated — a deprecated
+        term still resolves by URI, but a search for «Heidelberg» should land on the register
+        entry (/v1/suppliers/…), not on the retired vocabulary node. Register entries and schemas
+        carry `kind` (supplier | vendor | schema) in the result so agents can tell them from terms.
 
         The query is split into tokens on whitespace and common separators
         (comma, semicolon, slash, pipe), with surrounding punctuation stripped
@@ -229,6 +235,8 @@ class VocabularyCache:
 
         for entry in entries:
             if groups_filter and entry.get("group") not in groups_filter:
+                continue
+            if entry.get("status") == "deprecated" and not include_deprecated:
                 continue
             eid = entry.get("id") or ""
             if weight_ctx and "/configurations/formats/" in eid:
@@ -346,6 +354,9 @@ class VocabularyCache:
                 "level": entry.get("level"),
                 "group": entry.get("group") or None,
                 "score": round(score, 3),
+                "kind": {"ptpge:Supplier": "supplier", "ptpge:Vendor": "vendor", "ptpge:Schema": "schema"}.get(entry.get("type") or "", "term"),
+                **({"status": entry.get("status")} if entry.get("status") == "deprecated" else {}),
+                **({"replacedBy": entry.get("replacedBy")} if entry.get("replacedBy") else {}),
             }
             for score, entry in results[:limit]
         ]

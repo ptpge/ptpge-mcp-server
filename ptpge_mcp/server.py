@@ -282,7 +282,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
     Tool(
         name="ptpge_search_terms",
         description=(
-            "Free-text search over the PTPGE vocabulary — the open specification of print. Returns a ranked list "
+            "Free-text search over the PTPGE vocabulary and registers — the open specification of print. Returns a ranked list "
             "of matching terms with their URI, notation, preferred label, "
             "level (top-concept / group / category / sub-category / element), "
             "group, and a relevance score (0.0–1.0)."
@@ -325,6 +325,10 @@ TOOL_DESCRIPTORS: list[Tool] = [
                         "right market, which is how missing synonyms get found and "
                         "added. Send it if you know it; omit it if you do not."
                     ),
+                },
+                "include_deprecated": {
+                    "type": "boolean", "default": False,
+                    "description": "Also return deprecated terms (they still resolve by URI but are no longer vocabulary). Default false: a brand name resolves to its register entry (kind=supplier) instead of the retired term."
                 },
             },
             "required": ["query"],
@@ -1453,7 +1457,8 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
         limit = int(args.get("limit", 10))
         groups = args.get("groups")
         language = args.get("language", "en")
-        hits = cache.search(query=query, limit=limit, groups=groups, language=language)
+        hits = cache.search(query=query, limit=limit, groups=groups, language=language,
+                            include_deprecated=bool(args.get("include_deprecated", False)))
         # SD-0071 §9: a lookup that failed is the only thing worth learning from.
         # Phrase and score only — never who asked. See ptpge_mcp/learning.py.
         # `query_language`, never `language`: the latter says which labels to

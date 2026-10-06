@@ -28,7 +28,7 @@ class FakeCache:
         "scheme_url": "https://api.ptpge.org/v1/scheme",
     }
 
-    def search(self, query, limit, groups, language):
+    def search(self, query, limit, groups, language, include_deprecated=False):
         return [{"uri": "https://ptpge.org/v1/printing/configurations/formats/a-series/a4",
                  "notation": "P:CF§A4", "score": 1.0}]
 

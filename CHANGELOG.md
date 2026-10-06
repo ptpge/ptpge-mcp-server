@@ -7,6 +7,15 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.29.0 — 2026-10-06
+
+- SD-0097: `ptpge_search_terms` skips deprecated terms by default (new `include_deprecated`
+  flag); every hit carries `kind` — term | supplier | vendor | schema — so an agent asking for
+  «Heidelberg» lands on the register entry `/v1/suppliers/heidelberg`, not the retired node.
+  Deprecated hits (when asked for) carry `status` and `replacedBy`. Search index now includes
+  `status`, `type`, `replacedBy` (built by build_api.py). Embeddings rebuilt from the 2026-10-06
+  data (deprecated excluded, registers and schemas included).
+
 ## 0.28.10 — 2026-10-06
 
 - Playground wears the ptpge.org frame: mark + PTPGE + nav + group stripe + footer,
