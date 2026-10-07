@@ -137,6 +137,46 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 .canedit:hover { border-color: #cfcabb; }
 .canedit:focus { border-color: #1f4a35; background: #fffdf6; outline: none; }
 </style>
+<style>
+/* ── PTPGE dress (7 Oct 2026): ink instead of green, 4 px corners, Spectral for the title, dark mode ── */
+:root{--ink:#20261f;--mute:#6a6a66;--line:#e4e2dc;--soft:#f6f5f1;--bg:#fff}
+html.dark{--ink:#f2f3ef;--mute:#9a9a92;--line:rgba(255,255,255,.13);--soft:#1e201c;--bg:#262823}
+body{color:var(--ink)}
+header{background:transparent;border-bottom:1px solid var(--line);padding:28px 28px 18px}
+header h1{font:italic 600 clamp(28px,3.6vw,38px)/1.1 'Spectral',Georgia,serif;color:var(--ink);letter-spacing:0}
+header .sub{color:var(--mute);font-size:12.5px;margin-top:8px}header .sub code{background:var(--soft);border:1px solid var(--line);border-radius:3px}
+.badge{background:var(--ink);color:var(--soft);border-radius:3px;letter-spacing:.08em}
+.card,.dark,.pill,button,input,select,#langlist,#langlist a,.stage .lng,.canedit{border-radius:4px}
+.card{background:var(--bg);border-color:var(--line)}
+.card h2{color:var(--ink);font-weight:600;letter-spacing:.14em;font-size:11.5px}
+.expl,.hint,.rmeta,#status,.stage .slbl,.stage td.ph,.tr-empty,#transcript summary{color:var(--mute)}
+button{background:var(--ink);color:var(--soft);border:1px solid var(--ink);font-family:inherit;font-weight:600}
+button:hover{background:#000;border-color:#000}
+html.dark button{background:#e6e8e2;color:#1e201c;border-color:#e6e8e2}
+button:disabled{background:var(--line);color:var(--mute);border-color:var(--line)}
+button.secondary,.conv .langrow button{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+button.secondary:hover,.conv .langrow button:hover{border-color:var(--ink);background:var(--soft)}
+.conv .langrow button.on{background:var(--ink);color:var(--soft);border-color:var(--ink)}
+.conv .prodrow button{border-radius:4px;background:var(--soft);color:var(--ink);border:1px solid var(--line);padding:8px 16px}
+.conv .prodrow button:hover{border-color:var(--ink);background:var(--soft)}
+.conv .prodrow button.on{background:var(--ink);color:var(--soft);border-color:var(--ink)}
+html.dark .conv .langrow button.on,html.dark .conv .prodrow button.on{background:#e6e8e2;color:#1e201c;border-color:#e6e8e2}
+input,select{background:var(--bg);color:var(--ink);border-color:var(--line);font-family:inherit}
+input:focus,select:focus{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink)}
+.hint a,footer a,#transcript summary a,#status b,#transcript summary b,.stage .slbl .num,#langlist a.on{color:var(--ink)}
+details.card summary::after{color:var(--mute)}details.card summary:hover::after,#transcript summary:hover::after{color:var(--ink)}
+.stage{border-left-color:var(--line)}.stage .lng{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.stage .tag{background:var(--soft);color:var(--mute);border:1px solid var(--line);border-radius:3px}
+#conv-hist .same,.hashok{color:#2f6b3a}.hashbad{color:#a63a2a}
+.tr-meta{color:#9aa39b}
+.dark{background:#1b1d19;color:#e6e8e2}
+#langlist{background:var(--bg);border-color:var(--line)}#langlist a{color:var(--ink)}#langlist a:hover{background:var(--soft)}
+#langbtn{border-radius:4px}
+.pill{background:var(--bg);color:var(--ink);border-color:var(--line);border-radius:4px}.pill:hover{border-color:var(--ink)}
+.canedit:focus{border-color:var(--ink);background:var(--soft)}
+footer{color:var(--mute)}
+#conv-hist td{border-top-color:var(--line)}
+</style>
 </head>
 <body>
 __FRAME_HEADER__

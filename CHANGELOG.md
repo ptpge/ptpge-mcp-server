@@ -15,7 +15,8 @@ See SD-0044 for the versioning & changelog policy.
   advisories. The advisory note says so.
 - Playground agent instructions: step 4b — never ask about, suggest or bind an optional axis the buyer did not mention;
   ask back only about required variables.
-- Playground frame links to ptpge.org (go-live 7 Oct).
+- Playground frame links to ptpge.org (go-live 7 Oct). Playground in the PTPGE dress: ink instead of green,
+  4 px corners, Spectral title, dark mode on cards/buttons/transcript.
 
 ## 0.29.0 — 2026-10-06
 
