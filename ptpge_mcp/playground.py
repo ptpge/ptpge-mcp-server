@@ -23,10 +23,10 @@ _PLAYGROUND_TEMPLATE = """<!DOCTYPE html>
 * { box-sizing: border-box; }
 body { font: 15px/1.55 var(--pf-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
        color: #1a1a1a; background: #f7f7f5; margin: 0; padding: 0; }
-header { background: #fff; border-bottom: 1px solid #e0e0dd; padding: 18px 28px; }
+header:not(.pf) { background: #fff; border-bottom: 1px solid #e0e0dd; padding: 18px 28px; }
 header, main { position: relative; z-index: 1; }
 body { background: transparent; }
-header h1 { font-size: 18px; margin: 0; }
+header:not(.pf) h1 { font-size: 18px; margin: 0; }
 header .sub { color: #777; font-size: 13px; margin-top: 4px; }
 header .sub code { background: #f0f0ee; padding: 1px 6px; border-radius: 4px; }
 .badge { display: inline-block; background: #1f4a35; color: #fff; font-size: 11px;
@@ -142,9 +142,9 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 :root{--ink:#20261f;--mute:#6a6a66;--line:#e4e2dc;--soft:#f6f5f1;--bg:#fff}
 html.dark{--ink:#f2f3ef;--mute:#9a9a92;--line:rgba(255,255,255,.13);--soft:#1e201c;--bg:#262823}
 body{color:var(--ink)}
-header{background:transparent;border-bottom:1px solid var(--line);padding:28px 28px 18px}
-header h1{font:italic 600 clamp(28px,3.6vw,38px)/1.1 'Spectral',Georgia,serif;color:var(--ink);letter-spacing:0}
-header .sub{color:var(--mute);font-size:12.5px;margin-top:8px}header .sub code{background:var(--soft);border:1px solid var(--line);border-radius:3px}
+header:not(.pf){background:transparent;border-bottom:1px solid var(--line);padding:28px 28px 18px}
+header:not(.pf) h1{font:italic 600 clamp(28px,3.6vw,38px)/1.1 'Spectral',Georgia,serif;color:var(--ink);letter-spacing:0}
+header:not(.pf) .sub{color:var(--mute);font-size:12.5px;margin-top:8px}header:not(.pf) .sub code{background:var(--soft);border:1px solid var(--line);border-radius:3px}
 .badge{background:var(--ink);color:var(--soft);border-radius:3px;letter-spacing:.08em}
 .card,.dark,.pill,button,input,select,#langlist,#langlist a,.stage .lng,.canedit{border-radius:4px}
 .card{background:var(--bg);border-color:var(--line)}
