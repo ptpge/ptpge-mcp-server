@@ -26,6 +26,13 @@ statement are simply unspecified (an advisory), never defaulted.
 from __future__ import annotations
 
 _BASE = "https://ptpge.org/v1/"
+ADDITIVE_PREFIXES = ("variables/finishing/",)
+ADDITIVE_VARIABLES = {"variables/features/surface-finish", "variables/features/embellishment"}
+
+
+def _is_additive(var: str) -> bool:
+    """SD-0098: an axis that can simply be left off the product («topping»), as opposed to one it is made of."""
+    return var in ADDITIVE_VARIABLES or var.startswith(ADDITIVE_PREFIXES)
 SETUP_VARIABLE = "variables/configuration/setup-model"
 FORMAT_VARIABLE = "variables/configuration/format"
 PAGE_COUNT_VARIABLE = "variables/configuration/page-count"
@@ -218,7 +225,10 @@ def completeness(cache, product: dict, bindings: list[dict], ref, language: str)
 
     # 4. Recommended axes → one advisory
     recommended = [_tail(str(u)) for u in (product.get("recommendedVariables") or [])]
-    missing = [v for v in recommended if v not in bound and v != PAGE_COUNT_VARIABLE]
+    # SD-0098 (7 Oct 2026): what the buyer does not ask for is not applied. An absent finishing
+    # axis (lamination, embellishment, edge …) is «none», not «unspecified» — no advisory, no
+    # question. Substrate/production/compliance axes stay advisories: a brochure HAS a paper.
+    missing = [v for v in recommended if v not in bound and v != PAGE_COUNT_VARIABLE and not _is_additive(v)]
     if surfaces and len(surfaces) > 1 and bound.get(COLOR_VARIABLE):
         stated = set()
         for b in bound[COLOR_VARIABLE]:
@@ -235,5 +245,6 @@ def completeness(cache, product: dict, bindings: list[dict], ref, language: str)
         out["advisories"].append({
             "type": "unspecified_axes", "variables": missing,
             "note": ("Not stated; the spec fingerprint is computed from what was said. "
-                     "A vendor's offer may complete these under policy-default (SD-0071).")})
+                     "A vendor's offer may complete these under policy-default (SD-0071). "
+                     "Finishing axes are not listed here: what is not asked for is not applied (SD-0098).")})
     return out

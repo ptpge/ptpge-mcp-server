@@ -7,6 +7,16 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.30.0 — 2026-10-07
+
+- **SD-0098 — absence means «none».** `ptpge_validate_config` no longer lists finishing axes (`variables/finishing/*`,
+  `features/surface-finish`, `features/embellishment`) as `unspecified_axes`: a configuration without them is an
+  unfinished product, complete whenever the required variables are bound. Substrate, production and compliance axes stay
+  advisories. The advisory note says so.
+- Playground agent instructions: step 4b — never ask about, suggest or bind an optional axis the buyer did not mention;
+  ask back only about required variables.
+- Playground frame links to ptpge.org (go-live 7 Oct).
+
 ## 0.29.0 — 2026-10-06
 
 - SD-0097: `ptpge_search_terms` skips deprecated terms by default (new `include_deprecated`
