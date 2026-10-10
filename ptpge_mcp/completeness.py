@@ -17,7 +17,7 @@ Three rules, applied by ptpge_validate_config and enforced by ptpge_fingerprint:
    the canonical string, so an agent that states it and one that omits it get
    the same fingerprint (decision D1, 16 Sept 2026).
 3. Defaults come only from those entitled to them — the vendor's profile
-   (``policy-default``, SD-0071). The Standard never defaults on the buyer's
+   (``policy-default``, SD-0071). The specification never defaults on the buyer's
    behalf; the question is the residual mechanism.
 
 Colour (D2): required on the setup's *first* surface; other surfaces without a
@@ -240,7 +240,7 @@ def completeness(cache, product: dict, bindings: list[dict], ref, language: str)
                 "type": "surface_unspecified", "variable": COLOR_VARIABLE, "surfaces": unstated,
                 "note": ("No colour stated for " + ", ".join(unstated) +
                          " — unspecified, not 'none'. A vendor's offer may fill it "
-                         "(policy-default); the Standard never defaults.")})
+                         "(policy-default); the specification never defaults.")})
     if missing:
         out["advisories"].append({
             "type": "unspecified_axes", "variables": missing,

@@ -10,7 +10,7 @@ and tests/test_cfs_conformance.py refuses drift between them.
 function of its input; resolution is the step that turns what a buyer or an
 agent said into that input, and it is data-dependent: it reads the product
 template (its envelope, its required axes) and the setup-model terms (their
-faces). Two implementations given the same statement and the same Standard
+faces). Two implementations given the same statement and the same specification
 data MUST produce the same resolved configuration — otherwise "one specified
 product, one identity" would hold only inside one program.
 

@@ -7,6 +7,13 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.30.1 — 2026-10-10
+
+- Repository prepared for public release: Apache-2.0 `LICENSE`, `pyproject.toml` (licence, version 0.30.1,
+  author PTPGE), README rewritten for readers outside the project (tools, endpoints, run it yourself,
+  configuration — no hosting internals), last «Standard» strings in code → «specification» (SD-0095).
+  No functional change.
+
 ## 0.30.0 — 2026-10-07
 
 - **SD-0098 — absence means «none».** `ptpge_validate_config` no longer lists finishing axes (`variables/finishing/*`,

@@ -1179,7 +1179,7 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                       "variable": str(e.get("variable", ""))[len(_BASE):], "surface": e.get("surface"),
                       "reason": e.get("reason"), "group": e.get("group"),
                       "values": [str(v)[len(_BASE):] for v in (e.get("values") or ([e["value"]] if e.get("value") else []))],
-                      "note": ("These values cannot stand together on one face (Standard data: "
+                      "note": ("These values cannot stand together on one face (specification data: "
                                "exclusiveGroups / standalone / multiInstance, SD-0084 R6). No identity is issued.")})
         all_ok = False
     complete = not comp["needs_disambiguation"] and not comp["surface_errors"] \
@@ -1796,13 +1796,13 @@ def make_vision_endpoint():
     without building the full app (which loads the vocabulary cache)."""
 
     async def vision(request: Request) -> Response:
-        """AI-vision extraction for the Mapping-to-Standard v2 flow.
+        """AI-vision extraction for the mapping-to-specification v2 flow.
 
         Takes a screenshot of a print e-commerce product page (Vistaprint,
         Helloprint, Flyeralarm, Onlineprinters, Cloudprinter, ...) and returns
         a structured extraction that separates what is SELECTED (highlighted
         tile, filled radio, summary line) from what is merely OFFERED — the
-        distinction OCR cannot see. The client then maps values to Standard
+        distinction OCR cannot see. The client then maps values to specification
         terms with the deterministic matcher, so the fingerprint stays
         verifiable; the model only reads the page.
 
