@@ -103,3 +103,8 @@ algorithm is a separate contract, `ptpge-cfs/1`, and does not change with server
 
 Code: [Apache License 2.0](LICENSE). Vocabulary and data: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
 held by PTPGE, a non-profit association (being formed). See [ptpge.org/governance](https://ptpge.org/governance/).
+
+## Registry
+
+Listed in the official MCP Registry as `org.ptpge/mcp-server` (`server.json` in this repository; published with
+`mcp-publisher`, namespace verified by a DNS record on ptpge.org).

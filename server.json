@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "org.ptpge/mcp-server",
+  "title": "PTPGE",
+  "description": "The open vocabulary of print for AI agents: search and read terms, product envelopes, validate a configuration, compute its ptpge-cfs/1 fingerprint. Read-only, no key.",
+  "websiteUrl": "https://ptpge.org/developers/",
+  "repository": {
+    "url": "https://github.com/ptpge/ptpge-mcp-server",
+    "source": "github"
+  },
+  "version": "0.30.1",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.ptpge.org/mcp"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "org.ptpge": {
+        "specification": "https://ptpge.org",
+        "api": "https://api.ptpge.org/v1/",
+        "licence": "Code Apache-2.0 · data CC BY 4.0",
+        "holder": "PTPGE, a non-profit association (being formed)"
+      }
+    }
+  }
+}
