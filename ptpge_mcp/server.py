@@ -143,7 +143,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, Response
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 
 from . import __version__
@@ -2216,10 +2216,24 @@ def build_app() -> Starlette:
                     "recommended": "streamable-http (/mcp, stateless JSON)",
                     "legacy": "sse (/sse)" if config.sse_enabled else "sse disabled on this endpoint",
                 },
-                "documentation": "https://ptpge.org",
-                "status": "stealth-mode",
+                "documentation": "https://ptpge.org/developers/",
+                "icon": "/icon-512.png",
+                "status": "public-beta",
             }
         )
+
+    _ASSET_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _asset(name: str, media_type: str):
+        """Serve a static brand asset (favicon / icon) from the repo root."""
+        path = os.path.join(_ASSET_DIR, name)
+
+        async def endpoint(_request: Request) -> Response:
+            if not os.path.isfile(path):
+                return Response(status_code=404)
+            return FileResponse(path, media_type=media_type,
+                                headers={"Cache-Control": "public, max-age=86400"})
+        return endpoint
 
     async def chat(request: Request) -> Response:
         """LLM 'Ask the standard' proxy for the dashboard's AI panel.
@@ -2345,6 +2359,8 @@ def build_app() -> Starlette:
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
+            Route("/favicon.ico", endpoint=_asset("favicon.ico", "image/x-icon"), methods=["GET"]),
+            Route("/icon-512.png", endpoint=_asset("icon-512.png", "image/png"), methods=["GET"]),
             Route("/miss-report", endpoint=miss_report, methods=["GET"]),
             Route("/learning", endpoint=learning_page, methods=["GET"]),
             Route("/learning/curate", endpoint=learning_curate, methods=["POST"]),

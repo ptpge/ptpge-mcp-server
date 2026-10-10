@@ -7,6 +7,12 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.31.1 — 2026-10-10
+
+- `/favicon.ico` and `/icon-512.png` served by the app (the PTPGE mark) so directory listings and MCP clients
+  that read the favicon from the server URL show the right icon. Root banner: `status` is now `public-beta`,
+  `documentation` points to ptpge.org/developers/, `icon` added.
+
 ## 0.31.0 — 2026-10-10
 
 - **Tool annotations.** Every tool carries `title` and `annotations` (`readOnlyHint: true`, `destructiveHint: false`,
