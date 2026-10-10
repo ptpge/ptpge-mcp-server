@@ -9,7 +9,7 @@
 #   pip install -r requirements.txt
 
 # MCP Python SDK — provides tool registration and protocol handling
-mcp>=1.0.0
+mcp>=1.12.0
 
 # HTTP server (Passenger speaks WSGI; we use Starlette/Uvicorn-compatible shim
 # for HTTP+SSE while keeping a WSGI entrypoint)

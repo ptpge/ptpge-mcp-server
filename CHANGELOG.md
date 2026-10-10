@@ -7,6 +7,13 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.31.0 — 2026-10-10
+
+- **Tool annotations.** Every tool carries `title` and `annotations` (`readOnlyHint: true`, `destructiveHint: false`,
+  `idempotentHint: true`, `openWorldHint: false`) — required by the Claude Connectors Directory; useful to every
+  client. No tool behaviour changed. Requires `mcp>=1.12.0`.
+- Listed in the official MCP Registry as `org.ptpge/mcp-server` (`server.json`).
+
 ## 0.30.1 — 2026-10-10
 
 - Repository prepared for public release: Apache-2.0 `LICENSE`, `pyproject.toml` (licence, version 0.30.1,

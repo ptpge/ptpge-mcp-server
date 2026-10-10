@@ -138,7 +138,7 @@ import httpx
 
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
-from mcp.types import TextContent, Tool
+from mcp.types import TextContent, Tool, ToolAnnotations
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -281,6 +281,8 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
 TOOL_DESCRIPTORS: list[Tool] = [
     Tool(
         name="ptpge_search_terms",
+        title="Search the vocabulary",
+        annotations=ToolAnnotations(title="Search the vocabulary", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Free-text search over the PTPGE vocabulary and registers — the open specification of print. Returns a ranked list "
             "of matching terms with their URI, notation, preferred label, "
@@ -336,6 +338,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_get_term",
+        title="Read a term",
+        annotations=ToolAnnotations(title="Read a term", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Fetch full context for a single PTPGE term: definition, broader/"
             "narrower relations, exactMatch / closeMatch mappings, properties, "
@@ -363,6 +367,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_get_version",
+        title="Dataset version",
+        annotations=ToolAnnotations(title="Dataset version", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Return the current PTPGE dataset version, total term count, "
             "counts per level and per group, license, scheme URL, and server "
@@ -372,6 +378,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_browse",
+        title="Browse the hierarchy",
+        annotations=ToolAnnotations(title="Browse the hierarchy", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Navigate the PTPGE hierarchy. Returns a node and its children "
             "(id, notation, label, level, elementType, hasChildren). Omit "
@@ -393,6 +401,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_get_product_envelope",
+        title="Product envelope",
+        annotations=ToolAnnotations(title="Product envelope", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Return the complete Configuration Envelope of a product class in "
             "one call: supportsSetupModel, every supports* and "
@@ -416,6 +426,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_validate_config",
+        title="Validate a configuration",
+        annotations=ToolAnnotations(title="Validate a configuration", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Layer 1 envelope validation of a product configuration: checks "
             "every binding against the product's supports* envelopes, maps "
@@ -479,6 +491,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_resolve_color_notation",
+        title="Resolve colour notation",
+        annotations=ToolAnnotations(title="Resolve colour notation", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Resolve print colour pair notation (4/4, 4/1, 4+4) into per-surface "
             "colour bindings for a given product. The number is a COUNT OF "
@@ -520,6 +534,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_fingerprint",
+        title="Fingerprint a configuration",
+        annotations=ToolAnnotations(title="Fingerprint a configuration", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Compute the canonical ptpge-cfs/1 serialization and SHA-256 "
             "fingerprint of a resolved product configuration (SD-0040) — the "
@@ -572,6 +588,8 @@ TOOL_DESCRIPTORS: list[Tool] = [
     ),
     Tool(
         name="ptpge_expand_fingerprint",
+        title="Expand a fingerprint",
+        annotations=ToolAnnotations(title="Expand a fingerprint", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Expand a spec or offer fingerprint (ptpge-cfs/1, full 64-hex or "
             "16-hex short form) back into its structured configuration — the "
