@@ -154,14 +154,28 @@ def shape_errors(client: httpx.Client, key: str, doc: Any) -> list[str]:
 # ---------------------------------------------------------------- fetch
 
 def _client() -> httpx.Client:
-    return httpx.Client(timeout=TIMEOUT, follow_redirects=True, max_redirects=3,
+    return httpx.Client(timeout=httpx.Timeout(connect=5.0, read=TIMEOUT, write=5.0, pool=5.0),
+                        follow_redirects=True, max_redirects=3,
                         headers={"User-Agent": UA, "Accept": "application/json, application/ld+json;q=0.9, */*;q=0.1"})
+
+
+# Hosts that timed out once in this check are not asked again: a domain that does not
+# answer at all must still give a bounded report ("not reachable"), not 3 × timeout.
+_DEAD_ATTR = "_ptpge_dead_hosts"
 
 
 def _get_json(client: httpx.Client, url: str) -> tuple[int | None, Any, str | None]:
     """(status, parsed-or-None, error-text-or-None)."""
+    dead: set = getattr(client, _DEAD_ATTR, None) or set()
+    host = urlparse(url).hostname or ""
+    if host in dead:
+        return None, None, "host not responding (earlier request timed out)"
     try:
         r = client.get(url)
+    except httpx.TimeoutException as exc:
+        dead.add(host)
+        setattr(client, _DEAD_ATTR, dead)
+        return None, None, f"timeout after {TIMEOUT:.0f}s ({type(exc).__name__})"
     except httpx.HTTPError as exc:
         return None, None, f"{type(exc).__name__}: {str(exc)[:160]}"
     if r.status_code != 200:
@@ -172,6 +186,14 @@ def _get_json(client: httpx.Client, url: str) -> tuple[int | None, Any, str | No
         return 200, r.json(), None
     except ValueError:
         return 200, None, "not JSON"
+
+
+def _absent(status, err) -> str:
+    if status == 200:
+        return f"Found, but {err}."
+    if err and (err.startswith("timeout") or err.startswith("host not responding")):
+        return f"No answer from the domain ({err})."
+    return f"Not found ({err})."
 
 
 # ---------------------------------------------------------------- vocabulary walk
@@ -256,7 +278,7 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
         status, manifest, err = _get_json(client, s1.url)
         if manifest is None:
             s1.status = "fail"
-            s1.detail = f"Not found ({err})." if status != 200 else f"Found, but {err}."
+            s1.detail = _absent(status, err)
             rep.missing.append({"what": f"A UCP manifest at {UCP_PATH}", "why": "This is the first thing a checkout agent fetches; without it the shop is invisible to UCP.", "where": "https://ptpge.org/adopt/"})
         elif not isinstance(manifest, dict) or "ptpge" not in manifest:
             s1.status = "warn"
@@ -305,7 +327,7 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
         declared_identity: str | None = None
         if decl is None:
             s2.status = "fail"
-            s2.detail = f"Not found ({err})." if status != 200 else f"Found, but {err}."
+            s2.detail = _absent(status, err)
             rep.missing.append({"what": f"A vendor declaration at {DECL_PATH}", "why": "This is where the agent reads presses, substrates and offerings — the printer's own statement of what it can do.", "where": "https://ptpge.org/adopt/"})
         elif not isinstance(decl, dict):
             s2.status = "fail"

@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.33.2 — 2026-10-11
+
+- **Check is bounded on a silent domain.** A host that does not answer (connection hang) timed out once per
+  document — 30–40 s and a gateway timeout from the page. Now: connect timeout 5 s, and a host that times out once is
+  not asked again in the same check; the report comes back in ≈10 s with «No answer from the domain».
+
 ## 0.33.1 — 2026-10-11
 
 - **Check: makers and hosted documents.** A domain with a valid supplier catalogue and a suppliers-register entry,
