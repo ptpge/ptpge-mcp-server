@@ -157,6 +157,7 @@ button:disabled{background:var(--line);color:var(--mute);border-color:var(--line
 button.secondary,.conv .langrow button{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
 button.secondary:hover,.conv .langrow button:hover{border-color:var(--ink);background:var(--soft)}
 .conv .langrow button.on{background:var(--ink);color:var(--soft);border-color:var(--ink)}
+.conv .langrow button .fl{font-size:15px;margin-right:7px;vertical-align:-1px}
 .conv .prodrow button{border-radius:4px;background:var(--soft);color:var(--ink);border:1px solid var(--line);padding:8px 16px}
 .conv .prodrow button:hover{border-color:var(--ink);background:var(--soft)}
 .conv .prodrow button.on{background:var(--ink);color:var(--soft);border-color:var(--ink)}
@@ -1415,8 +1416,9 @@ async function convVerify(idx, presetShort) {
   finally { if (btn) btn.disabled = false; }
 }
 PRODUCTS[0].langs = CONV;
+const CONV_FLAGS = {en:"🇬🇧",de:"🇩🇪",nb:"🇳🇴",nl:"🇳🇱",sv:"🇸🇪",da:"🇩🇰",fi:"🇫🇮",is:"🇮🇸",fr:"🇫🇷",pl:"🇵🇱",es:"🇪🇸",ja:"🇯🇵",zh:"🇨🇳",pt:"🇵🇹",hi:"🇮🇳"};
 document.getElementById("conv-btns").innerHTML = CONV.map((L, i) =>
-  '<button onclick="convRun(' + i + ')">' + L.label + '</button>').join("");
+  '<button onclick="convRun(' + i + ')"><span class="fl">' + (CONV_FLAGS[L.code] || "") + '</span>' + L.label + '</button>').join("");
 
 // ————— v2: 13-language UI (same set as gutenlex.org) —————
 const LANG_NAMES = [["en","English","🇬🇧"],["de","Deutsch","🇩🇪"],["nb","Norsk","🇳🇴"],["nl","Nederlands","🇳🇱"],

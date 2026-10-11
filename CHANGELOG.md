@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.33.3 — 2026-10-11
+
+- Playground: the twelve language buttons in the convergence demo carry their flag, like the site's language picker.
+
 ## 0.33.2 — 2026-10-11
 
 - **Check is bounded on a silent domain.** A host that does not answer (connection hang) timed out once per
