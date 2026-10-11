@@ -84,7 +84,7 @@ def test_ping():
     assert resp["result"] == {}
 
 
-def test_tools_list_exposes_all_nine_tools():
+def test_tools_list_exposes_all_ten_tools():
     resp = handle_jsonrpc_message(FakeCache(), _req("tools/list"))
     names = {t["name"] for t in resp["result"]["tools"]}
     assert names == {
@@ -93,6 +93,7 @@ def test_tools_list_exposes_all_nine_tools():
         "ptpge_validate_config", "ptpge_fingerprint",
         "ptpge_resolve_color_notation",          # SD-0071
         "ptpge_expand_fingerprint",              # 0.25.0 — read-back over MCP
+        "ptpge_check_domain",                    # 0.33.0 — does an agent find you?
     }
     # inputSchema must survive serialisation (camelCase alias)
     assert all("inputSchema" in t for t in resp["result"]["tools"])

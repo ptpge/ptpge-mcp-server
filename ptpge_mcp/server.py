@@ -614,6 +614,32 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "required": ["fingerprint"],
         },
     ),
+    Tool(
+        name="ptpge_check_domain",
+        title="Check a domain",
+        annotations=ToolAnnotations(title="Check a domain", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True),
+        description=(
+            "Does an agent find PTPGE on this domain? Fetches exactly what a "
+            "checkout agent fetches — https://<domain>/.well-known/ucp (the UCP "
+            "manifest and its ptpge block), the vendor declaration at "
+            "/.well-known/ptpge/declaration.json, the identity in the vendors "
+            "register, and a supplier catalogue if the domain is a maker — and "
+            "validates each against its published JSON Schema "
+            "(ptpge.org/v1/schemas/) and the vocabulary. Returns a verdict "
+            "(ready | partial | none), one line per step with errors and "
+            "warnings, what the agent sees (name, identity, products, "
+            "capability counts) and what is missing with where to fix it. "
+            "Read-only; nothing is stored. Use it to answer 'is <printer> "
+            "agent-ready?' or 'why does my declaration not validate?'."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "domain": {"type": "string", "description": "A hostname or URL, e.g. trykkverk.no or https://trykkverk.no/."},
+            },
+            "required": ["domain"],
+        },
+    ),
 ]
 
 
@@ -1512,6 +1538,10 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
     if name == "ptpge_expand_fingerprint":
         return expand_payload(cache, args)
 
+    if name == "ptpge_check_domain":
+        from .check import check_domain
+        return check_domain(str(args.get("domain", "")), cache)
+
     raise ValueError(f"Unknown tool: {name}")
 
 
@@ -2032,6 +2062,22 @@ def build_app() -> Starlette:
             return Response(status_code=304, headers=headers)
         return JSONResponse(reply, headers=headers)
 
+    async def check_page(_request: Request) -> HTMLResponse:
+        """Paste a domain → what an agent finds. See ptpge_mcp/checkpage.py."""
+        from .checkpage import CHECK_HTML
+        return HTMLResponse(CHECK_HTML)
+
+    async def check_json(request: Request) -> Response:
+        """GET /check.json?domain=… — the same report as JSON (curl-able, CORS open)."""
+        from .check import check_domain
+        domain = request.query_params.get("domain", "")
+        if not domain.strip():
+            return JSONResponse({"error": "domain query parameter required, e.g. /check.json?domain=trykkverk.no"}, status_code=400,
+                                headers={"Access-Control-Allow-Origin": "*"})
+        import asyncio
+        report = await asyncio.get_running_loop().run_in_executor(None, check_domain, domain, cache)
+        return JSONResponse(report, headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "no-store"})
+
     async def playground(_request: Request) -> HTMLResponse:
         """Browser test console (v0.3.3) — same-origin JS that POSTs real
         JSON-RPC to /mcp. See ptpge_mcp/playground.py."""
@@ -2209,6 +2255,8 @@ def build_app() -> Starlette:
                 "endpoints": {
                     "mcp": "/mcp",
                     "playground": "/playground",
+                    "check": "/check",
+                    "check_json": "/check.json?domain=<domain>",
                     "sse": "/sse" if config.sse_enabled else None,
                     "messages": "/mcp/messages/" if config.sse_enabled else None,
                     "health": "/healthz",
@@ -2360,6 +2408,8 @@ def build_app() -> Starlette:
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
+            Route("/check", endpoint=check_page, methods=["GET"]),
+            Route("/check.json", endpoint=check_json, methods=["GET"]),
             Route("/favicon.ico", endpoint=_asset("favicon.ico", "image/x-icon"), methods=["GET"]),
             Route("/icon-512.png", endpoint=_asset("icon-512.png", "image/png"), methods=["GET"]),
             Route("/miss-report", endpoint=miss_report, methods=["GET"]),

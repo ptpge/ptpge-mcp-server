@@ -1,11 +1,24 @@
 # MCP Server — Changelog
 
 The PTPGE MCP server exposes the PTPGE specification — the open vocabulary of print — to AI agents over the
-Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticated
-`open.mcp.ptpge.org`).
+Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
+
+## 0.33.0 — 2026-10-11
+
+- **Tenth tool — `ptpge_check_domain`: does an agent find you?** Fetches exactly what a checkout agent fetches on a
+  domain — `/.well-known/ucp` (the UCP manifest and its `ptpge` block), the vendor declaration at
+  `/.well-known/ptpge/declaration.json`, the identity in the vendors register, and a supplier catalogue if present —
+  and validates each against its published JSON Schema (fetched from `ptpge.org/v1/schemas/`, never copied) and the
+  vocabulary (unknown term = error, deprecated = warning). Returns a verdict (`ready` · `partial` · `none`), one line
+  per step, what the agent sees (name, identity, products, capability counts) and what is missing with where to fix it.
+  Read-only; nothing is stored.
+- **Two more doors to the same check:** `GET /check` — a page in the ptpge.org frame (paste a domain; `?domain=` deep
+  link), and `GET /check.json?domain=…` — the raw report, CORS open, for curl and other tools. `ptpge.org/check/`
+  redirects here.
+- New dependencies: `jsonschema`, `referencing`.
 
 ## 0.32.2 — 2026-10-11
 
