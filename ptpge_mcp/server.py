@@ -711,13 +711,12 @@ WEIGHT_ENVELOPE = "supportsSubstrateWeight"
 # deprecated without successor; a finish you do not ask for is not applied, and the
 # axis is simply absent. colour-mode/none stays (spoken blankness: a face with no ink
 # is a physical statement, SD-0068).
+# 2026-10-11: the same for embellishment (SD-0098 extended) — «embellishments/none» is deprecated.
 NULL_VALUES = {
     "variables/features/color-mode":     _BASE + "printing/features/colors/none",
-    "variables/features/embellishment":  _BASE + "printing/features/embellishments/none",
 }
 NULL_BY_ENVELOPE = {
     "perSurfaceSupportsColorMode":      NULL_VALUES["variables/features/color-mode"],
-    "perSurfaceSupportsEmbellishment":  NULL_VALUES["variables/features/embellishment"],
 }
 # SD-0070: numeric thickness (canonical mm) with per-template {min,max} range
 THICKNESS_VARIABLE = "variables/substrate/substrate-thickness"
