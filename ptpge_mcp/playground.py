@@ -704,6 +704,20 @@ async function assembleFingerprint() {
     if (u === "printing" || u.indexOf("ordering/knowledge/") === 0) { skipped.push(r.resolved + " — not a configuration value"); continue; }
     let mapped = null;
     for (const [frag, v] of VAR_MAP) if (u.indexOf(frag) !== -1) { mapped = v; break; }
+    // 0.32.0: a named fold found as a completion (completions/folding/roll-fold) is, on a
+    // folded product, the setup model of the same name — bind it there; the validator
+    // confirms it is in the product's envelope.
+    if (!mapped && u.indexOf("printing/completions/folding/") === 0) {
+      const slug = u.slice("printing/completions/folding/".length);
+      if (slug && slug.indexOf("/") === -1) {
+        const setupU = "printing/configurations/setup-models/folded-sheet/" + slug;
+        if (!bindings.some(b => b.variable === "variables/configuration/setup-model")) {
+          bindings.push({ variable: "variables/configuration/setup-model", value: setupU });
+          steps.push(r.resolved + " → setup model " + slug + " (a named fold is the sheet's setup)");
+          continue;
+        }
+      }
+    }
     if (mapped) {
       if (mapped === "variables/substrate/substrate-weight" && numWithUnit(raw, U_GSM) != null) { skipped.push(r.resolved + " — the stated gsm wins over the band word"); continue; }
       const b = { variable: mapped, value: u };
