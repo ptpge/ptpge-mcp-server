@@ -6,10 +6,10 @@ v0.4.0 — four new tools (tool surface v2, additive):
     - ptpge_get_product_envelope  — the complete Configuration Envelope of a
       product class in one call, with resolved labels (saves agents 10+
       get_term round-trips when composing)
-    - ptpge_validate_config       — Layer 1 ENVELOPE validation: bindings vs
+    - ptpge_validate_config       — ENVELOPE validation: bindings vs
       supports*, numeric gsm -> weight band via minWeight/maxWeight
       properties, data-driven advisories (creasing thresholds from the
-      scoring term). Deliberately not full legality — that is Layer 2,
+      scoring term). Deliberately not full legality — that is an implementation,
       licensed; this free tool is its demonstration.
     - ptpge_fingerprint           — canonical ptpge-cfs/1 serialization +
       SHA-256 in both profiles (spec/offer), per SD-0040. Server-side port
@@ -429,15 +429,15 @@ TOOL_DESCRIPTORS: list[Tool] = [
         title="Validate a configuration",
         annotations=ToolAnnotations(title="Validate a configuration", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
-            "Layer 1 envelope validation of a product configuration: checks "
+            "Envelope validation of a product configuration against the specification: checks "
             "every binding against the product's supports* envelopes, maps "
             "numeric substrate-weight (gsm) to its weight band via the bands' "
             "minWeight/maxWeight properties, and returns data-driven "
             "advisories (e.g. creasing recommended above the scoring "
             "thresholds). NOTE: this validates the ENVELOPE only — "
             "cross-variable legality (e.g. valid panel counts per fold "
-            "topology) and vendor capability matching are Layer 2 "
-            "(Configurator) services; commercial values (date, price) are "
+            "topology) and vendor capability matching are an implementation's "
+            "concern (a configurator), not the specification's; commercial values (date, price) are "
             "not configuration and belong to the transaction layer. "
             "Elicitation contract (shared by every ptpge_* tool): whenever a "
             "result carries `needs_disambiguation`, each entry has a `field`, "
@@ -670,7 +670,7 @@ def _term_for_response(term: dict, language: str) -> dict:
 _BASE = "https://ptpge.org/v1/"
 
 # Variable URI tail -> the product envelope predicate it is constrained by.
-# Variables not listed here either have no Layer 1 envelope (numeric
+# Variables not listed here either have no envelope in the specification (numeric
 # page-count, commercial quantity) or are validated by other means.
 VARIABLE_ENVELOPE = {
     "variables/configuration/setup-model":      ("supportsSetupModel", "product"),
@@ -707,15 +707,17 @@ WEIGHT_ENVELOPE = "supportsSubstrateWeight"
 # and it is different from leaving the axis unspecified. The null value is
 # appended to the envelope here (validation and the envelope payload) so the
 # 56 templates need not list it and a vendor profile cannot narrow it away.
+# SD-0098 (2026-10-07): surface finish has NO null value — «surface-finish/none» is
+# deprecated without successor; a finish you do not ask for is not applied, and the
+# axis is simply absent. colour-mode/none stays (spoken blankness: a face with no ink
+# is a physical statement, SD-0068).
 NULL_VALUES = {
     "variables/features/color-mode":     _BASE + "printing/features/colors/none",
     "variables/features/embellishment":  _BASE + "printing/features/embellishments/none",
-    "variables/features/surface-finish": _BASE + "printing/features/surface-finish/none",
 }
 NULL_BY_ENVELOPE = {
     "perSurfaceSupportsColorMode":      NULL_VALUES["variables/features/color-mode"],
     "perSurfaceSupportsEmbellishment":  NULL_VALUES["variables/features/embellishment"],
-    "perSurfaceSupportsSurfaceFinish":  NULL_VALUES["variables/features/surface-finish"],
 }
 # SD-0070: numeric thickness (canonical mm) with per-template {min,max} range
 THICKNESS_VARIABLE = "variables/substrate/substrate-thickness"
@@ -1035,11 +1037,11 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
         # Envelope-mapped enum variables.
         mapping = VARIABLE_ENVELOPE.get(var_tail)
         if mapping is None:
-            scope_note = ("numeric; topology legality is Layer 2"
+            scope_note = ("numeric; topology legality is an implementation's rule, not the envelope's"
                           if var_tail == "variables/configuration/page-count"
-                          else "commercial; no Layer 1 envelope"
+                          else "commercial; no envelope in the specification"
                           if var_tail.startswith("variables/order/")
-                          else "no Layer 1 envelope mapping for this variable")
+                          else "no envelope mapping for this variable")
             entry.update(status="not_checked", note=scope_note)
             results.append(entry)
             continue
@@ -1091,7 +1093,7 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                         f"(from {sp['recommendedFromWeight']} gsm) when the product is folded.",
             })
 
-    # SD-0066: kryssvariabel-regler for custom-mål (Layer 1 flagger; Layer 2
+    # SD-0066: kryssvariabel-regler for custom-mål (spesifikasjonen flagger; implementasjonen
     # håndhever). Én identitet per fysisk objekt: bredde ≤ høyde, rotasjon
     # via orientation.
     is_customized = bound_format == CUSTOMIZED_FORMAT_URI
@@ -1210,9 +1212,9 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
         "complete": complete,
         "bindings": results,
         "advisories": advisories,
-        "scope": "Layer 1 envelope validation only. Cross-variable legality "
+        "scope": "Envelope validation against the specification only. Cross-variable legality "
                  "(e.g. panel counts per topology) and vendor capability are "
-                 "Layer 2 (Configurator) services.",
+                 "an implementation's services (a configurator), not the specification's.",
     }
     if rules:
         resp["rules"] = rules

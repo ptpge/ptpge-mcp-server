@@ -7,6 +7,16 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.32.0 — 2026-10-11
+
+- **SD-0098 applied to surface finish.** `ptpge_validate_config` and `ptpge_get_product_envelope` no longer append
+  `surface-finish/none` to envelopes — that term is deprecated without successor; a finish you do not ask for is not
+  applied. `colors/none` (a face with no ink) and `embellishments/none` are unchanged.
+- **No layer wording.** Tool descriptions and results say «the specification» and «an implementation's concern (a
+  configurator)» instead of Layer 1/2/3.
+- **Playground:** when the agent ends without text and without a fingerprint, the panel shows the specification's last
+  answer — open questions (`needs_disambiguation`), values not in the envelope, rule violations — instead of «(no answer)».
+
 ## 0.31.1 — 2026-10-10
 
 - `/favicon.ico` and `/icon-512.png` served by the app (the PTPGE mark) so directory listings and MCP clients

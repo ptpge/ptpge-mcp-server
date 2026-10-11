@@ -333,7 +333,7 @@ __FRAME_HEADER__
       <button onclick="agentRun()" data-i="b_agent">Run agent &rarr; fingerprint</button><span class="hint" style="margin:0" data-i="h_agent">Complete prompt → one fingerprint. Leave out the fold or the orientation and the agent asks instead of guessing.</span>
       <span id="ag-status" style="font-size:12px;color:#5b7a69"></span>
     </div>
-    <div class="hint" data-i="ag_hint" style="margin-top:8px">The model is handed the same tools an AI agent gets from <code>tools/list</code> and runs the loop itself: search terms, read the envelope, resolve colour counts, validate, fingerprint — every model turn and every <code>tools/call</code> lands in the transcript. Sponsored runs go through <code>engine.gutenlex.com</code> (Layer 3), which holds the key; the open MCP server never carries a model. Your own key is kept only in this browser's localStorage and sent straight to the provider.</div>
+    <div class="hint" data-i="ag_hint" style="margin-top:8px">The model is handed the same tools an AI agent gets from <code>tools/list</code> and runs the loop itself: search terms, read the envelope, resolve colour counts, validate, fingerprint — every model turn and every <code>tools/call</code> lands in the transcript. Sponsored runs go through <code>engine.gutenlex.com</code> (a GutenLex service), which holds the key; the open MCP server never carries a model. Your own key is kept only in this browser's localStorage and sent straight to the provider.</div>
     <div class="res" id="res-agent"></div>
   </div>
 </details>
@@ -808,7 +808,7 @@ async function assembleFingerprint() {
 }
 // ————— Agent mode (0.27.0): a real model runs the tool loop in the browser —————
 // Sponsored runs: the model calls go through engine.gutenlex.com/agent/messages
-// (Layer 3 holds the key; this Layer-1 server never carries a model). Own-key
+// (the GutenLex engine holds the key; this server never carries a model). Own-key
 // runs go straight from the browser to the provider. In both cases the TOOL
 // calls are made by this page against /mcp, so the transcript shows the whole
 // conversation an agent has with the specification — nothing is pre-scripted.
@@ -905,7 +905,7 @@ async function agentRun(opts) {
   const runId = "run-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   const buttons = document.querySelectorAll("button"); buttons.forEach(b => b.disabled = true);
   showBusy("agent", "agent · tools/list …");
-  let rounds = 0, calls = 0, fp = null, finalText = "", stopped = "";
+  let rounds = 0, calls = 0, fp = null, finalText = "", stopped = "", lastTool = null;
   try {
     const tl = await rpc("tools/list");
     const tools = (tl.json.result && tl.json.result.tools) || [];
@@ -941,6 +941,7 @@ async function agentRun(opts) {
           for (const pr of Object.values(forModel.profiles || {})) { delete pr.markSvg; delete pr.qrSvg; }
         }
         trAdd("tools/call " + use.name + " · HTTP " + status + " · " + ms + " ms · by the agent", fmtJson(payload));
+        lastTool = { name: use.name, payload: payload };
         results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify(forModel).slice(0, 24000) });
       }
       messages.push({ role: "user", content: results });
@@ -949,7 +950,27 @@ async function agentRun(opts) {
     const meta = "agent (" + mode + (mode !== "sponsored" && model ? " · " + model : "") + ") · " + Math.min(rounds + 1, AGENT_ROUNDS) +
                  " model call(s) · " + calls + " tool call(s) · " + (fp ? "fingerprint " + fp.profiles.spec.short : "no fingerprint");
     if (fp) showInline("agent", meta, Object.assign({ agent_answer: finalText || undefined }, fp));
-    else showInline("agent", meta, { agent_answer: finalText || "(no answer)", note: stopped || "the agent stopped before fingerprinting — its reason is in the answer and the transcript" });
+    else {
+      // No fingerprint. If the model ended without text, the reason is in the last tool
+      // result: surface the specification's questions and refusals instead of «(no answer)».
+      const why = {};
+      if (!finalText && lastTool && lastTool.payload && typeof lastTool.payload === "object") {
+        const pl = lastTool.payload;
+        why.last_tool = lastTool.name;
+        if (Array.isArray(pl.needs_disambiguation) && pl.needs_disambiguation.length)
+          why.open_questions = pl.needs_disambiguation.map(q => ({ field: q.field, question: q.question,
+            candidates: (q.candidates || []).slice(0, 8).map(c => c.label || c.id) }));
+        const bad = (pl.bindings || []).filter(b => b.status === "not_in_envelope");
+        if (bad.length) why.not_in_envelope = bad.map(b => ({ variable: b.variable, surface: b.surface || undefined, value: b.value,
+            allowed: (b.allowed || []).map(a => a.label || a.id) }));
+        const viol = (pl.rules || []).filter(r => r.status === "violation");
+        if (viol.length) why.rule_violations = viol.map(r => r.note || r.rule);
+        if (pl.error) why.error = pl.error;
+      }
+      showInline("agent", meta, Object.assign({ agent_answer: finalText || "(the model ended without text)",
+        note: stopped || (Object.keys(why).length > 1 ? "the agent stopped before fingerprinting — the specification's last answer is below"
+                                                     : "the agent stopped before fingerprinting — its reason is in the answer and the transcript") }, why));
+    }
     return { fp: fp, answer: finalText, meta: meta };
   } catch (e) {
     showInline("agent", "agent failed", { error: String(e),

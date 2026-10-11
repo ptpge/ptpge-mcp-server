@@ -606,8 +606,9 @@ def _with_null_terms():
 
 def test_sd0088_none_rides_in_envelope_payload():
     out = tool_payload(_with_null_terms(), "ptpge_get_product_envelope", {"id_or_path": PRODUCT, "language": "en"})
+    # SD-0098 (2026-10-07): surface finish has no null value — absence means none; nothing appended
     sf = [r["id"] for r in out["perSurface"]["perSurfaceSupportsSurfaceFinish"]]
-    assert sf[-1] == B + "printing/features/surface-finish/none" and len(sf) == 3
+    assert B + "printing/features/surface-finish/none" not in sf and len(sf) == 2
     cm = [r["id"] for r in out["perSurface"]["perSurfaceSupportsColorMode"]]
     assert cm[-1] == B + "printing/features/colors/none"
     # the fixture without the terms: nothing appended (no dangling reference)
@@ -616,9 +617,15 @@ def test_sd0088_none_rides_in_envelope_payload():
 
 
 def test_sd0088_none_validates_in_envelope():
+    # SD-0098: an explicit «surface-finish/none» is no longer a value — the axis is left out instead
     b = _bindings_ok() + [{"variable": "variables/features/surface-finish", "surface": "outside",
                            "values": ["printing/features/surface-finish/none"]}]
     out = tool_payload(_with_null_terms(), "ptpge_validate_config", {"product": PRODUCT, "bindings": b})
     by_var = {r["variable"]: r for r in out["bindings"]}
-    assert by_var["variables/features/surface-finish"]["status"] == "in_envelope"
-    assert out["validInEnvelope"] is True
+    assert by_var["variables/features/surface-finish"]["status"] == "not_in_envelope"
+    assert out["validInEnvelope"] is False
+    # colour-mode/none (spoken blankness) still validates
+    b2 = _bindings_ok() + [{"variable": "variables/features/color-mode", "surface": "inside",
+                            "value": "printing/features/colors/none"}]
+    out2 = tool_payload(_with_null_terms(), "ptpge_validate_config", {"product": PRODUCT, "bindings": b2})
+    assert out2["validInEnvelope"] is True
