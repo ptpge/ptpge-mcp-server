@@ -33,7 +33,7 @@ button:hover{background:#000;border-color:#000}html.dark button{background:#e6e8
 button:disabled{background:var(--line);color:var(--mute);border-color:var(--line);cursor:wait}
 .hint{font-size:12.5px;color:var(--mute);margin-top:8px}.hint a{color:var(--ink)}
 .verdict{font:italic 600 22px/1.25 'Spectral',Georgia,serif;margin:0 0 6px}
-.verdict.ready{color:var(--ok)}.verdict.partial{color:var(--warn)}.verdict.none{color:var(--fail)}
+.verdict.ready,.verdict.maker{color:var(--ok)}.verdict.partial{color:var(--warn)}.verdict.none{color:var(--fail)}
 .summary{color:var(--mute);margin:0 0 4px}
 ol.steps{list-style:none;margin:0;padding:0}
 ol.steps li{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
@@ -84,18 +84,18 @@ function li(s){
   return '<li><span class="dot '+esc(s.status)+'"></span><div class="st"><b>'+esc(s.title)+'</b>'+u+'<div class="d">'+esc(s.detail)+'</div>'+e+w+'</div></li>';
 }
 function render(r){
-  var h='<div class="card"><p class="verdict '+esc(r.verdict)+'">'+esc(r.domain)+' — '+({ready:'agent-ready',partial:'partly there',none:'nothing found'}[r.verdict]||r.verdict)+'</p><p class="summary">'+esc(r.summary)+'</p></div>';
+  var h='<div class="card"><p class="verdict '+esc(r.verdict)+'">'+esc(r.domain)+' — '+({ready:'agent-ready',maker:'maker-ready',partial:'partly there',none:'nothing found'}[r.verdict]||r.verdict)+'</p><p class="summary">'+esc(r.summary)+'</p></div>';
   h+='<div class="card"><h2>What the agent does</h2><ol class="steps">'+r.steps.map(li).join('')+'</ol></div>';
   var a=r.agentSees||{};
-  if(a.name||a.identity){
+  if(a.name||a.identity||a.catalogueIdentity){
     var prods=(a.products||[]).map(function(p){return '<a href="'+esc(p.uri)+'" target="_blank" rel="noopener">'+esc(p.template)+'</a>'}).join(' · ');
     h+='<div class="card"><h2>What the agent sees</h2><table class="sees">'
-      +'<tr><th>Name</th><td>'+esc(a.name||'')+(a.country?' ('+esc(a.country)+')':'')+'</td></tr>'
-      +'<tr><th>Identity</th><td><a href="'+esc(a.identity)+'" target="_blank" rel="noopener">'+esc(a.identity)+'</a></td></tr>'
+      +(a.name?'<tr><th>Name</th><td>'+esc(a.name)+(a.country?' ('+esc(a.country)+')':'')+'</td></tr>':'')
+      +(a.identity?'<tr><th>Identity</th><td><a href="'+esc(a.identity)+'" target="_blank" rel="noopener">'+esc(a.identity)+'</a></td></tr>':'')
       +(a.vendorTypes?'<tr><th>Type</th><td>'+esc((a.vendorTypes||[]).join(', '))+'</td></tr>':'')
-      +'<tr><th>Products</th><td>'+(prods||'—')+'</td></tr>'
-      +'<tr><th>Capability</th><td>'+esc(a.lineCount||0)+' production line(s) · '+esc(a.pressCount||0)+' press(es) · '+esc(a.substrateCount||0)+' substrate(s)</td></tr>'
-      +(a.catalogueItems!=null?'<tr><th>Catalogue</th><td>'+esc(a.catalogueItems)+' items</td></tr>':'')
+      +(a.identity?'<tr><th>Products</th><td>'+(prods||'—')+'</td></tr>'
+      +'<tr><th>Capability</th><td>'+esc(a.lineCount||0)+' production line(s) · '+esc(a.pressCount||0)+' press(es) · '+esc(a.substrateCount||0)+' substrate(s)</td></tr>':'')
+      +(a.catalogueItems!=null?'<tr><th>Catalogue</th><td>'+esc(a.catalogueName||'')+' — '+esc(a.catalogueItems)+' items · <a href="'+esc(a.catalogueIdentity)+'" target="_blank" rel="noopener">'+esc(a.catalogueIdentity)+'</a></td></tr>':'')
       +(a.modified?'<tr><th>Modified</th><td>'+esc(a.modified)+'</td></tr>':'')
       +'</table></div>';
   }

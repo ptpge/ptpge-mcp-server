@@ -636,6 +636,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "type": "object",
             "properties": {
                 "domain": {"type": "string", "description": "A hostname or URL, e.g. trykkverk.no or https://trykkverk.no/."},
+                "document": {"type": "string", "description": "Optional: https URL of a declaration or catalogue hosted elsewhere than the known path (a register entry marked «hosted»)."},
             },
             "required": ["domain"],
         },
@@ -1540,7 +1541,7 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
 
     if name == "ptpge_check_domain":
         from .check import check_domain
-        return check_domain(str(args.get("domain", "")), cache)
+        return check_domain(str(args.get("domain", "")), cache, args.get("document") or None)
 
     raise ValueError(f"Unknown tool: {name}")
 
@@ -2075,7 +2076,8 @@ def build_app() -> Starlette:
             return JSONResponse({"error": "domain query parameter required, e.g. /check.json?domain=trykkverk.no"}, status_code=400,
                                 headers={"Access-Control-Allow-Origin": "*"})
         import asyncio
-        report = await asyncio.get_running_loop().run_in_executor(None, check_domain, domain, cache)
+        document = request.query_params.get("document") or None
+        report = await asyncio.get_running_loop().run_in_executor(None, check_domain, domain, cache, document)
         return JSONResponse(report, headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "no-store"})
 
     async def playground(_request: Request) -> HTMLResponse:

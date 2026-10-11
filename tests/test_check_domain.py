@@ -182,5 +182,36 @@ def test_normalise_domain(raw, want):
 
 def test_tool_dispatch_routes_to_check(monkeypatch):
     from ptpge_mcp import server as S
-    monkeypatch.setattr(C, "check_domain", lambda d, cache: {"domain": d, "verdict": "none"})
+    monkeypatch.setattr(C, "check_domain", lambda d, cache, document=None: {"domain": d, "verdict": "none", "document": document})
     assert S.tool_payload(None, "ptpge_check_domain", {"domain": "x.example"})["verdict"] == "none"
+    assert S.tool_payload(None, "ptpge_check_domain", {"domain": "x.example", "document": "https://h/x.json"})["document"] == "https://h/x.json"
+
+
+def test_supplier_only_domain_is_maker_ready(_patch_client):
+    cat = json.loads((FIX / "supplier-catalogue-lessebo.json").read_text("utf-8"))
+    host = cat["domain"]
+    _patch_client["routes"] = {
+        f"https://{host}/.well-known/ptpge/catalogue.json": cat,
+        cat["identity"].replace("https://ptpge.org/", "https://api.ptpge.org/") + ".jsonld": {"domain": host, "name": cat["name"]},
+    }
+    r = C.check_domain(host, _vocab_from_fixture(cat))
+    assert r["verdict"] == "maker", r
+    assert r["steps"][2]["status"] == "ok" and "suppliers/" in r["steps"][2]["detail"]
+    assert r["agentSees"]["catalogueIdentity"] == cat["identity"]
+    assert r["missing"] == []
+
+
+def test_hosted_document_override(_patch_client):
+    decl, man = _trykkverk()
+    host = decl["domain"]
+    hosted = "https://files.example.org/trykkverk/declaration.json"
+    _patch_client["routes"] = {
+        f"https://{host}/.well-known/ucp": man,
+        hosted: decl,
+        decl["identity"].replace("https://ptpge.org/", "https://api.ptpge.org/") + ".jsonld": {"domain": host},
+    }
+    r = C.check_domain(host, _vocab_from_fixture(decl, man), document=hosted)
+    s = r["steps"][1]
+    assert s["url"] == hosted and s["status"] == "warn", s
+    assert any("hosted" in w for w in s["warnings"])
+    assert r["agentSees"]["identity"] == decl["identity"]

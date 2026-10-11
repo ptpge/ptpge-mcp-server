@@ -6,6 +6,17 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.33.1 — 2026-10-11
+
+- **Check: makers and hosted documents.** A domain with a valid supplier catalogue and a suppliers-register entry,
+  but no shop manifest or declaration, is now `maker` (maker-ready) instead of partial — a mill is not a shop.
+  The identity step checks whichever identities the documents carry (vendors and/or suppliers). Optional `document`
+  parameter (tool, `/check.json?document=`): an https URL of a declaration or catalogue hosted elsewhere than the
+  known path (register entries marked «hosted»); the step then warns rather than fails on the path. `agentSees`
+  gains `logo`, `catalogueIdentity`, `catalogueName`, `catalogueLogo`.
+- ptpge.org's adopt flow (apply.php, weekly recheck.php) now validates through `/check.json` — one truth — with the
+  old mechanical HTTP/JSON/identity check only as fallback when this server does not answer.
+
 ## 0.33.0 — 2026-10-11
 
 - **Tenth tool — `ptpge_check_domain`: does an agent find you?** Fetches exactly what a checkout agent fetches on a

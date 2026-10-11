@@ -103,6 +103,7 @@ VERDICT_TEXT = {
     "none": "Nothing found — an agent looking for PTPGE on this domain finds no manifest and no declaration.",
     "partial": "Partly there — an agent finds PTPGE on this domain, but something is missing or invalid.",
     "ready": "Agent-ready — manifest, declaration and identity all resolve and validate.",
+    "maker": "Maker-ready — the supplier catalogue and its identity resolve and validate; a shop manifest and declaration are not expected of a mill or equipment maker.",
 }
 
 
@@ -232,10 +233,14 @@ def normalise_domain(raw: str) -> str | None:
     return s if _HOST_RE.match(s) else None
 
 
-def check_domain(domain: str, cache=None) -> dict:
+def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
+    """``document``: optional https URL of a declaration or catalogue hosted elsewhere
+    than the known path (a register entry marked «hosted»). It replaces the known-path
+    fetch for whichever document it turns out to be (by its ``schema`` field)."""
     t0 = time.time()
     host = normalise_domain(domain)
     rep = Report(domain=host or domain)
+    hosted: str | None = document if (document and document.startswith("https://")) else None
     rep.checked_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if not host:
         rep.steps.append(Step("domain", "Domain", "fail", "Not a valid hostname — try e.g. trykkverk.no"))
@@ -282,9 +287,21 @@ def check_domain(domain: str, cache=None) -> dict:
         rep.steps.append(s1)
 
         # 2 — vendor declaration ------------------------------------------
+        hosted_doc = None
+        if hosted:
+            _st, hosted_doc, _err = _get_json(client, hosted)
+            if not isinstance(hosted_doc, dict):
+                hosted_doc = None
+        hosted_schema = hosted_doc.get("schema") if hosted_doc else None
         decl_url = decl_url_from_manifest or f"https://{host}{DECL_PATH}"
+        if hosted_schema == "https://ptpge.org/v1/schemas/vendor-declaration/1":
+            decl_url = hosted
         s2 = Step("declaration", "Vendor declaration", url=decl_url)
-        status, decl, err = _get_json(client, decl_url)
+        if hosted and decl_url == hosted:
+            decl, status, err = hosted_doc, 200, None
+            s2.warnings.append("hosted elsewhere than the known path — the entry is marked «hosted»")
+        else:
+            status, decl, err = _get_json(client, decl_url)
         declared_identity: str | None = None
         if decl is None:
             s2.status = "fail"
@@ -303,7 +320,7 @@ def check_domain(domain: str, cache=None) -> dict:
                 declared_identity = decl.get("identity")
                 if decl.get("domain") != host:
                     s2.errors.append(f"domain says {decl.get('domain')!r}, but the document is served from {host}")
-                if urlparse(decl_url).path != DECL_PATH:
+                if urlparse(decl_url).path != DECL_PATH and decl_url != hosted:
                     s2.errors.append(f"served from {urlparse(decl_url).path}, the known path is {DECL_PATH}")
                 if identity_from_manifest and declared_identity and identity_from_manifest != declared_identity:
                     s2.errors.append(f"manifest says identity {identity_from_manifest}, declaration says {declared_identity}")
@@ -338,6 +355,7 @@ def check_domain(domain: str, cache=None) -> dict:
                     "substrateCount": len(subs),
                     "lineCount": len(lines),
                     "modified": decl.get("modified"),
+                    "logo": bool(decl.get("logo")),
                 }
             else:
                 s2.detail = f"Does not validate against vendor-declaration/1: {len(errs)} error(s)."
@@ -345,38 +363,15 @@ def check_domain(domain: str, cache=None) -> dict:
             s2.status = "fail" if s2.errors else ("warn" if s2.warnings else "ok")
         rep.steps.append(s2)
 
-        # 3 — identity in the register -------------------------------------
-        ident = declared_identity or identity_from_manifest
-        s3 = Step("identity", "Identity in the register", url=ident)
-        if not ident:
-            s3.status = "skip"
-            s3.detail = "No identity to check — none declared."
-        elif not ident.startswith(TERM_PREFIX + "vendors/"):
-            s3.status = "fail"
-            s3.detail = f"{ident} is not a vendor identity (expected https://ptpge.org/v1/vendors/<slug>)."
-        else:
-            api_ident = ident.replace("https://ptpge.org/v1/", "https://api.ptpge.org/v1/", 1)
-            status, entry, err = _get_json(client, api_ident + ".jsonld")
-            if entry is None:
-                status, entry, err = _get_json(client, api_ident)
-            if not isinstance(entry, dict):
-                s3.status = "fail"
-                s3.detail = f"Not in the register ({err}). The identity is claimed in the declaration but ptpge.org does not know it."
-                rep.missing.append({"what": "A register entry for the identity", "why": "An identity is permanent only once the register points at the domain; claim it on the adopt page.", "where": "https://ptpge.org/adopt/"})
-            else:
-                reg_domain = (entry.get("domain") or "").strip().lower()
-                if reg_domain and reg_domain != host:
-                    s3.status = "fail"
-                    s3.detail = f"Register entry exists but points at {reg_domain}, not {host}."
-                else:
-                    s3.status = "ok"
-                    s3.detail = f"Register entry found and it points at {host}." if reg_domain else "Register entry found."
-                    rep.sees.setdefault("registerName", entry.get("name") or entry.get("prefLabel"))
-        rep.steps.append(s3)
-
         # 4 — supplier catalogue (optional) ---------------------------------
-        s4 = Step("catalogue", "Supplier catalogue (makers only)", url=f"https://{host}{CAT_PATH}")
-        status, cat, err = _get_json(client, s4.url)
+        cat_url = hosted if hosted_schema == "https://ptpge.org/v1/schemas/supplier-catalogue/1" else f"https://{host}{CAT_PATH}"
+        s4 = Step("catalogue", "Supplier catalogue (makers only)", url=cat_url)
+        catalogue_identity: str | None = None
+        if hosted and cat_url == hosted:
+            cat, status, err = hosted_doc, 200, None
+            s4.warnings.append("hosted elsewhere than the known path — the entry is marked «hosted»")
+        else:
+            status, cat, err = _get_json(client, cat_url)
         if cat is None:
             s4.status = "skip"
             s4.detail = "None — expected only for mills, press and equipment makers."
@@ -398,19 +393,64 @@ def check_domain(domain: str, cache=None) -> dict:
                 for i, it in enumerate(items):
                     if it.get("parent") and it["parent"] not in ids:
                         s4.errors.append(f"items[{i}].parent {it['parent']} is not an item in this catalogue")
-                n = _vocab_check(cat, cache, s4, skip={cat.get("identity")})
-                s4.detail = f"Valid supplier-catalogue/1 · {len(items)} items · {n} term URIs checked."
+                catalogue_identity = cat.get("identity")
+                if cat.get("domain") != host:
+                    s4.errors.append(f"domain says {cat.get('domain')!r}, but the document is served from {host}")
+                n = _vocab_check(cat, cache, s4, skip={catalogue_identity})
+                s4.detail = f"Valid supplier-catalogue/1 · {len(items)} items · {n} term URIs checked." if not s4.errors else f"supplier-catalogue/1: {len(s4.errors)} error(s)."
                 rep.sees["catalogueItems"] = len(items)
+                rep.sees["catalogueIdentity"] = catalogue_identity
+                rep.sees["catalogueName"] = cat.get("name")
+                rep.sees["catalogueLogo"] = bool(cat.get("logo"))
             else:
                 s4.detail = f"Does not validate against supplier-catalogue/1: {len(errs)} error(s)."
             s4.status = "fail" if s4.errors else ("warn" if s4.warnings else "ok")
-        rep.steps.append(s4)
+
+        # 3 — identity in the register(s) ----------------------------------
+        vendor_ident = declared_identity or identity_from_manifest
+        s3 = Step("identity", "Identity in the register", url=vendor_ident or catalogue_identity)
+        checks = []
+        if vendor_ident:
+            checks.append(("vendors", vendor_ident))
+        if catalogue_identity:
+            checks.append(("suppliers", catalogue_identity))
+        if not checks:
+            s3.status = "skip"
+            s3.detail = "No identity to check — none declared."
+        else:
+            details = []
+            for register, ident in checks:
+                if not ident.startswith(f"{TERM_PREFIX}{register}/"):
+                    s3.errors.append(f"{ident} is not a {register[:-1]} identity (expected https://ptpge.org/v1/{register}/<slug>)")
+                    continue
+                api_ident = ident.replace("https://ptpge.org/v1/", "https://api.ptpge.org/v1/", 1)
+                status, entry, err = _get_json(client, api_ident + ".jsonld")
+                if entry is None:
+                    status, entry, err = _get_json(client, api_ident)
+                if not isinstance(entry, dict):
+                    s3.errors.append(f"{ident}: not in the register ({err}) — claimed in the document but ptpge.org does not know it")
+                    rep.missing.append({"what": f"A register entry for {ident}", "why": "An identity is permanent only once the register points at the domain; claim it on the adopt page.", "where": "https://ptpge.org/adopt/"})
+                    continue
+                reg_domain = (entry.get("domain") or "").strip().lower()
+                if reg_domain and reg_domain != host:
+                    s3.errors.append(f"{ident}: register entry points at {reg_domain}, not {host}")
+                    continue
+                details.append(f"{register}/{ident.rsplit('/', 1)[-1]} found" + (f", points at {host}" if reg_domain else ""))
+                rep.sees.setdefault("registerName", entry.get("name") or entry.get("prefLabel"))
+            s3.status = "fail" if s3.errors else "ok"
+            s3.detail = ("; ".join(details) + ".") if details and not s3.errors else f"{len(s3.errors)} problem(s)."
+        rep.steps.extend([s3, s4])
 
     # verdict ----------------------------------------------------------------
-    core = [s for s in rep.steps if s.id in ("ucp", "declaration", "identity")]
-    if all(s.status == "fail" or s.status == "skip" for s in core) and rep.steps[1].status == "fail":
+    by = {st.id: st for st in rep.steps}
+    s_ucp, s_decl, s_id, s_cat = by["ucp"], by["declaration"], by["identity"], by["catalogue"]
+    if s_cat.status in ("ok", "warn") and s_decl.status == "fail" and s_ucp.status == "fail" and s_id.status == "ok":
+        # a maker: catalogue + identity is the whole story (SD-0101)
+        rep.missing = [m for m in rep.missing if not (m["what"].startswith("A UCP manifest") or m["what"].startswith("A vendor declaration"))]
+        rep.verdict = "maker" if not rep.missing else "partial"
+    elif s_decl.status == "fail" and s_ucp.status == "fail" and s_id.status in ("skip", "fail") and s_cat.status in ("skip", "fail"):
         rep.verdict = "none"
-    elif all(s.status in ("ok", "warn") for s in core) and rep.steps[3].status != "fail" and not rep.missing:
+    elif all(st.status in ("ok", "warn") for st in (s_ucp, s_decl, s_id)) and s_cat.status != "fail" and not rep.missing:
         rep.verdict = "ready"
     else:
         rep.verdict = "partial"
