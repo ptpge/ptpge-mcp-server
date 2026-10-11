@@ -7,6 +7,12 @@ Model Context Protocol. Endpoints: `mcp.ptpge.org` (and the open, unauthenticate
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.32.2 — 2026-10-11
+
+- **Playground demo order is complete again.** Orientation became a required axis (SD-0083/SD-0101) after the
+  demo was written: the fixed example now says «A5 portrait», binds orientation, and binds the ivory substrate colour
+  it always asked for; the ten-language convergence demo binds orientation too. Three clicks end in a fingerprint.
+
 ## 0.32.1 — 2026-10-11
 
 - **Playground, rule mode:** a named fold that resolves as a completion (`completions/folding/roll-fold`) is bound

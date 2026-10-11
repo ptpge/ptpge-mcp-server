@@ -299,7 +299,7 @@ __FRAME_HEADER__
   <summary><h2 data-i="t_chain">Test-prompt demo — the full chain, live</h2>
   <span class="expl" data-i="e_chain">Envelope → validation → fingerprint on a fixed example order — the whole journey in three clicks.</span></summary>
   <p style="font-size:13px;color:#555;margin:0 0 10px;font-style:italic">
-  "I want a brochure, 6 pages, A5, folded as a Z-fold, on ivory-toned
+  "I want a brochure, 6 pages, A5 portrait, folded as a Z-fold, on ivory-toned
   heavy paper, full colour on one side and black only on the other, 500 copies."</p>
   <div class="row">
     <button onclick="doEnvelope()">1 · Envelope</button>
@@ -527,8 +527,12 @@ const DEMO_BINDINGS = [
   { variable: "variables/configuration/page-count", value: 6 },
   { variable: "variables/configuration/format",
     value: "printing/configurations/formats/a-series/a5" },
+  { variable: "variables/configuration/orientation",
+    value: "printing/configurations/orientation/portrait" },   // required axis (SD-0083) — the prompt says «A5 portrait»
   { variable: "variables/substrate/substrate-type",
     value: "printing/substrates/sheet-materials/paper" },
+  { variable: "variables/substrate/substrate-color",
+    value: "printing/substrates/sheet-materials/paper/paper-color-shades/ivory-paper" },
   { variable: "variables/substrate/substrate-weight", value: 250 },
   { variable: "variables/features/color-mode", surface: "outside",
     value: "printing/features/colors/cmyk" },
@@ -1010,6 +1014,7 @@ document.getElementById("uri").addEventListener("keydown", e => { if (e.key === 
 const REF_PRODUCT = "ordering/products/brochures";
 const REF_ROWS = [
   ["variables/configuration/format",        null,      "printing/configurations/formats/a-series/a5"],
+  ["variables/configuration/orientation",   null,      "printing/configurations/orientation/portrait"],
   ["variables/configuration/page-count",    null,      8],
   ["variables/configuration/setup-model",   null,      "printing/configurations/setup-models/folded-sheet/accordion-fold"],
   ["variables/features/color-mode",         "outside", "printing/features/colors/cmyk"],
