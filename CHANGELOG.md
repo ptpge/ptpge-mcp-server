@@ -6,6 +6,13 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.37.2 — 2026-10-12
+
+- **Any unit in, mm out.** A custom-width / custom-height binding may carry `unit` (mm, cm, m, in, pt); the value
+  is converted to mm before range check and identity, and the result echoes what was stated («12 cm») next to what
+  was bound (120 mm). 12 × 18 cm and 120 × 180 mm are one identity — for every product with a custom size range,
+  not only booklets. Rule mode reads «12x18 cm», «8.5 x 11 in», «3.5" x 2"»; the agent prompt says the same.
+
 ## 0.37.1 — 2026-10-12
 
 - **Rule mode reads a size.** «85x55», «148 × 210 mm», «210x297» is matched against the product's named formats

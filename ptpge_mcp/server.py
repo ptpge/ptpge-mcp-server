@@ -482,6 +482,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
                             "value": {"description": "URI/path (enum) or number (numeric variables)."},
                             "values": {"type": "array", "description": "For cardinality-multiple variables."},
                             "surface": {"type": "string", "description": "Surface slug for surface-scoped bindings (e.g. 'outside')."},
+                            "unit": {"type": "string", "enum": ["mm", "cm", "m", "in", "pt"], "description": "custom-width / custom-height only: the unit the value is stated in. Converted to mm before validation and identity (the identity is always mm)."},
                             "provenance": {
                                 "type": "string",
                                 "enum": ["confirmed", "inferred", "policy-default", "envelope-implied"],
@@ -583,6 +584,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
                             "value": {"description": "URI/path or number."},
                             "values": {"type": "array"},
                             "surface": {"type": "string"},
+                            "unit": {"type": "string", "enum": ["mm", "cm", "m", "in", "pt"], "description": "custom-width / custom-height only — converted to mm before the identity."},
                             "ordered": {"type": "boolean"},
                         },
                         "required": ["variable"],
@@ -1025,6 +1027,33 @@ def also_offered_by(cache: "VocabularyCache", current_uri: str, bindings: list, 
     return [dict(r, acceptsBindings=n) for n, r in out[:limit]]
 
 
+
+# SD-0066 / 12.10.2026: the identity is in mm; the binding may say cm, m, in, pt. Converted here,
+# before validation and before the fingerprint — never stored in any other unit.
+_MM_PER = {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4, "inch": 25.4, "\"": 25.4, "pt": 25.4 / 72.0}
+
+
+def _normalize_units(bindings: list) -> list:
+    """Custom-width/height bindings with a `unit` other than mm → value in mm (rounded to 0.1), the stated
+    value/unit kept as statedValue/statedUnit. Other bindings pass through untouched."""
+    out = []
+    for b in bindings or []:
+        if not isinstance(b, dict):
+            out.append(b); continue
+        tail = _full_uri(b.get("variable", ""))[len(_BASE):]
+        unit = str(b.get("unit") or "").strip().lower()
+        if tail in (CUSTOM_WIDTH_VARIABLE, CUSTOM_HEIGHT_VARIABLE) and unit and unit != "mm" \
+                and isinstance(b.get("value"), (int, float)) and unit in _MM_PER:
+            nb = dict(b)
+            nb["statedValue"], nb["statedUnit"] = b["value"], unit
+            mm = round(float(b["value"]) * _MM_PER[unit], 1)
+            nb["value"] = int(mm) if mm == int(mm) else mm
+            nb.pop("unit", None)
+            out.append(nb)
+        else:
+            out.append(b)
+    return out
+
 def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     language = args.get("language", "en")
     uri = _full_uri(args.get("product", ""))
@@ -1034,6 +1063,7 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     if product.get("elementType") != "product":
         return {"error": "not_a_product", "id": product.get("id")}
 
+    args = dict(args); args["bindings"] = _normalize_units(list(args.get("bindings", []) or []))
     results, advisories, rules = [], [], []
     all_ok = True
     bound_weight = None
@@ -1068,6 +1098,9 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                 and isinstance(values[0], (int, float)):
             dim = float(values[0])
             custom_dims[var_tail] = dim
+            if b.get("statedUnit"):
+                entry["stated"] = f"{b['statedValue']} {b['statedUnit']}"
+                entry["note"] = f"Stated as {b['statedValue']} {b['statedUnit']}; the identity carries {values[0]} mm."
             axis = "Width" if var_tail == CUSTOM_WIDTH_VARIABLE else "Height"
             csr = product.get("customSizeRange") or {}
             # SD-0067: symmetrisk {min, max}; eldre minWidth/maxWidth-form
@@ -1411,6 +1444,7 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
     validator's questions instead of a hash."""
     implied: list[dict] = []
     validation = None
+    args = dict(args); args["bindings"] = _normalize_units(list(args.get("bindings", []) or []))
     if cache is not None and args.get("product"):
         validation = validate_payload(cache, {"product": args.get("product"),
                                               "bindings": [dict(b) for b in (args.get("bindings", []) or [])],

@@ -77,3 +77,24 @@ def test_invalid_code_form_is_rejected():
     r = validate_payload(c, {"product": P, "bindings": _base(c) + [{"variable": "variables/features/color-mode", "values": ["printing/features/colors/cmyk", "printing/features/colors/spot-color"], "surface": "front"},
                                                                  {"variable": "variables/features/spot-ink", "value": SYS + "pantone-matching-system/300 C", "surface": "front"}]})
     assert not r["validInEnvelope"] and any(x.get("status") == "invalid_ink_value" for x in r["bindings"])
+
+
+def test_custom_size_in_cm_is_the_same_identity_as_mm():
+    """12 × 18 cm and 120 × 180 mm are one booklet (identity in mm; input in any unit)."""
+    c = _cache()
+    base = [{"variable": "variables/configuration/format", "value": "printing/configurations/formats/customized"},
+            {"variable": "variables/configuration/orientation", "value": "printing/configurations/orientation/portrait"},
+            {"variable": "variables/configuration/page-count", "value": 16},
+            {"variable": "variables/finishing/binding", "value": "printing/completions/binding/saddle-stitching"},
+            {"variable": "variables/features/color-mode", "value": "printing/features/colors/cmyk"}]
+    mm = base + [{"variable": "variables/configuration/custom-width", "value": 120}, {"variable": "variables/configuration/custom-height", "value": 180}]
+    cm = base + [{"variable": "variables/configuration/custom-width", "value": 12, "unit": "cm"}, {"variable": "variables/configuration/custom-height", "value": 18, "unit": "cm"}]
+    r = validate_payload(c, {"product": "ordering/products/booklets", "bindings": cm})
+    w = [b for b in r["bindings"] if b["variable"].endswith("custom-width")][0]
+    assert r["validInEnvelope"] and w["status"] == "in_range" and w["value"] == 120 and w["stated"] == "12 cm"
+    a = fingerprint_payload({"product": "ordering/products/booklets", "bindings": mm}, c)
+    b = fingerprint_payload({"product": "ordering/products/booklets", "bindings": cm}, c)
+    assert "error" not in a and a["profiles"]["spec"]["canonical"] == b["profiles"]["spec"]["canonical"]
+    inch = base + [{"variable": "variables/configuration/custom-width", "value": 5, "unit": "in"}, {"variable": "variables/configuration/custom-height", "value": 7, "unit": "in"}]
+    r2 = validate_payload(c, {"product": "ordering/products/booklets", "bindings": inch})
+    assert [x["value"] for x in r2["bindings"] if x["variable"].endswith("custom-width")] == [127]
