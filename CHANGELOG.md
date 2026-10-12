@@ -6,6 +6,11 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.7 — 2026-10-12
+
+- **Mark and QR the same size.** In the fingerprint result the mark tile and the QR tile are now both 160 px with
+  the same padding, captions aligned beneath.
+
 ## 0.36.6 — 2026-10-12
 
 - **Rule mode: «cover» is a place, not a thing.** A lone face or part word (cover, inside, outside, front, back and

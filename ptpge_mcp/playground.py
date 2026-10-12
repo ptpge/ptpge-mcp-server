@@ -134,6 +134,9 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 .rail{display:flex;gap:6px;margin:12px 0 4px;flex-wrap:wrap}.rail .rs{flex:1 1 90px;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font-size:12px;color:var(--mute);letter-spacing:.04em;text-transform:uppercase}.rail .rs i{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none}.rail .rs.live i{background:#d9a441;animation:rsblink 1s ease-in-out infinite}.rail .rs.done{color:var(--ink);border-color:var(--ink)}.rail .rs.done i{background:var(--ink)}.rail .rs.ask{color:#9a6b12;border-color:#9a6b12}.rail .rs.ask i{background:#d9a441}@keyframes rsblink{0%,100%{opacity:1}50%{opacity:.35}}.story{margin:10px 0 4px;padding:12px 14px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font-size:13px;line-height:1.6}.story h4{margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}.story ol{margin:0;padding-left:20px}.story li{margin:2px 0}.story .fin{margin-top:8px;color:var(--ink)}
 #agent-box{border:1px solid var(--line);background:var(--soft)}#agent-box select,#agent-box input{background:var(--bg);color:var(--ink);border-color:var(--line)!important}#agent-box .hint,#agent-box span{color:var(--mute)}html.dark #agent-box{background:#1e201c;border-color:rgba(255,255,255,.13)}
 .mktile svg { display: block; }
+.fpstrip .mktile { width: 160px; height: 160px; padding: 12px; box-sizing: border-box; }
+.fpstrip .mktile svg { width: 100%; height: 100%; }
+.fpstrip .cap { margin-top: 6px; min-height: 16px; }
 .hashok { color: #1f7a3d; font-weight: 600; }
 .hashbad { color: #b03434; font-weight: 600; }
 .stale { opacity: .35; }
@@ -450,14 +453,14 @@ function fmtJson(obj) {
   try {
     if (obj && obj.profiles && obj.profiles.spec && obj.profiles.spec.markSvg) {
       obj = JSON.parse(JSON.stringify(obj));
-      strip = '<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin:0 0 14px">';
+      strip = '<div class="fpstrip" style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin:0 0 14px">';
       for (const prof of ["spec", "offer"]) {
         const pr = obj.profiles[prof]; if (!pr || !pr.markSvg) continue;
         strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.markSvg +
-                 '</span><br>' + prof + ' · ' + pr.short + '</div>';
+                 '</span><div class="cap">' + prof + ' · ' + pr.short + '</div></div>';
         if (pr.qrSvg) {
           strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.qrSvg + '</span>' +
-                   '<br><a href="' + pr.resolverUrl + '" target="_blank" rel="noopener" style="color:#37d98a">resolver ↗</a></div>';
+                   '<div class="cap"><a href="' + pr.resolverUrl + '" target="_blank" rel="noopener" style="color:#37d98a">resolver ↗</a></div></div>';
         }
         pr.markSvg = "(rendered above)";
         if (pr.qrSvg) { pr.qrSvg = "(rendered above)"; }
