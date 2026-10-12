@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.3 — 2026-10-12
+
+- **Rule mode knows parts.** «300 gsm matte cover, 130 gsm inside» (and omslag/innmat, Umschlag/Innenteil, …) now
+  gives two `substrate-weight` bindings scoped `@cover` / `@inside` in «Resolve by rule»; before, the first gsm
+  was taken for the whole product and the second dropped. A gsm with no part word binds the whole product as before.
+
 ## 0.36.2 — 2026-10-12
 
 - **Fix: Playground stuck on «connecting…».** 0.36.0 put an unescaped quote in the agent prompt text, which broke

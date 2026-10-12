@@ -695,6 +695,21 @@ const SIDES2  = /(\\b(2|to|two|double|both|dobbelt|dubbel)[- ]?(sided|sidet|sidi
 // 0.27.1: "folded" in the ten languages (a named fold — tri-fold, z-fold — resolves on its own)
 const FOLDW   = /(\\bfolded\\b|\\bfold\\b|\\bfals(et|ede|ad|ade)\\b|\\bfoldet\\b|\\bgefalzt\\w*|\\bgefaltet\\w*|\\bfalz\\b|\\bgevouwen\\b|\\bvouw\\b|\\bpli[ée]e?s?\\b|\\bplegad[oa]s?\\b|\\bdoblad[oa]s?\\b|\\bskładan[yae]\\w*|\\bzłożon[yae]\\w*|折り|折页|对折)/;
 const SIDES1  = /(\\b(1|one|single|enkelt?|een)[- ]?(sided|sidet|sidig|seitig|zijdig|side)|ensidig|ensidet|enkelsidig|einseitig|enkelzijdig|jednostronn|a una cara|片面|单面)/;
+// Part words (SD-0102) in the demo languages — cover / inside of a multi-page product.
+const PART_WORDS = [
+  ["cover",  "cover|covers|omslag|omslaget|umschlag|couverture|cubierta|portada|okładka|okładce|kansi|kannet|kápa|capa|表紙|封面|封面纸"],
+  ["inside", "inside|inner|innmat|innmaten|inlaga|inlagan|indmad|binnenwerk|binnenpagina'?s|innenteil|innenseiten|int[ée]rieur|interior|środek|sisäsivut|sisus|innsíður|miolo|本文|内页|內頁"],
+];
+function gsmByPart(raw) {
+  const out = [];
+  PART_WORDS.forEach(pw => {
+    const after  = new RegExp("(\\\\d+)\\\\s*(?:" + U_GSM + ")(?![\\\\p{L}])(?:\\\\s+[\\\\p{L}-]+){0,3}?\\\\s+(?:" + pw[1] + ")(?![\\\\p{L}])", "iu").exec(raw);
+    const before = new RegExp("(?<![\\\\p{L}])(?:" + pw[1] + ")(?![\\\\p{L}])(?:\\\\s*[:,]?\\\\s*[\\\\p{L}-]+){0,3}?\\\\s*[:]?\\\\s*(\\\\d+)\\\\s*(?:" + U_GSM + ")(?![\\\\p{L}])", "iu").exec(raw);
+    const m = after || before;
+    if (m) out.push({ part: pw[0], gsm: parseInt(m[1], 10) });
+  });
+  return out;
+}
 function numWithUnit(raw, units) {
   const m = new RegExp("(\\\\d+)\\\\s*(?:" + units + ")(?![\\\\p{L}])", "iu").exec(raw);
   return m ? parseInt(m[1], 10) : null;
@@ -780,6 +795,11 @@ async function assembleFingerprint() {
   const claimed = new Set();
   const pc = numWithUnit(raw, U_PAGES);
   if (pc != null && !hasVar("variables/configuration/page-count")) { bindings.push({ variable: "variables/configuration/page-count", value: pc }); claimed.add(pc); steps.push(pc + " → page-count"); }
+  // SD-0102: "300 gsm cover, 130 gsm inside" — a gsm with a part word within three words binds per part.
+  const partGsm = gsmByPart(raw);
+  if (partGsm.length && !hasVar("variables/substrate/substrate-weight")) {
+    partGsm.forEach(pg => { bindings.push({ variable: "variables/substrate/substrate-weight", value: pg.gsm, surface: pg.part }); claimed.add(pg.gsm); steps.push(pg.gsm + " gsm → substrate-weight@" + pg.part + " (part)"); });
+  }
   const gsm = numWithUnit(raw, U_GSM);
   if (gsm != null && !hasVar("variables/substrate/substrate-weight")) { bindings.push({ variable: "variables/substrate/substrate-weight", value: gsm }); claimed.add(gsm); steps.push(gsm + " → substrate-weight (gsm)"); }
   let qty = numWithUnit(raw, U_QTY);
