@@ -6,6 +6,13 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.5 — 2026-10-12
+
+- **Rule mode: a face word scopes only face axes.** «saddle stitched, 300 gsm matte cover» gave the binding and the
+  setup model a surface («outside») because «cover» stood near them — and the validator rightly refused. Now only
+  colour, surface finish and embellishment take a face word; on a multi-page product «cover» places the finish on
+  the front and back cover and «inside» on the inside pages (never outside/inside, which are folded-sheet faces).
+
 ## 0.36.4 — 2026-10-12
 
 - **4/4 on a booklet means every page.** `ptpge_resolve_color_notation` on a setup with more than two faces

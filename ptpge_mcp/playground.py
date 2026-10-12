@@ -730,6 +730,18 @@ async function assembleFingerprint() {
   };
   let product = null; const bindings = []; const skipped = []; const steps = [];
   let foldedGroup = false;   // 0.27.1: "folded" resolved to the Folded Sheet group, no fold named
+  // SD-0102 (0.36.5): a face word scopes only the per-surface axes; on a multi-page product
+  // "cover" is the cover's outer faces and "inside" the inside pages — never outside/inside.
+  const PER_SURFACE = new Set(["variables/features/color-mode", "variables/features/surface-finish", "variables/features/embellishment"]);
+  const MULTI_PRODUCTS = /[/](booklets|magazines|catalogues|books|notebooks|photo-books)$/;
+  const firstProduct = (LAST_RESOLVE.resolved.find(r => rel(r.uri).indexOf("ordering/products/") === 0) || {}).uri || "";
+  const multiPage = LAST_RESOLVE.resolved.some(r => rel(r.uri) === "printing/configurations/setup-models/multi-page") || MULTI_PRODUCTS.test(rel(firstProduct));
+  const placeFace = (b, s) => {
+    if (!multiPage) { b.surface = s; bindings.push(b); return; }
+    if (s === "inside") { b.surface = "inside-pages"; bindings.push(b); return; }
+    bindings.push(Object.assign({}, b, { surface: "front-cover" }));
+    bindings.push(Object.assign({}, b, { surface: "back-cover" }));
+  };
   for (const r of LAST_RESOLVE.resolved) {
     const u = rel(r.uri);
     if (u.indexOf("ordering/products/") === 0) { if (!product) product = u; continue; }
@@ -757,8 +769,8 @@ async function assembleFingerprint() {
     if (mapped) {
       if (mapped === "variables/substrate/substrate-weight" && numWithUnit(raw, U_GSM) != null) { skipped.push(r.resolved + " — the stated gsm wins over the band word"); continue; }
       const b = { variable: mapped, value: u };
-      const s = surfaceFor(r); if (s) b.surface = s;
-      bindings.push(b);
+      const s = PER_SURFACE.has(mapped) ? surfaceFor(r) : "";
+      if (s) placeFace(b, s); else bindings.push(b);
     } else skipped.push(r.resolved + " (" + u + ")");
   }
   // Merge same axis+surface into a values list (matte + spot-UV); never send a duplicate.
