@@ -1696,7 +1696,8 @@ function setLang(l) {
   document.documentElement.lang = l;
   if (typeof convTglLabel === "function") convTglLabel();
   if (typeof renderProdBtns === "function") renderProdBtns();
-  try { localStorage.setItem("ptpge-playground-lang", l); } catch (e) {}
+  try { localStorage.setItem("ptpge-playground-lang", l); localStorage.setItem("ptpge-lang", l); } catch (e) {}
+  try { document.cookie = "ptpge-lang=" + l + ";domain=.ptpge.org;path=/;max-age=31536000;SameSite=Lax"; } catch (e) {}
   document.getElementById("langcode").textContent = l.toUpperCase();
   const _lf = LANG_NAMES.find(p => p[0] === l); if (_lf) document.getElementById("langflag").textContent = _lf[2];
   document.querySelectorAll("#langlist a").forEach(a =>
@@ -1717,7 +1718,8 @@ document.addEventListener("click", () => {
   document.querySelectorAll("#langlist a").forEach(a =>
     a.addEventListener("click", () => setLang(a.getAttribute("data-l"))));
   let l = new URLSearchParams(location.search).get("lang");
-  if (!l) { try { l = localStorage.getItem("ptpge-playground-lang"); } catch (e) {} }
+  if (!l) { try { l = localStorage.getItem("ptpge-playground-lang") || localStorage.getItem("ptpge-lang"); } catch (e) {} }
+  if (!l) { try { l = (document.cookie.match("(?:^|; )ptpge-lang=([^;]*)") || [])[1]; } catch (e) {} }
   if (l && (l === "en" || UI[l])) setLang(l); else setLang("en");
 })();
 

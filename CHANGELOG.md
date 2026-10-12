@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.33.4 — 2026-10-12
+
+- Theme and language follow you from ptpge.org: both are now also kept in a cookie for `*.ptpge.org`, so dark mode
+  and the chosen language set on the site apply on mcp.ptpge.org (Playground, /check) and the register — localStorage
+  alone is per host. The Playground reads the shared `ptpge-lang` as well as its own key.
+
 ## 0.33.3 — 2026-10-11
 
 - Playground: the twelve language buttons in the convergence demo carry their flag, like the site's language picker.
