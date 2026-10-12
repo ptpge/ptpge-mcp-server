@@ -6,6 +6,11 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.2 — 2026-10-12
+
+- **Fix: Playground stuck on «connecting…».** 0.36.0 put an unescaped quote in the agent prompt text, which broke
+  the page's script. A test now parses every Playground script with node.
+
 ## 0.36.1 — 2026-10-12
 
 - **Parts in the declaration.** `ptpge_check_domain` accepts `offerings[].supports` keys with a part scope

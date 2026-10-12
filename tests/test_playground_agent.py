@@ -43,3 +43,21 @@ def test_0280_rules_never_assume_the_fold_and_regex_is_literal():
     i = H.index("const FOLDW"); line = H[i:H.index("\n", i)]
     assert "\\bfolded\\b" in line and "\b" not in line   # literal \b, no backspace char
     assert "gefalzt" in line and "gevouwen" in line and "fals(et|ede|ad|ade)" in line
+
+
+def test_playground_scripts_parse(tmp_path):
+    """Every <script> in the playground HTML must be valid JS (0.36.0 shipped an unescaped quote that killed the page)."""
+    import re, shutil, subprocess
+    from ptpge_mcp import playground as P
+    node = shutil.which("node")
+    if not node:
+        import pytest; pytest.skip("node not installed")
+    n = 0
+    for k, v in vars(P).items():
+        if isinstance(v, str) and "<script" in v:
+            for j, s in enumerate(re.findall(r"<script[^>]*>(.*?)</script>", v, re.S)):
+                f = tmp_path / f"{k}_{j}.js"; f.write_text(s)
+                r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
+                assert r.returncode == 0, f"{k} script {j}: {r.stderr[:400]}"
+                n += 1
+    assert n
