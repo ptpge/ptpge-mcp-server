@@ -6,6 +6,14 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.34.1 — 2026-10-12
+
+- **Answer the agent.** When a run ends without a fingerprint — the specification asked which fold, which format, how
+  many pages — a reply box appears: type the answer, the same conversation continues (same run, so it counts as rounds,
+  not a new sponsored run), the rail and the story carry on. The buyer's answer is a line in «What the agent did».
+- Model turns get `max_tokens` 4000 (was 1500 — a long tool_use turn could end empty); when a run still ends without text
+  the stop reason is shown instead of «the question is in the last line».
+
 ## 0.34.0 — 2026-10-12
 
 - **Sponsored Playground runs are PTPGE's own.** The model proxy moved from an implementer's service to this server:

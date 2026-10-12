@@ -347,6 +347,10 @@ __FRAME_HEADER__
       <div class="rs" data-step="identity"><i></i><span>Identity</span></div>
     </div>
     <div id="ag-story" class="story" style="display:none"></div>
+    <div id="ag-replybox" class="row" style="display:none;margin-top:8px;gap:8px;align-items:center">
+      <input id="ag-reply" type="text" placeholder="Answer the agent — e.g. «saddle stitching, 16 pages»" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:13px;background:var(--bg);color:var(--ink)" onkeydown="if(event.key==='Enter')agentReply()">
+      <button class="secondary" onclick="agentReply()">Answer &rarr; continue</button>
+    </div>
     <div class="res" id="res-agent"></div>
   </div>
 </details>
@@ -893,7 +897,7 @@ async function agCallAnthropic(mode, key, model, system, messages, tools, runId)
   const headers = { "Content-Type": "application/json" };
   if (sponsored) headers["X-Agent-Run"] = runId;
   else { headers["x-api-key"] = key; headers["anthropic-version"] = "2023-06-01"; headers["anthropic-dangerous-direct-browser-access"] = "true"; }
-  const body = { max_tokens: 1500, system: system, messages: messages, tools: agToolsAnthropic(tools) };
+  const body = { max_tokens: 4000, system: system, messages: messages, tools: agToolsAnthropic(tools) };
   if (!sponsored) body.model = model;
   const r = await fetch(url, { method: "POST", headers: headers, body: JSON.stringify(body) });
   const j = await r.json();
@@ -917,7 +921,7 @@ async function agCallOpenAI(key, model, system, messages, tools) {
   }
   const r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-    body: JSON.stringify({ model: model, messages: msgs, tools: agToolsOpenAI(tools), max_completion_tokens: 1500 }) });
+    body: JSON.stringify({ model: model, messages: msgs, tools: agToolsOpenAI(tools), max_completion_tokens: 4000 }) });
   const j = await r.json();
   if (!r.ok) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
   const c = j.choices[0].message; const content = [];
@@ -981,25 +985,44 @@ function storyRender(lines, fin) {
   s.style.display = "";
   s.innerHTML = "<h4>What the agent did</h4><ol>" + lines.map(l => "<li>" + escH(l) + "</li>").join("") + "</ol>" + (fin ? '<div class="fin">' + escH(fin) + '</div>' : '');
 }
+// The conversation of the last run — kept so the buyer can answer the agent's question and let it continue (0.34.0).
+let AG_CONV = null;
+function agentReply() {
+  const r = (agEl("ag-reply").value || "").trim();
+  if (!r || !AG_CONV) return;
+  agEl("ag-reply").value = "";
+  agentRun({ resume: r });
+}
 async function agentRun(opts) {
   opts = opts || {};
   const mode = agEl("ag-mode").value, key = (agEl("ag-key").value || "").trim(), model = (agEl("ag-model").value || "").trim();
   const prompt = (opts.prompt || agEl("prompt").value || "").trim(); const lang = opts.lang || agEl("q-lang").value;
-  if (!prompt) return null;
+  const resume = !!(opts.resume && AG_CONV);
+  if (!prompt && !resume) return null;
   if (mode !== "sponsored" && !key) { agEl("ag-status").textContent = "enter your API key first"; return; }
   if (mode !== "sponsored") { try { localStorage.setItem("ptpge-agent-key-" + mode, key); localStorage.setItem("ptpge-agent-model-" + mode, model); } catch (e) {} }
-  const runId = "run-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  const runId = resume ? AG_CONV.runId : "run-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   const buttons = document.querySelectorAll("button"); buttons.forEach(b => b.disabled = true);
-  showBusy("agent", "agent · tools/list …");
-  let rounds = 0, calls = 0, fp = null, finalText = "", stopped = "", lastTool = null;
-  const story = []; railReset();
+  agEl("ag-replybox").style.display = "none";
+  showBusy("agent", resume ? "agent · continuing …" : "agent · tools/list …");
+  let rounds = 0, calls = 0, fp = null, finalText = "", stopped = "", lastTool = null, lastStop = "";
+  const story = resume ? AG_CONV.story : []; if (!resume) railReset();
   try {
-    const tl = await rpc("tools/list");
-    const tools = (tl.json.result && tl.json.result.tools) || [];
-    if (!tools.length) throw new Error("tools/list returned no tools");
-    trAdd("tools/list · " + tools.length + " tools handed to the model (" + mode + ")", fmtJson(tools.map(t => t.name)));
-    const system = AGENT_SYSTEM.replace("LANGCODE", lang);
-    const messages = [{ role: "user", content: prompt }];
+    let tools, system, messages;
+    if (resume) {
+      tools = AG_CONV.tools; system = AG_CONV.system; messages = AG_CONV.messages;
+      messages.push({ role: "user", content: opts.resume });
+      trAdd("buyer answers → " + opts.resume, "");
+      story.push("The buyer answered: «" + opts.resume + "»");
+    } else {
+      const tl = await rpc("tools/list");
+      tools = (tl.json.result && tl.json.result.tools) || [];
+      if (!tools.length) throw new Error("tools/list returned no tools");
+      trAdd("tools/list · " + tools.length + " tools handed to the model (" + mode + ")", fmtJson(tools.map(t => t.name)));
+      system = AGENT_SYSTEM.replace("LANGCODE", lang);
+      messages = [{ role: "user", content: prompt }];
+    }
+    AG_CONV = { runId: runId, tools: tools, system: system, messages: messages, story: story };
     for (; rounds < AGENT_ROUNDS; rounds++) {
       showBusy("agent", "agent · model call " + (rounds + 1) + " …");
       const resp = mode === "openai" ? await agCallOpenAI(key, model, system, messages, tools)
@@ -1013,7 +1036,7 @@ async function agentRun(opts) {
             (resp._sponsored ? " · sponsored " + resp._sponsored.model : ""),
             fmtJson({ text: texts || undefined, tool_use: uses.length ? uses.map(x => ({ name: x.name, input: x.input })) : undefined }));
       messages.push({ role: "assistant", content: blocks });
-      if (resp.stop_reason !== "tool_use" || !uses.length) { finalText = texts; break; }
+      if (resp.stop_reason !== "tool_use" || !uses.length) { finalText = texts; lastStop = resp.stop_reason || ""; break; }
       const results = [];
       for (const use of uses) {
         showBusy("agent", "agent · tools/call " + use.name + " …");
@@ -1040,9 +1063,11 @@ async function agentRun(opts) {
     if (rounds >= AGENT_ROUNDS) stopped = "stopped at the round limit (" + AGENT_ROUNDS + ")";
     const meta = "agent (" + mode + (mode !== "sponsored" && model ? " · " + model : "") + ") · " + Math.min(rounds + 1, AGENT_ROUNDS) +
                  " model call(s) · " + calls + " tool call(s) · " + (fp ? "fingerprint " + fp.profiles.spec.short : "no fingerprint");
-    storyRender(story, finalText || (fp ? "" : "The agent stopped before fingerprinting — the specification's question is in the last line."));
-    if (fp) { railSet("identity", "done"); showInline("agent", meta, Object.assign({ agent_answer: finalText || undefined }, fp)); }
+    storyRender(story, finalText || (fp ? "" : (lastStop === "max_tokens" ? "The model ran out of room mid-turn (max_tokens) — answer below to let it continue, or run again."
+                                                 : "The agent stopped without a final answer — see the transcript; you can answer below to let it continue.")));
+    if (fp) { railSet("identity", "done"); AG_CONV = null; showInline("agent", meta, Object.assign({ agent_answer: finalText || undefined }, fp)); }
     else {
+      agEl("ag-replybox").style.display = "";
       // No fingerprint. If the model ended without text, the reason is in the last tool
       // result: surface the specification's questions and refusals instead of «(no answer)».
       const why = {};
@@ -1059,6 +1084,7 @@ async function agentRun(opts) {
         if (viol.length) why.rule_violations = viol.map(r => r.note || r.rule);
         if (pl.error) why.error = pl.error;
       }
+      if (lastStop) why.stop_reason = lastStop;
       showInline("agent", meta, Object.assign({ agent_answer: finalText || "(the model ended without text)",
         note: stopped || (Object.keys(why).length > 1 ? "the agent stopped before fingerprinting — the specification's last answer is below"
                                                      : "the agent stopped before fingerprinting — its reason is in the answer and the transcript") }, why));

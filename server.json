@@ -8,7 +8,7 @@
     "url": "https://github.com/ptpge/ptpge-mcp-server",
     "source": "github"
   },
-  "version": "0.34.0",
+  "version": "0.34.1",
   "remotes": [
     {
       "type": "streamable-http",
