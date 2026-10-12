@@ -202,13 +202,52 @@ def _iter_term_uris(node, path="$"):
     if isinstance(node, dict):
         for k, v in node.items():
             if isinstance(k, str) and k.startswith(TERM_PREFIX):
-                yield (f"{path}.{k}", k)
+                yield (f"{path}.{k}", k.partition("@")[0])   # supports keys may carry @part (SD-0102)
             yield from _iter_term_uris(v, f"{path}.{k}")
     elif isinstance(node, list):
         for i, v in enumerate(node):
             yield from _iter_term_uris(v, f"{path}[{i}]")
     elif isinstance(node, str) and node.startswith(TERM_PREFIX):
         yield (path, node)
+
+
+def _split_scope(key: str) -> tuple[str, str]:
+    """`<variable>@<part>` → (variable, part); no scope → (key, ""). SD-0102."""
+    var, _, part = key.partition("@")
+    return var, part
+
+
+def _setup_part_ids(cache, product_term: dict | None) -> set[str] | None:
+    """Part ids declared by the setup models the product supports; None when unknown (no cache / no term)."""
+    if cache is None or not product_term:
+        return None
+    ids: set[str] = set()
+    for su in product_term.get("supportsSetupModel") or []:
+        t = cache.get_term(str(su)) or {}
+        for p in t.get("parts") or []:
+            if isinstance(p, dict) and p.get("id"):
+                ids.add(str(p["id"]))
+    return ids
+
+
+def check_supports_key(key: str, cache, product_term: dict | None, where: str, errors: list[str]) -> None:
+    """One key of offerings[].supports: a variable, optionally `@<part>` on a substrate variable, the part declared by
+    one of the product's setup models (SD-0102)."""
+    var, part = _split_scope(key)
+    vt = cache.get_term(var) if cache is not None else None
+    short = var.removeprefix(TERM_PREFIX)
+    if vt is not None and vt.get("level") != "element":
+        errors.append(f"{where}: {short} is not a variable")
+        return
+    if not part:
+        return
+    if not short.startswith("variables/substrate/"):
+        errors.append(f"{where}: {short}@{part} — only the substrate variables take a part scope")
+        return
+    ids = _setup_part_ids(cache, product_term)
+    if ids is not None and part not in ids:
+        errors.append(f"{where}: {short}@{part} — '{part}' is not a part of any setup model the product supports"
+                      + (f" (parts: {', '.join(sorted(ids))})" if ids else " (the product's setup models declare no parts)"))
 
 
 def _vocab_check(doc: dict, cache, step: Step, skip: set[str]) -> int:
@@ -355,9 +394,7 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
                     if isinstance(off.get("line"), int) and off["line"] >= len(lines):
                         s2.errors.append(f"offerings[{i}].line = {off['line']} but capability.lines has {len(lines)} entries")
                     for var in (off.get("supports") or {}):
-                        vt = cache.get_term(var) if cache is not None else None
-                        if vt is not None and vt.get("level") != "element":
-                            s2.errors.append(f"offerings[{i}].supports: {var.removeprefix(TERM_PREFIX)} is not a variable")
+                        check_supports_key(var, cache, pt, f"offerings[{i}].supports", s2.errors)
                 n = _vocab_check(decl, cache, s2, skip={declared_identity} if declared_identity else set())
                 s2.detail = f"Valid vendor-declaration/1 · {n} term URIs checked." if not s2.errors else f"vendor-declaration/1: {len(s2.errors)} error(s)."
                 if cache is None:

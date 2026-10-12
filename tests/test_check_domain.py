@@ -215,3 +215,47 @@ def test_hosted_document_override(_patch_client):
     assert s["url"] == hosted and s["status"] == "warn", s
     assert any("hosted" in w for w in s["warnings"])
     assert r["agentSees"]["identity"] == decl["identity"]
+
+
+def _with_booklet(decl, cover_key="cover", fmt_scoped=False):
+    """Trykkverk + a booklet offering with per-part weights (SD-0102)."""
+    import copy
+    V = C.TERM_PREFIX + "variables/"; W = C.TERM_PREFIX + "printing/substrates/sheet-materials/paper/paper-weights/"
+    d = copy.deepcopy(decl)
+    sup = {V + "configuration/format" + ("@cover" if fmt_scoped else ""): [C.TERM_PREFIX + "printing/configurations/formats/a-series/a5"],
+           V + "substrate/substrate-weight@" + cover_key: [W + "medium-paper"],
+           V + "substrate/substrate-weight@inside": [W + "light-medium-paper"]}
+    d["offerings"].append({"product": C.TERM_PREFIX + "ordering/products/booklets", "name": "Booklet A5", "line": 0, "supports": sup, "pages": [8, 16]})
+    return d
+
+
+def _booklet_vocab(decl, man):
+    vocab = _vocab_from_fixture(decl, man)
+    su = C.TERM_PREFIX + "printing/configurations/setup-models/multi-page"
+    vocab._t[C.TERM_PREFIX + "ordering/products/booklets"]["supportsSetupModel"] = [su]
+    vocab._t[su] = {"id": su, "status": "active", "parts": [{"id": "cover", "surfaces": []}, {"id": "inside", "surfaces": []}]}
+    return vocab
+
+
+def _routes(decl, man):
+    host = decl["domain"]
+    return {f"https://{host}/.well-known/ucp": man, f"https://{host}/.well-known/ptpge/declaration.json": decl,
+            decl["identity"].replace("https://ptpge.org/", "https://api.ptpge.org/") + ".jsonld": {"id": decl["identity"], "domain": host, "name": decl["name"]}}
+
+
+def test_parts_in_supports_are_accepted(_patch_client):
+    decl, man = _trykkverk()
+    decl = _with_booklet(decl)
+    _patch_client["routes"] = _routes(decl, man)
+    r = C.check_domain(decl["domain"], _booklet_vocab(decl, man))
+    assert r["steps"][1]["status"] == "ok", r["steps"][1]
+
+
+def test_unknown_part_and_non_substrate_scope_are_errors(_patch_client):
+    decl, man = _trykkverk()
+    decl = _with_booklet(decl, cover_key="spine", fmt_scoped=True)
+    _patch_client["routes"] = _routes(decl, man)
+    r = C.check_domain(decl["domain"], _booklet_vocab(decl, man))
+    errs = " ".join(r["steps"][1]["errors"])
+    assert "'spine' is not a part" in errs and "parts: cover, inside" in errs
+    assert "only the substrate variables take a part scope" in errs

@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.1 — 2026-10-12
+
+- **Parts in the declaration.** `ptpge_check_domain` accepts `offerings[].supports` keys with a part scope
+  (`substrate-weight@cover`, `@inside`) per vendor-declaration/1 as updated today: the variable must be a substrate
+  variable and the part one that a setup model of the product declares; otherwise an error names the parts that exist.
+
 ## 0.36.0 — 2026-10-12
 
 - **Parts (SD-0102).** A booklet can carry one paper on the cover and another inside. `multi-page` declares parts
