@@ -6,6 +6,14 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.35.0 — 2026-10-12
+
+- **The right template, not a dead end.** When a bound value is not in the chosen template's envelope but another
+  template takes every bound value, `ptpge_validate_config` now returns `alsoOfferedBy` (ranked, with
+  `acceptsBindings`) and a `switchHint`: a poster on aluminium composite is a panel print. The Playground's rule mode
+  switches once and validates again; the agent prompt tells the model to switch rather than drop what the buyer asked
+  for; «What the agent did» says «Posters does not take aluminium composite — but Panel Prints does». Data only, no model.
+
 ## 0.34.1 — 2026-10-12
 
 - **Answer the agent.** When a run ends without a fingerprint — the specification asked which fold, which format, how

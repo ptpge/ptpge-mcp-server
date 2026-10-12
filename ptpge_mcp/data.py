@@ -136,6 +136,11 @@ class VocabularyCache:
     # Lookup helpers used by MCP tool implementations
     # ------------------------------------------------------------------
 
+    def all_terms(self) -> dict[str, dict[str, Any]]:
+        """{uri: term} for every indexed term (a snapshot of the index)."""
+        with self._lock:
+            return dict(self._term_index)
+
     def get_term(self, id_or_path: str) -> dict[str, Any] | None:
         """Look up a term by full URI or by relative path under /v1/.
 

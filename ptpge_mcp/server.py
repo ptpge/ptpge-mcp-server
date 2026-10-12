@@ -431,7 +431,10 @@ TOOL_DESCRIPTORS: list[Tool] = [
         annotations=ToolAnnotations(title="Validate a configuration", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
             "Envelope validation of a product configuration against the specification: checks "
-            "every binding against the product's supports* envelopes, maps "
+            "every binding against the product's supports* envelopes. When a value is not in this "
+            "template's envelope but another template takes every bound value, the result carries "
+            "alsoOfferedBy (ranked) and switchHint — switch product and validate again rather than "
+            "dropping what the buyer asked for (a poster on aluminium composite is a panel print). Maps "
             "numeric substrate-weight (gsm) to its weight band via the bands' "
             "minWeight/maxWeight properties, and returns data-driven "
             "advisories (e.g. creasing recommended above the scoring "
@@ -950,6 +953,56 @@ def color_notation_payload(cache: "VocabularyCache", args: dict) -> object:
     return payload
 
 
+def _template_accepts(cache: "VocabularyCache", product: dict, var_tail: str, values: list) -> bool | None:
+    """Does this product template's envelope accept these values for this variable?
+    True / False, or None when the variable is not envelope-mapped (numeric, commercial) — then it does not count."""
+    if var_tail == WEIGHT_VARIABLE and values and isinstance(values[0], (int, float)):
+        env = product.get(WEIGHT_ENVELOPE)
+        if env is None:
+            return False
+        band = _band_for_weight(cache, values[0])
+        return bool(band) and band["id"] in env
+    mapping = VARIABLE_ENVELOPE.get(var_tail)
+    if mapping is None or not values or not isinstance(values[0], str):
+        return None
+    env = product.get(mapping[0])
+    if env is None:
+        return False
+    env = list(env)
+    if var_tail == "variables/features/surface-finish":
+        env += list(product.get("perSurfaceSupportsEmbellishment") or [])
+    if var_tail in NULL_VALUES:
+        env.append(NULL_VALUES[var_tail])
+    return all(_full_uri(v) in env for v in values)
+
+
+def also_offered_by(cache: "VocabularyCache", current_uri: str, bindings: list, language: str, limit: int = 5) -> list:
+    """Product templates whose envelopes accept EVERY bound value the current template rejects — and all the
+    others too. Ranked by how many bindings they accept; the current template is excluded. Deterministic: data only.
+    This is how «a poster on aluminium composite» finds Panel prints (12.10.2026)."""
+    checks = []  # (var_tail, values)
+    for b in bindings or []:
+        var_tail = _full_uri(b.get("variable", ""))[len(_BASE):]
+        values = b.get("values") if "values" in b else [b.get("value")]
+        checks.append((var_tail, values))
+    out = []
+    all_terms = getattr(cache, "all_terms", None)
+    if all_terms is None:
+        return []
+    for uri, t in all_terms().items():
+        if t.get("elementType") != "product" or t.get("status") == "deprecated" or uri == current_uri:
+            continue
+        accepted = rejected = 0
+        for var_tail, values in checks:
+            r = _template_accepts(cache, t, var_tail, values)
+            if r is True: accepted += 1
+            elif r is False: rejected += 1
+        if rejected == 0 and accepted > 0:
+            out.append((accepted, _ref(cache, uri, language)))
+    out.sort(key=lambda x: (-x[0], x[1].get("id", "")))
+    return [dict(r, acceptsBindings=n) for n, r in out[:limit]]
+
+
 def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     language = args.get("language", "en")
     uri = _full_uri(args.get("product", ""))
@@ -1245,6 +1298,13 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
     }
     if rules:
         resp["rules"] = rules
+    if not all_ok:
+        # Another template may take exactly what this one rejects — say so, so an agent switches instead of giving up.
+        alt = also_offered_by(cache, uri, args.get("bindings", []) or [], language)
+        if alt:
+            resp["alsoOfferedBy"] = alt
+            resp["switchHint"] = ("Every bound value is in the envelope of " + alt[0].get("label", alt[0].get("id", "")) +
+                                  " — validate again with that product instead of dropping the value.")
     if comp["setup"]:
         resp["setup"] = comp["setup"]
     if comp["needs_disambiguation"]:
