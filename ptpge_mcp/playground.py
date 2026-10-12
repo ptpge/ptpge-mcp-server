@@ -1721,8 +1721,8 @@ document.addEventListener("click", () => {
   document.querySelectorAll("#langlist a").forEach(a =>
     a.addEventListener("click", () => setLang(a.getAttribute("data-l"))));
   let l = new URLSearchParams(location.search).get("lang");
-  if (!l) { try { l = localStorage.getItem("ptpge-playground-lang") || localStorage.getItem("ptpge-lang"); } catch (e) {} }
   if (!l) { try { l = (document.cookie.match("(?:^|; )ptpge-lang=([^;]*)") || [])[1]; } catch (e) {} }
+  if (!l) { try { l = localStorage.getItem("ptpge-playground-lang") || localStorage.getItem("ptpge-lang"); } catch (e) {} }
   if (l && (l === "en" || UI[l])) setLang(l); else setLang("en");
 })();
 
