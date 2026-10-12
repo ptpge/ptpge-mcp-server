@@ -574,10 +574,15 @@ async function doResolve() {
   const numbers = rawWords.filter(w => /^[0-9]/.test(w));
   const words = rawWords.filter(w => !STOP.has(w) && !/^[0-9]/.test(w));
   if (!words.length) { showInline("own", "resolve", { note: "No searchable words found." }); return; }
+  // A face or part word (cover, inside, outside, front, back — and their translations) says WHERE,
+  // not WHAT: it is never looked up on its own («cover» would find case binding). 0.36.6.
+  const FACE_RE = new RegExp("^(?:outside|outer|exterior|front|back|cover|utside|udvendig|außen|aussen|buitenkant|forside|bakside|framsida|baksida|vorderseite|rückseite|voorkant|achterkant|" + PART_WORDS.map(pw => pw[1]).join("|") + ")$", "iu");
   const cands = [];
   for (let i = 0; i < words.length; i++)
-    for (let n = 1; n <= 3 && i + n <= words.length; n++)
+    for (let n = 1; n <= 3 && i + n <= words.length; n++) {
+      if (n === 1 && FACE_RE.test(words[i])) continue;
       cands.push({ i, n, phrase: words.slice(i, i + n).join(" ") });
+    }
   const buttons = document.querySelectorAll("button");
   buttons.forEach(b => b.disabled = true);
   showBusy("own", 'resolving "' + raw + '" — ' + cands.length + " candidate phrases via ptpge_search_terms…");
@@ -859,7 +864,7 @@ async function assembleFingerprint() {
   try {
     let { json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } });
     let vr = JSON.parse(json.result.content[0].text);
-    let bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
+    let bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked" && b.status !== "envelope_implied");
     void derivedSurface;
     trAdd("ptpge_validate_config · " + (vr.validInEnvelope ? "valid in envelope" : "NOT valid") + (bad.length ? " · " + bad.map(b => b.variable + ": " + b.status).join(", ") : "") + ((vr.advisories || []).length ? " · advisories: " + vr.advisories.length : ""), fmtJson(vr));
     if (vr.needs_disambiguation && vr.needs_disambiguation.length) {
@@ -876,7 +881,7 @@ async function assembleFingerprint() {
       steps.push("switched to " + (alt.label || product.split("/").pop()) + " — the first template did not take " + bad.map(b => (b.value || "").toString().split("/").pop()).join(", "));
       ({ json } = await rpc("tools/call", { name: "ptpge_validate_config", arguments: { product: product, bindings: bindings, language: lang } }));
       vr = JSON.parse(json.result.content[0].text);
-      bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked");
+      bad = (vr.bindings || []).filter(b => b.status && b.status !== "in_envelope" && b.status !== "not_checked" && b.status !== "envelope_implied");
       trAdd("ptpge_validate_config · " + product.split("/").pop() + " · " + (vr.validInEnvelope ? "valid in envelope" : "NOT valid"), fmtJson(vr));
       if (vr.needs_disambiguation && vr.needs_disambiguation.length) {
         showInline("own", "switched to " + product.split("/").pop() + " — the specification asks (SD-0083): answer in the prompt and run again", vr); return;

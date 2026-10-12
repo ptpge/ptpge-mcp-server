@@ -6,6 +6,13 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.6 — 2026-10-12
+
+- **Rule mode: «cover» is a place, not a thing.** A lone face or part word (cover, inside, outside, front, back and
+  their translations) is no longer looked up on its own — «cover» found case binding and the booklet failed on a
+  binding nobody asked for. Also: the envelope-implied setup model was listed among the «not in envelope» values in
+  the message; it is not.
+
 ## 0.36.5 — 2026-10-12
 
 - **Rule mode: a face word scopes only face axes.** «saddle stitched, 300 gsm matte cover» gave the binding and the
