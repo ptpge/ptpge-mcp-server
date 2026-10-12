@@ -152,6 +152,7 @@ from .config import Config
 from . import fingermark as _fm
 from . import colornotation
 from . import learning
+from . import agent as _agent
 from .data import VocabularyCache
 from .fingerprint import canonical_string as _cfs_canonical, fingerprint as _cfs_fingerprint, short as _cfs_short
 from .cfs_resolution import resolve as _cfs_resolve, entailed_substrate_type as _cfs_entailed_type
@@ -2258,6 +2259,7 @@ def build_app() -> Starlette:
                     "mcp": "/mcp",
                     "playground": "/playground",
                     "check": "/check",
+                    "agent": "/agent/status",
                     "check_json": "/check.json?domain=<domain>",
                     "sse": "/sse" if config.sse_enabled else None,
                     "messages": "/mcp/messages/" if config.sse_enabled else None,
@@ -2410,6 +2412,8 @@ def build_app() -> Starlette:
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
+            Route("/agent/status", endpoint=_agent.agent_status, methods=["GET", "OPTIONS"]),
+            Route("/agent/messages", endpoint=_agent.agent_messages, methods=["POST", "OPTIONS"]),
             Route("/check", endpoint=check_page, methods=["GET"]),
             Route("/check.json", endpoint=check_json, methods=["GET"]),
             Route("/favicon.ico", endpoint=_asset("favicon.ico", "image/x-icon"), methods=["GET"]),

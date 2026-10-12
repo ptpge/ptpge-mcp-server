@@ -131,6 +131,7 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 #conv-hist .same { color: #1f7a3d; font-weight: 700; }
 .stage .vis svg { width: 100%; height: auto; display: block; }
 .mktile { display: inline-block; background: #fff; border-radius: 6px; padding: 8px; line-height: 0; }
+.rail{display:flex;gap:6px;margin:12px 0 4px;flex-wrap:wrap}.rail .rs{flex:1 1 90px;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font-size:12px;color:var(--mute);letter-spacing:.04em;text-transform:uppercase}.rail .rs i{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none}.rail .rs.live i{background:#d9a441;animation:rsblink 1s ease-in-out infinite}.rail .rs.done{color:var(--ink);border-color:var(--ink)}.rail .rs.done i{background:var(--ink)}.rail .rs.ask{color:#9a6b12;border-color:#9a6b12}.rail .rs.ask i{background:#d9a441}@keyframes rsblink{0%,100%{opacity:1}50%{opacity:.35}}.story{margin:10px 0 4px;padding:12px 14px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font-size:13px;line-height:1.6}.story h4{margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}.story ol{margin:0;padding-left:20px}.story li{margin:2px 0}.story .fin{margin-top:8px;color:var(--ink)}
 #agent-box{border:1px solid var(--line);background:var(--soft)}#agent-box select,#agent-box input{background:var(--bg);color:var(--ink);border-color:var(--line)!important}#agent-box .hint,#agent-box span{color:var(--mute)}html.dark #agent-box{background:#1e201c;border-color:rgba(255,255,255,.13)}
 .mktile svg { display: block; }
 .hashok { color: #1f7a3d; font-weight: 600; }
@@ -328,7 +329,7 @@ __FRAME_HEADER__
     <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;margin:0">
       <b data-i="ag_t" style="margin-right:4px">Agent mode — a real model runs the loop</b>
       <select id="ag-mode" onchange="agModeChange()" style="padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
-        <option value="sponsored" data-i="ag_o1">Sponsored run — we pay, 5 a day</option>
+        <option value="sponsored" data-i="ag_o1">Sponsored run — PTPGE pays, 5 a day</option>
         <option value="anthropic" data-i="ag_o2">Your own Anthropic key</option>
         <option value="openai" data-i="ag_o3">Your own OpenAI key</option>
       </select>
@@ -337,7 +338,15 @@ __FRAME_HEADER__
       <button onclick="agentRun()" data-i="b_agent">Run agent &rarr; fingerprint</button><span class="hint" style="margin:0" data-i="h_agent">Complete prompt → one fingerprint. Leave out the fold or the orientation and the agent asks instead of guessing.</span>
       <span id="ag-status" style="font-size:12px;color:#5b7a69"></span>
     </div>
-    <div class="hint" data-i="ag_hint" style="margin-top:8px">The model is handed the same tools an AI agent gets from <code>tools/list</code> and runs the loop itself: search terms, read the envelope, resolve colour counts, validate, fingerprint — every model turn and every <code>tools/call</code> lands in the transcript. Sponsored runs go through <code>engine.gutenlex.com</code> (a GutenLex service), which holds the key; the open MCP server never carries a model. Your own key is kept only in this browser's localStorage and sent straight to the provider.</div>
+    <div class="hint" data-i="ag_hint" style="margin-top:8px">The model is handed the same tools an AI agent gets from <code>tools/list</code> and runs the loop itself: search terms, read the envelope, resolve colour counts, validate, fingerprint — every model turn and every <code>tools/call</code> lands in the transcript. Sponsored runs go through <code>/agent/messages</code> on this server — PTPGE pays, the key never leaves the server, prompts are not logged. Your own key is kept only in this browser's localStorage and sent straight to the provider.<br><b>For everyday use, switch on the connector in <a href="https://claude.ai/directory/ptpge-mcp">Claude</a> or ChatGPT (<code>https://mcp.ptpge.org/mcp</code>) — this page is for watching the loop.</b></div>
+    <div id="ag-rail" class="rail" style="display:none">
+      <div class="rs" data-step="product"><i></i><span>Product</span></div>
+      <div class="rs" data-step="words"><i></i><span>The words</span></div>
+      <div class="rs" data-step="colour"><i></i><span>Colour</span></div>
+      <div class="rs" data-step="check"><i></i><span>Check</span></div>
+      <div class="rs" data-step="identity"><i></i><span>Identity</span></div>
+    </div>
+    <div id="ag-story" class="story" style="display:none"></div>
     <div class="res" id="res-agent"></div>
   </div>
 </details>
@@ -829,12 +838,12 @@ async function assembleFingerprint() {
   callTool("ptpge_fingerprint", { product: product, bindings: bindings, visuals: true }, "own");
 }
 // ————— Agent mode (0.27.0): a real model runs the tool loop in the browser —————
-// Sponsored runs: the model calls go through engine.gutenlex.com/agent/messages
-// (the GutenLex engine holds the key; this server never carries a model). Own-key
-// runs go straight from the browser to the provider. In both cases the TOOL
-// calls are made by this page against /mcp, so the transcript shows the whole
-// conversation an agent has with the specification — nothing is pre-scripted.
-const AGENT_PROXY = "https://engine.gutenlex.com";
+// Sponsored runs (0.34.0): the model calls go through THIS server's /agent/messages —
+// PTPGE pays, the key never leaves the server, prompts are not logged. Own-key runs go
+// straight from the browser to the provider. In both cases the TOOL calls are made by
+// this page against /mcp, so the transcript shows the whole conversation an agent has
+// with the specification — nothing is pre-scripted.
+const AGENT_PROXY = "";
 const AGENT_ROUNDS = 12;
 const AGENT_DEFAULT_MODEL = { anthropic: "claude-sonnet-5", openai: "gpt-5.4-mini" };
 const AGENT_SYSTEM = [
@@ -917,6 +926,61 @@ async function agCallOpenAI(key, model, system, messages, tools) {
   return { content: content, stop_reason: (c.tool_calls && c.tool_calls.length) ? "tool_use" : "end_turn",
            usage: j.usage ? { input_tokens: j.usage.prompt_tokens, output_tokens: j.usage.completion_tokens } : undefined };
 }
+// ————— The rail and the story (0.34.0): what the agent is doing, in plain words —————
+const RAIL_OF = { ptpge_search_terms: "words", ptpge_get_term: "words", ptpge_browse: "words",
+                  ptpge_get_product_envelope: "product", ptpge_resolve_color_notation: "colour",
+                  ptpge_validate_config: "check", ptpge_fingerprint: "identity" };
+function railReset() {
+  const r = agEl("ag-rail"); if (!r) return; r.style.display = "";
+  r.querySelectorAll(".rs").forEach(x => x.classList.remove("live", "done", "ask"));
+  const s = agEl("ag-story"); if (s) { s.style.display = "none"; s.innerHTML = ""; }
+}
+function railSet(step, state) {
+  const r = agEl("ag-rail"); if (!r || !step) return;
+  const el = r.querySelector('[data-step="' + step + '"]'); if (!el) return;
+  if (state === "live") { r.querySelectorAll(".rs.live").forEach(x => x.classList.remove("live")); el.classList.add("live"); }
+  else { el.classList.remove("live"); el.classList.add(state); }
+}
+function lbl(x) { return x && (x.label || x.prefLabel || x.title || x.id || x.uri || x) ; }
+function short(u) { return String(u || "").replace("https://ptpge.org/v1/", ""); }
+// One plain sentence per tool call — deterministic, from the call and its result, no model.
+function storyLine(name, input, pl) {
+  try {
+    if (name === "ptpge_search_terms") {
+      const hits = (pl && (pl.results || pl.hits || pl.terms)) || [];
+      const top = hits[0];
+      return "Searched for «" + (input.query || "") + "»" + (top ? " → " + (top.label || top.prefLabel || short(top.id)) + (hits.length > 1 ? " (" + hits.length + " candidates)" : "") : " → nothing");
+    }
+    if (name === "ptpge_get_product_envelope") {
+      const req = (pl && (pl.required || pl.requiredVariables || [])).length;
+      const n = pl && pl.variables ? (Array.isArray(pl.variables) ? pl.variables.length : Object.keys(pl.variables).length) : 0;
+      return "Read the envelope for " + short(input.id_or_path || input.product) + (n ? " — " + n + " variables" + (req ? ", " + req + " required" : "") : "");
+    }
+    if (name === "ptpge_get_term") return "Looked up " + short(input.id_or_path || input.id);
+    if (name === "ptpge_resolve_color_notation") {
+      const faces = (pl && (pl.surfaces || pl.faces)) || [];
+      const q = faces.filter(f => f.needs_disambiguation || f.status === "needs_disambiguation").length;
+      return "Resolved colour notation «" + (input.notation || input.query || "") + "»" + (q ? " — asks which colour on " + q + " face(s)" : (faces.length ? " → " + faces.map(f => (f.surface || f.face || "") + ": " + (lbl(f.value) || lbl(f.term) || f.color_mode || "")).join(", ") : ""));
+    }
+    if (name === "ptpge_validate_config") {
+      const nd = (pl && pl.needs_disambiguation) || [];
+      const bad = ((pl && pl.bindings) || []).filter(b => b.status === "not_in_envelope");
+      if (nd.length) return "Validated — the specification asks: " + nd.map(x => x.question || x.field).join("; ");
+      if (bad.length) return "Validated — not in the envelope: " + bad.map(b => short(b.value)).join(", ");
+      return "Validated: " + ((pl && (pl.complete || pl.validInEnvelope)) ? "complete, every required axis bound" : "incomplete");
+    }
+    if (name === "ptpge_fingerprint") {
+      const sp = pl && pl.profiles && pl.profiles.spec;
+      return sp ? "Fingerprint " + sp.short + " — one identity for this configuration" : "Fingerprint refused: " + ((pl && pl.error) || "configuration not complete");
+    }
+  } catch (e) {}
+  return name.replace("ptpge_", "").replace(/_/g, " ");
+}
+function storyRender(lines, fin) {
+  const s = agEl("ag-story"); if (!s) return;
+  s.style.display = "";
+  s.innerHTML = "<h4>What the agent did</h4><ol>" + lines.map(l => "<li>" + escH(l) + "</li>").join("") + "</ol>" + (fin ? '<div class="fin">' + escH(fin) + '</div>' : '');
+}
 async function agentRun(opts) {
   opts = opts || {};
   const mode = agEl("ag-mode").value, key = (agEl("ag-key").value || "").trim(), model = (agEl("ag-model").value || "").trim();
@@ -928,6 +992,7 @@ async function agentRun(opts) {
   const buttons = document.querySelectorAll("button"); buttons.forEach(b => b.disabled = true);
   showBusy("agent", "agent · tools/list …");
   let rounds = 0, calls = 0, fp = null, finalText = "", stopped = "", lastTool = null;
+  const story = []; railReset();
   try {
     const tl = await rpc("tools/list");
     const tools = (tl.json.result && tl.json.result.tools) || [];
@@ -952,6 +1017,7 @@ async function agentRun(opts) {
       const results = [];
       for (const use of uses) {
         showBusy("agent", "agent · tools/call " + use.name + " …");
+        railSet(RAIL_OF[use.name], "live");
         const { json, ms, status } = await rpc("tools/call", { name: use.name, arguments: use.input || {} }); calls++;
         let payload = json;
         if (json.result && json.result.content && json.result.content[0]) { try { payload = JSON.parse(json.result.content[0].text); } catch (e) { payload = json.result; } }
@@ -964,6 +1030,9 @@ async function agentRun(opts) {
         }
         trAdd("tools/call " + use.name + " · HTTP " + status + " · " + ms + " ms · by the agent", fmtJson(payload));
         lastTool = { name: use.name, payload: payload };
+        story.push(storyLine(use.name, use.input || {}, payload));
+        { const st = RAIL_OF[use.name]; const asks = payload && ((Array.isArray(payload.needs_disambiguation) && payload.needs_disambiguation.length) || payload.error === "not_fingerprintable");
+          railSet(st, asks ? "ask" : "done"); }
         results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify(forModel).slice(0, 24000) });
       }
       messages.push({ role: "user", content: results });
@@ -971,7 +1040,8 @@ async function agentRun(opts) {
     if (rounds >= AGENT_ROUNDS) stopped = "stopped at the round limit (" + AGENT_ROUNDS + ")";
     const meta = "agent (" + mode + (mode !== "sponsored" && model ? " · " + model : "") + ") · " + Math.min(rounds + 1, AGENT_ROUNDS) +
                  " model call(s) · " + calls + " tool call(s) · " + (fp ? "fingerprint " + fp.profiles.spec.short : "no fingerprint");
-    if (fp) showInline("agent", meta, Object.assign({ agent_answer: finalText || undefined }, fp));
+    storyRender(story, finalText || (fp ? "" : "The agent stopped before fingerprinting — the specification's question is in the last line."));
+    if (fp) { railSet("identity", "done"); showInline("agent", meta, Object.assign({ agent_answer: finalText || undefined }, fp)); }
     else {
       // No fingerprint. If the model ended without text, the reason is in the last tool
       // result: surface the specification's questions and refusals instead of «(no answer)».
@@ -995,6 +1065,7 @@ async function agentRun(opts) {
     }
     return { fp: fp, answer: finalText, meta: meta };
   } catch (e) {
+    storyRender(story, "The run failed: " + String(e));
     showInline("agent", "agent failed", { error: String(e),
       hint: mode === "sponsored" ? "Sponsored runs may be used up or switched off — choose your own key."
                                  : "Check the key and model. The browser calls the provider directly; a network error here is usually CORS or a wrong key." });

@@ -6,6 +6,17 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.34.0 — 2026-10-12
+
+- **Sponsored Playground runs are PTPGE's own.** The model proxy moved from an implementer's service to this server:
+  `GET /agent/status`, `POST /agent/messages` — PTPGE pays, 5 runs per address per day (`PTPGE_AGENT_PER_IP`), 300 a day
+  in all, 12 model calls per run; the key (`ANTHROPIC_API_KEY`) never leaves the server, prompts are not logged, only
+  counts. Own-key runs (Anthropic, OpenAI) are unchanged. The page now says what it is for: watching the loop — for
+  everyday use, switch on the connector in Claude or ChatGPT.
+- **The rail and the story.** While the agent runs, five steps light up as its tool calls land — Product · The words ·
+  Colour · Check · Identity (amber when the specification asks a question back). Afterwards, «What the agent did»: one
+  plain sentence per tool call, written from the call and its result, no model — the raw transcript stays below.
+
 ## 0.33.5 — 2026-10-12
 
 - **The mark is black, on white.** `markSvg` from `ptpge_fingerprint` now renders in black ink (was the brand green); the

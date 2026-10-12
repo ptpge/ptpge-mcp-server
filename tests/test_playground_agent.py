@@ -13,7 +13,8 @@ def test_agent_mode_present():
 
 def test_agent_system_prompt_and_proxy():
     assert "PTPGE-PLAYGROUND-AGENT/1" in H              # the proxy's marker
-    assert 'https://engine.gutenlex.com' in H           # Layer 3 holds the key
+    assert 'engine.gutenlex.com' not in H                # 0.34.0: sponsored runs are PTPGE's own (/agent on this server)
+    assert 'const AGENT_PROXY = ""' in H and 'id="ag-rail"' in H and 'What the agent did' in H
     assert '/agent/messages' in H and '/agent/status' in H
     assert 'language = \\"LANGCODE\\"' in H              # escaped for the JS string
     for tool in ("ptpge_search_terms", "ptpge_get_product_envelope",
