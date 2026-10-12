@@ -840,6 +840,9 @@ async function assembleFingerprint() {
   }
   const gsm = numWithUnit(raw, U_GSM);
   if (gsm != null && !hasVar("variables/substrate/substrate-weight")) { bindings.push({ variable: "variables/substrate/substrate-weight", value: gsm }); claimed.add(gsm); steps.push(gsm + " → substrate-weight (gsm)"); }
+  // 0.37.1: a size «85x55» claims its numbers before the quantity fallback can take one of them.
+  const dims = /(?<![\\d.])(\\d{2,4}(?:[.,]\\d+)?)\\s*(?:x|×|\\*)\\s*(\\d{2,4}(?:[.,]\\d+)?)\\s*(?:mm)?(?![\\d.])/i.exec(raw);
+  if (dims) { claimed.add(parseFloat(dims[1].replace(",", "."))); claimed.add(parseFloat(dims[2].replace(",", "."))); }
   let qty = numWithUnit(raw, U_QTY);
   if (qty == null) {   // no unit word: the largest number ≥ 25 that nothing else claimed
     const nums = (LAST_RESOLVE.numbers || []).map(x => parseInt(x, 10)).filter(n => !isNaN(n) && !claimed.has(n));
@@ -856,6 +859,31 @@ async function assembleFingerprint() {
   }
   if (!product && LAST_RESOLVE.productFallback) product = rel(LAST_RESOLVE.productFallback.id);
   if (!product) { showInline("own", "assembly", { note: "No product recognised in the prompt — include a product word (labels, poster, brochure, business card …)." }); return; }
+  // 0.37.1: «85x55», «85 × 55 mm», «210x297» — a size in numbers. Matched against the product's named
+  // formats (the envelope labels carry «(W x H mm)»), either way round; otherwise, when the product takes
+  // custom sizes, format = customized + custom-width/height (normalized w ≤ h, SD-0066).
+  if (dims && !hasVar("variables/configuration/format")) {
+    const w = parseFloat(dims[1].replace(",", ".")), h = parseFloat(dims[2].replace(",", "."));
+    showBusy("own", "assembly · " + w + " × " + h + " mm → ptpge_get_product_envelope …");
+    try {
+      const { json } = await rpc("tools/call", { name: "ptpge_get_product_envelope", arguments: { id_or_path: product, language: lang } });
+      const env = JSON.parse(json.result.content[0].text);
+      trAdd("ptpge_get_product_envelope · " + product + " · to place " + w + " × " + h + " mm", fmtJson({ supportsFormat: ((env.envelope || {}).supportsFormat || []).map(f => f.label) }));
+      const fmts = (env.envelope || {}).supportsFormat || [];
+      let hit = null;
+      for (const f of fmts) {
+        const m = /\\((\\d+(?:\\.\\d+)?)\\s*[x×]\\s*(\\d+(?:\\.\\d+)?)\\s*mm\\)/.exec(f.label || "");
+        if (m) { const a = parseFloat(m[1]), b = parseFloat(m[2]); if ((a === w && b === h) || (a === h && b === w)) { hit = f; break; } }
+      }
+      if (hit) { bindings.push({ variable: "variables/configuration/format", value: rel(hit.id) }); claimed.add(w); claimed.add(h); steps.push(w + " × " + h + " mm → " + (hit.label || rel(hit.id)) + " (named format)"); }
+      else if (fmts.some(f => rel(f.id) === "printing/configurations/formats/customized")) {
+        bindings.push({ variable: "variables/configuration/format", value: "printing/configurations/formats/customized" });
+        bindings.push({ variable: "variables/configuration/custom-width", value: Math.min(w, h) });
+        bindings.push({ variable: "variables/configuration/custom-height", value: Math.max(w, h) });
+        claimed.add(w); claimed.add(h); steps.push(w + " × " + h + " mm → customized + custom-width/height (normalized w ≤ h)");
+      } else skipped.push(w + " × " + h + " mm: no named format of that size and the product takes no custom size");
+    } catch (e) { skipped.push("size " + w + " × " + h + ": " + e); }
+  }
   if (notation && !hasVar("variables/features/color-mode")) {
     showBusy("own", "assembly · " + notation + " → ptpge_resolve_color_notation …");
     try {

@@ -6,6 +6,13 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.37.1 — 2026-10-12
+
+- **Rule mode reads a size.** «85x55», «148 × 210 mm», «210x297» is matched against the product's named formats
+  (either way round) — Business Card EU (85 x 55 mm) — and otherwise, where the product takes custom sizes, bound as
+  format = customized + custom-width/height (normalized w ≤ h, SD-0066). The numbers are claimed before the quantity
+  fallback can take one of them.
+
 ## 0.37.0 — 2026-10-12
 
 - **Named spot inks (SD-0104).** New variable `variables/features/spot-ink`: the ink behind a spot-color layer, as
