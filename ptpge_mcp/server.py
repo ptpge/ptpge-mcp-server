@@ -861,10 +861,16 @@ def envelope_payload(cache: "VocabularyCache", id_or_path: str, language: str) -
         faces, panels = completeness.setup_faces(cache, su)
         if faces:
             out["surfacesBySetup"][su] = {"surfaces": faces, "panels": panels}
+            parts = completeness.setup_parts(cache, su)
+            if parts:
+                out["surfacesBySetup"][su]["parts"] = parts
     out["identityRule"] = ("Required axes must be bound (or envelope-implied where the envelope "
                            "offers one value) before ptpge_fingerprint issues an identity; a "
                            "missing one returns needs_disambiguation. Surface names must be the "
-                           "bound setup's faces. Recommended axes are advisory (SD-0083).")
+                           "bound setup's faces. Where the setup has parts (multi-page: cover, inside), "
+                           "substrate axes may be bound per part — surface: 'cover' / 'inside' — so a "
+                           "300 g cover and a 130 g inside are two statements in one identity (SD-0102). "
+                           "Recommended axes are advisory (SD-0083).")
     return out
 
 

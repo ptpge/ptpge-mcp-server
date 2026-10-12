@@ -41,6 +41,14 @@ CUSTOM_WIDTH_VARIABLE = "variables/configuration/custom-width"
 CUSTOM_HEIGHT_VARIABLE = "variables/configuration/custom-height"
 CUSTOMIZED_FORMAT_URI = _BASE + "printing/configurations/formats/customized"
 MULTI_SETUPS = ("setup-models/multi-page", "setup-models/multi-part")
+# SD-0102 (12.10.2026): substrate axes may be scoped to a PART of the setup (cover / inside),
+# never to a surface. The scope travels in the binding's `surface` field (cfs/1 `variable@scope`).
+PART_SCOPED = {
+    "variables/substrate/substrate-weight", "variables/substrate/substrate-finish",
+    "variables/substrate/substrate-type", "variables/substrate/substrate-coating",
+    "variables/substrate/substrate-class", "variables/substrate/substrate-color",
+    "variables/substrate/substrate-fibre", "variables/substrate/substrate-thickness",
+}
 
 # Variable tail -> envelope predicate holding the candidate values for a question.
 CANDIDATE_ENVELOPE = {
@@ -77,6 +85,13 @@ def _tail(uri: str) -> str:
 def _full(uri_or_tail: str) -> str:
     s = str(uri_or_tail or "").strip()
     return s if s.startswith("http") else _BASE + s.lstrip("/")
+
+
+def setup_parts(cache, setup_uri: str) -> list[dict]:
+    """[{id, surfaces}] declared on a setup-model term (SD-0102). Empty if the setup has no parts."""
+    term = cache.get_term(setup_uri) or {}
+    return [{"id": p["id"], "surfaces": list(p.get("surfaces") or [])}
+            for p in (term.get("parts") or []) if isinstance(p, dict) and p.get("id")]
 
 
 def setup_faces(cache, setup_uri: str) -> tuple[list[str], list[str]]:
@@ -141,9 +156,36 @@ def completeness(cache, product: dict, bindings: list[dict], ref, language: str)
             "question": QUESTION[SETUP_VARIABLE],
             "candidates": [ref(u) for u in setup["candidates"]],
         })
+    parts = setup_parts(cache, setup["uri"]) if setup["uri"] else []
     out["setup"] = {"uri": setup["uri"], "implied": setup["implied"],
-                    "surfaces": surfaces, "panels": panels}
+                    "surfaces": surfaces, "panels": panels, "parts": [p["id"] for p in parts]}
     is_multi = bool(setup["uri"]) and any(m in setup["uri"] for m in MULTI_SETUPS)
+
+    # 2a. Parts on part-scoped (substrate) bindings — SD-0102
+    part_ids = [p["id"] for p in parts]
+    for var, bs in bound.items():
+        if var not in PART_SCOPED:
+            continue
+        scoped = [b for b in bs if b.get("surface")]
+        for b in scoped:
+            sc = b["surface"]
+            if not part_ids:
+                out["surface_errors"].append({
+                    "variable": var, "surface": sc, "allowed": [],
+                    "note": f"'{sc}': this setup has no parts — a substrate applies to the whole product here; bind it without a part."})
+            elif sc not in part_ids:
+                out["surface_errors"].append({
+                    "variable": var, "surface": sc, "allowed": part_ids,
+                    "note": (f"'{sc}' is not a part of this setup; the parts are {', '.join(part_ids)}. "
+                             "Substrate axes are scoped to a part (cover, inside), never to a surface (SD-0102).")})
+        if part_ids and scoped and not any(not b.get("surface") for b in bs):
+            missing = [pid for pid in part_ids if pid not in {b["surface"] for b in scoped}]
+            if missing and var == "variables/substrate/substrate-weight":
+                # a weight stated for one part only — the other part is an open question, not a default
+                out["needs_disambiguation"].append({
+                    "field": var, "surface": missing[0], "reason": "part_unbound",
+                    "question": f"Which paper weight for the {missing[0]}?", "candidates": [],
+                })
 
     # 2. Surfaces on surface-scoped bindings
     allowed = set(surfaces) | set(panels)

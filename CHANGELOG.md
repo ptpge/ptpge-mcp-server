@@ -6,6 +6,15 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.0 — 2026-10-12
+
+- **Parts (SD-0102).** A booklet can carry one paper on the cover and another inside. `multi-page` declares parts
+  (`cover`, `inside`); the substrate variables can be bound per part — `substrate-weight@cover=300`, `@inside=130`.
+  The ptpge-cfs/1 scope slug now means surface *or* part; grammar unchanged, existing fingerprints unchanged.
+  `ptpge_validate_config`: a part scope that is not in the chosen setup → `surface_not_in_setup`; weight bound for one
+  part only → `needs_disambiguation` («Which paper weight for the inside?»). `ptpge_get_product_envelope` returns
+  `surfacesBySetup[setup].parts`. The Playground agent knows `@cover`/`@inside` and asks rather than assumes.
+
 ## 0.35.0 — 2026-10-12
 
 - **The right template, not a dead end.** When a bound value is not in the chosen template's envelope but another
