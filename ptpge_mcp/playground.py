@@ -134,6 +134,7 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 .rail{display:flex;gap:6px;margin:12px 0 4px;flex-wrap:wrap}.rail .rs{flex:1 1 90px;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font-size:12px;color:var(--mute);letter-spacing:.04em;text-transform:uppercase}.rail .rs i{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none}.rail .rs.live i{background:#d9a441;animation:rsblink 1s ease-in-out infinite}.rail .rs.done{color:var(--ink);border-color:var(--ink)}.rail .rs.done i{background:var(--ink)}.rail .rs.ask{color:#9a6b12;border-color:#9a6b12}.rail .rs.ask i{background:#d9a441}@keyframes rsblink{0%,100%{opacity:1}50%{opacity:.35}}.story{margin:10px 0 4px;padding:12px 14px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font-size:13px;line-height:1.6}.story h4{margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}.story ol{margin:0;padding-left:20px}.story li{margin:2px 0}.story .fin{margin-top:8px;color:var(--ink)}
 #agent-box{border:1px solid var(--line);background:var(--soft)}#agent-box select,#agent-box input{background:var(--bg);color:var(--ink);border-color:var(--line)!important}#agent-box .hint,#agent-box span{color:var(--mute)}html.dark #agent-box{background:#1e201c;border-color:rgba(255,255,255,.13)}
 .mktile svg { display: block; }
+.pbar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin:8px 0 0}.pbar i{display:block;height:100%;width:30%;background:var(--ink);border-radius:2px;animation:pslide 1.3s ease-in-out infinite}@keyframes pslide{0%{transform:translateX(-110%)}100%{transform:translateX(340%)}}
 .fpstrip .mktile { width: 160px; height: 160px; padding: 12px; box-sizing: border-box; }
 .fpstrip .mktile svg { width: 100%; height: 100%; }
 .fpstrip .cap { margin-top: 6px; min-height: 16px; }
@@ -349,6 +350,7 @@ __FRAME_HEADER__
       <div class="rs" data-step="check"><i></i><span>Check</span></div>
       <div class="rs" data-step="identity"><i></i><span>Identity</span></div>
     </div>
+    <div id="ag-prog" style="display:none"><div class="pbar"><i></i></div><div id="ag-prog-t" class="hint" style="margin:4px 0 0;font-size:12px"></div></div>
     <div id="ag-story" class="story" style="display:none"></div>
     <div id="ag-replybox" class="row" style="display:none;margin-top:8px;gap:8px;align-items:center">
       <input id="ag-reply" type="text" placeholder="Answer the agent — e.g. «saddle stitching, 16 pages»" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:13px;background:var(--bg);color:var(--ink)" onkeydown="if(event.key==='Enter')agentReply()">
@@ -995,6 +997,11 @@ function railReset() {
   r.querySelectorAll(".rs").forEach(x => x.classList.remove("live", "done", "ask"));
   const s = agEl("ag-story"); if (s) { s.style.display = "none"; s.innerHTML = ""; }
 }
+function progShow(text) {
+  const p = agEl("ag-prog"); if (!p) return; p.style.display = "";
+  const t = agEl("ag-prog-t"); if (t) t.textContent = text || "";
+}
+function progHide() { const p = agEl("ag-prog"); if (p) p.style.display = "none"; }
 function railSet(step, state) {
   const r = agEl("ag-rail"); if (!r || !step) return;
   const el = r.querySelector('[data-step="' + step + '"]'); if (!el) return;
@@ -1061,6 +1068,7 @@ async function agentRun(opts) {
   const buttons = document.querySelectorAll("button"); buttons.forEach(b => b.disabled = true);
   agEl("ag-replybox").style.display = "none";
   showBusy("agent", resume ? "agent · continuing …" : "agent · tools/list …");
+  progShow(resume ? "continuing the conversation …" : "handing the tools to the model …");
   let rounds = 0, calls = 0, fp = null, finalText = "", stopped = "", lastTool = null, lastStop = "";
   const story = resume ? AG_CONV.story : []; if (!resume) railReset();
   try {
@@ -1081,6 +1089,7 @@ async function agentRun(opts) {
     AG_CONV = { runId: runId, tools: tools, system: system, messages: messages, story: story };
     for (; rounds < AGENT_ROUNDS; rounds++) {
       showBusy("agent", "agent · model call " + (rounds + 1) + " …");
+      progShow("model call " + (rounds + 1) + " of " + AGENT_ROUNDS + " · " + calls + " tool call" + (calls === 1 ? "" : "s") + " so far · the model is thinking …");
       const resp = mode === "openai" ? await agCallOpenAI(key, model, system, messages, tools)
                                      : await agCallAnthropic(mode, key, model, system, messages, tools, runId);
       const blocks = resp.content || [];
@@ -1096,6 +1105,7 @@ async function agentRun(opts) {
       const results = [];
       for (const use of uses) {
         showBusy("agent", "agent · tools/call " + use.name + " …");
+        progShow("model call " + (rounds + 1) + " · " + use.name + " …");
         railSet(RAIL_OF[use.name], "live");
         const { json, ms, status } = await rpc("tools/call", { name: use.name, arguments: use.input || {} }); calls++;
         let payload = json;
@@ -1116,6 +1126,7 @@ async function agentRun(opts) {
       }
       messages.push({ role: "user", content: results });
     }
+    progHide();
     if (rounds >= AGENT_ROUNDS) stopped = "stopped at the round limit (" + AGENT_ROUNDS + ")";
     const meta = "agent (" + mode + (mode !== "sponsored" && model ? " · " + model : "") + ") · " + Math.min(rounds + 1, AGENT_ROUNDS) +
                  " model call(s) · " + calls + " tool call(s) · " + (fp ? "fingerprint " + fp.profiles.spec.short : "no fingerprint");
@@ -1147,6 +1158,7 @@ async function agentRun(opts) {
     }
     return { fp: fp, answer: finalText, meta: meta };
   } catch (e) {
+    progHide();
     storyRender(story, "The run failed: " + String(e));
     showInline("agent", "agent failed", { error: String(e),
       hint: mode === "sponsored" ? "Sponsored runs may be used up or switched off — choose your own key."

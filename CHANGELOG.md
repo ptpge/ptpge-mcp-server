@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.8 — 2026-10-12
+
+- **Something is happening.** While the agent runs, a moving bar sits under the rail with a line that follows the
+  work — «model call 3 of 12 · 7 tool calls so far · the model is thinking …», «model call 3 · ptpge_validate_config …».
+  It disappears when the run ends.
+
 ## 0.36.7 — 2026-10-12
 
 - **Mark and QR the same size.** In the fingerprint result the mark tile and the QR tile are now both 160 px with
