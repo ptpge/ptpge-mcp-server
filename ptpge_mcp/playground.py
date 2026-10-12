@@ -130,6 +130,9 @@ button.secondary { background: #fff; color: #1f4a35; border: 1.5px solid #1f4a35
 #conv-hist .fp { font-family: ui-monospace, Menlo, monospace; }
 #conv-hist .same { color: #1f7a3d; font-weight: 700; }
 .stage .vis svg { width: 100%; height: auto; display: block; }
+.mktile { display: inline-block; background: #fff; border-radius: 6px; padding: 8px; line-height: 0; }
+#agent-box{border:1px solid var(--line);background:var(--soft)}#agent-box select,#agent-box input{background:var(--bg);color:var(--ink);border-color:var(--line)!important}#agent-box .hint,#agent-box span{color:var(--mute)}html.dark #agent-box{background:#1e201c;border-color:rgba(255,255,255,.13)}
+.mktile svg { display: block; }
 .hashok { color: #1f7a3d; font-weight: 600; }
 .hashbad { color: #b03434; font-weight: 600; }
 .stale { opacity: .35; }
@@ -321,7 +324,7 @@ __FRAME_HEADER__
   <div class="row" style="margin-top:10px"><button class="secondary" onclick="doResolve()" data-i="b_resolve">Resolve by rule</button><button id="fpassemble" class="secondary" style="display:none" onclick="assembleFingerprint()" data-i="b_fp">Fingerprint this &rarr; mark + QR</button></div>
   <div class="hint">Two ways to solve the same prompt. <b>Agent mode</b> (the green box — the primary path): a real model is handed the tools and runs the loop itself, from the outside, like any AI agent. <b>Rules</b> (the outlined buttons): the page searches 1–3 word n-grams and assembles them by rule — no model, deterministic, an approximation of what an agent does. Both end in the same place — a validated, <i>complete</i> configuration and one ptpge-cfs/1 fingerprint — or in the specification's question (SD-0083: no identity until the required axes are known). Both log every call to the transcript.</div>
   <div class="res" id="res-own"></div>
-  <div id="agent-box" style="margin-top:14px;padding:12px 14px;border:1px solid #cfe0d6;border-radius:8px;background:#f4f9f6">
+  <div id="agent-box" style="margin-top:14px;padding:12px 14px;border-radius:8px">
     <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;margin:0">
       <b data-i="ag_t" style="margin-right:4px">Agent mode — a real model runs the loop</b>
       <select id="ag-mode" onchange="agModeChange()" style="padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
@@ -437,10 +440,10 @@ function fmtJson(obj) {
       strip = '<div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin:0 0 14px">';
       for (const prof of ["spec", "offer"]) {
         const pr = obj.profiles[prof]; if (!pr || !pr.markSvg) continue;
-        strip += '<div style="text-align:center;font-size:11px;color:#7fae97">' + pr.markSvg +
-                 '<br>' + prof + ' · ' + pr.short + '</div>';
+        strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.markSvg +
+                 '</span><br>' + prof + ' · ' + pr.short + '</div>';
         if (pr.qrSvg) {
-          strip += '<div style="text-align:center;font-size:11px;color:#7fae97">' + pr.qrSvg +
+          strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.qrSvg + '</span>' +
                    '<br><a href="' + pr.resolverUrl + '" target="_blank" rel="noopener" style="color:#37d98a">resolver ↗</a></div>';
         }
         pr.markSvg = "(rendered above)";
@@ -1381,8 +1384,8 @@ async function convRun(idx) {
   document.getElementById("cv5").innerHTML =
     '<div class="stage"><span class="slbl"><span class="num">05</span>' + t("s05") + '</span>' +
     '<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:8px">' +
-    (spec.markSvg ? '<div class="vis" style="width:88px">' + spec.markSvg + '</div>' : '') +
-    (spec.qrSvg ? '<div class="vis" style="width:88px">' + spec.qrSvg + '</div>' : '') +
+    (spec.markSvg ? '<div class="vis mktile" style="width:88px">' + spec.markSvg + '</div>' : '') +
+    (spec.qrSvg ? '<div class="vis mktile" style="width:88px">' + spec.qrSvg + '</div>' : '') +
     '<div><div class="mono" style="font-size:17px;font-weight:700">' + spec.short + '</div>' +
     '<a href="' + spec.resolverUrl + '" target="_blank" rel="noopener">' + t("resolver") + '</a>' +
     '<div class="hint">offer (+ quantity): <span class="mono">' + offer.short +

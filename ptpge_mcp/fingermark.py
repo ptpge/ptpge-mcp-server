@@ -15,7 +15,7 @@ try:  # optional
 except ImportError:  # pragma: no cover
     qrcode = None
 
-BRAND_INK = "#046A38"
+BRAND_INK = "#111111"   # the mark is always black on PTPGE (Patrik 12.10.2026); the tile around it white
 
 
 AMP_CLASSES = (2.6, 3.5, 4.4)

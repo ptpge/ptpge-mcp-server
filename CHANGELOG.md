@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.33.5 — 2026-10-12
+
+- **The mark is black, on white.** `markSvg` from `ptpge_fingerprint` now renders in black ink (was the brand green); the
+  Playground shows every mark and QR on a white tile, so they read the same in light and dark mode. Same change on
+  the register (ptpge.org/f) and the scan page.
+
 ## 0.33.4 — 2026-10-12
 
 - Theme and language follow you from ptpge.org: both are now also kept in a cookie for `*.ptpge.org`, so dark mode
