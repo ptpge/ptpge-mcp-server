@@ -38,7 +38,7 @@ SPOT = BASE + "printing/features/colors/spot-color"
 #: Upper bound on how many spot inks a single surface may be assumed to carry
 #: when resolving a count. Keeps the combination search finite; a buyer who
 #: wants more can bind the layers explicitly instead of using the shorthand.
-MAX_SPOT = 4
+MAX_SPOT = 8   # SD-0104: a search bound only — the press sets the real limit (inkStations)
 
 SURFACES = ("front", "back")
 

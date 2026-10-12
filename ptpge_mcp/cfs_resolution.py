@@ -67,6 +67,7 @@ SUBSTRATES = "printing/substrates/"
 # Variables whose vocabulary term carries scope = "surface".
 SURFACE_SCOPED = frozenset({
     COLOR,
+    "variables/features/spot-ink",     # SD-0104
     "variables/features/embellishment",
     "variables/features/surface-finish",
 })

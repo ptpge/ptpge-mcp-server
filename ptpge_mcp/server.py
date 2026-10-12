@@ -150,7 +150,7 @@ from . import __version__
 from . import registerclient as _reg
 from .config import Config
 from . import fingermark as _fm
-from . import colornotation
+from . import colornotation, spotink
 from . import learning
 from . import agent as _agent
 from .data import VocabularyCache
@@ -456,7 +456,17 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "face of the bound setup (faces: flat-sheet front/back, "
             "folded-sheet outside/inside, multi-page front-cover…back-cover) "
             "is rejected with the allowed faces. `complete: true` means an "
-            "identity can be issued."
+            "identity can be issued. SD-0104 spot inks: a spot-color layer in "
+            "color-mode is not identified until it is named — bind "
+            "variables/features/spot-ink on the same face with the value "
+            "<matching-system term>/<code>: Pantone 300 C → printing/standards/"
+            "color-systems/color-matching-systems/pantone-matching-system/300-c, "
+            "HKS 43 K → …/color-matching-systems/hks/43-k, RAL 5015 → …/ral/5015 "
+            "(code lower-case, spaces as hyphens; checked for form only). One "
+            "spot-ink per spot-color layer; two spots = color-mode values "
+            "[cmyk, spot-color, spot-color] + two spot-ink values. Fewer inks than "
+            "layers → needs_disambiguation; the specification sets no limit on "
+            "the number of spot colours (the press does)."
         ),
         inputSchema={
             "type": "object",
@@ -1126,6 +1136,21 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                     entry["status"] = "in_range"
             results.append(entry)
             continue
+        # SD-0104: a named spot ink — <matching-system term>/<code>; form only, never a list.
+        if var_tail == spotink.SPOT_INK_VARIABLE:
+            parsed = [spotink.parse_value(v, cache) for v in values]
+            if all(parsed):
+                entry.update(status="named_ink",
+                             inks=[{"system": p["system"].rsplit("/", 1)[-1], "code": p["code"],
+                                    "systemLabel": _ref(cache, _BASE + p["system"], language).get("label")} for p in parsed],
+                             note="Checked for form under its matching system; the code itself is the system's own (SD-0104).")
+            else:
+                entry.update(status="invalid_ink_value",
+                             note="A spot ink is <matching-system term>/<code> under printing/standards/color-systems/"
+                                  "color-matching-systems — e.g. …/pantone-matching-system/300-c (SD-0104).")
+                all_ok = False
+            results.append(entry)
+            continue
         # Envelope-mapped enum variables.
         mapping = VARIABLE_ENVELOPE.get(var_tail)
         if mapping is None:
@@ -1278,6 +1303,15 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                             "entailedBy": _ent[mats[0]],
                             "note": "Follows from the bound " + _ent[mats[0]].rsplit("/", 1)[-1] +
                                     " value; written into the identity (SD-0083 R5)."})
+    # SD-0104: every spot-color layer carries a named ink; an ink without a layer is an error.
+    _ink_errors, _ink_needs = spotink.check(list(args.get("bindings", []) or []),
+                                            list((comp.get("setup") or {}).get("surfaces") or []), cache, language)
+    for e in _ink_errors:
+        if e["reason"] == "ink_without_spot_layer":
+            results.append({"variable": e["variable"], "surface": e["surface"], "value": None,
+                            "status": "ink_without_spot_layer", "note": e["note"]})
+            all_ok = False
+    comp["needs_disambiguation"].extend(_ink_needs)
     advisories.extend(comp["advisories"])
     # SD-0084 R6 — what may stand together: read from the same resolution module
     # as the fingerprint (exclusive groups, standalone, multi-instance).

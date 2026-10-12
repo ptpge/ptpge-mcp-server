@@ -6,6 +6,17 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.37.0 — 2026-10-12
+
+- **Named spot inks (SD-0104).** New variable `variables/features/spot-ink`: the ink behind a spot-color layer, as
+  `<matching-system term>/<code>` — Pantone 300 C → `…/color-matching-systems/pantone-matching-system/300-c`, HKS 43 K
+  → `…/hks/43-k`, RAL 5015 → `…/ral/5015`. No list of codes: the code is checked for form, the libraries are the
+  systems' own. `ptpge_validate_config`: on every face the number of spot-ink values must equal the number of
+  spot-color layers — fewer asks («Which spot ink?»), more is an error, a malformed code is an error. The identity
+  carries the ink (`spot-ink@front=…/300-c`). The resolver's search bound for spot layers goes from 4 to 8; the
+  specification sets no limit — the press does (`inkStations` in vendor-declaration/1). Agent prompt and rule mode
+  read «Pantone 300 C», «PMS 485», «HKS 43 K», «RAL 5015» as a spot layer plus a named ink on the face named.
+
 ## 0.36.8 — 2026-10-12
 
 - **Something is happening.** While the agent runs, a moving bar sits under the rail with a line that follows the

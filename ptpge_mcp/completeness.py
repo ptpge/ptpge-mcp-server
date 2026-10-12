@@ -73,6 +73,7 @@ QUESTION = {
 
 SURFACE_SCOPED = {
     COLOR_VARIABLE,
+    "variables/features/spot-ink",     # SD-0104
     "variables/features/embellishment",
     "variables/features/surface-finish",
 }

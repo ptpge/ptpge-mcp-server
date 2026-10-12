@@ -720,6 +720,22 @@ function gsmByPart(raw) {
   });
   return out;
 }
+// SD-0104: named inks in free text → {label, value, context}. Codes are normalized lower-case/hyphen.
+const INK_SYS = "printing/standards/color-systems/color-matching-systems/";
+function namedInks(raw) {
+  const out = []; const seen = new Set();
+  const push = (label, sys, code, idx) => {
+    const v = INK_SYS + sys + "/" + code; if (seen.has(v)) return; seen.add(v);
+    out.push({ label: label, value: v, context: raw.slice(Math.max(0, idx - 18), idx + label.length + 18) });
+  };
+  let m; const re1 = /\\b(?:pantone|pms)\\s*(\\d{2,4})\\s*([cu])?\\b/gi;
+  while ((m = re1.exec(raw))) push(m[0].trim(), "pantone-matching-system", m[1] + (m[2] ? "-" + m[2].toLowerCase() : ""), m.index);
+  const re2 = /\\bhks\\s*(\\d{1,3})\\s*([knze])?\\b/gi;
+  while ((m = re2.exec(raw))) push(m[0].trim(), "hks", m[1] + (m[2] ? "-" + m[2].toLowerCase() : ""), m.index);
+  const re3 = /\\bral\\s*(\\d{4})\\b/gi;
+  while ((m = re3.exec(raw))) push(m[0].trim(), "ral", m[1], m.index);
+  return out;
+}
 function numWithUnit(raw, units) {
   const m = new RegExp("(\\\\d+)\\\\s*(?:" + units + ")(?![\\\\p{L}])", "iu").exec(raw);
   return m ? parseInt(m[1], 10) : null;
@@ -863,6 +879,31 @@ async function assembleFingerprint() {
       }
     } catch (e) { skipped.push("colour notation " + notation + ": " + e); }
   }
+  // SD-0104 (0.37.0): named inks — "Pantone 300 C", "PMS 485", "HKS 43 K", "RAL 5015". Each is a
+  // spot-color layer in color-mode plus a spot-ink value on the same faces. A face word right
+  // before/after the ink places it; otherwise it goes on every face that carries colour (or all).
+  const inks = namedInks(raw);
+  if (inks.length) {
+    const CM = "variables/features/color-mode", SI = "variables/features/spot-ink";
+    const faceWord = (txt) => { const m = /(front|back|outside|inside|cover|forside|bakside|utside|innside|vorderseite|rückseite|voorkant|achterkant)/i.exec(txt || ""); return m ? m[1].toLowerCase() : ""; };
+    const toFace = w => (!w ? [] : multiPage ? (w === "inside" || w === "innside" ? ["inside-pages"] : ["front-cover", "back-cover"])
+                                        : folded ? ((/^(inside|innside)$/.test(w)) ? ["inside"] : ["outside"]) : ((/^(back|bakside|rückseite|achterkant)$/.test(w)) ? ["back"] : ["front"]));
+    const colourFaces = [...new Set(bindings.filter(b => b.variable === CM && b.surface).map(b => b.surface))];
+    for (const ink of inks) {
+      let faces = toFace(faceWord(ink.context));
+      if (!faces.length) faces = colourFaces.length ? colourFaces : [null];
+      for (const f of faces) {
+        let cm = bindings.find(b => b.variable === CM && (b.surface || null) === f);
+        if (!cm) { cm = { variable: CM, values: [] }; if (f) cm.surface = f; bindings.push(cm); }
+        if (cm.value !== undefined) { cm.values = [cm.value]; delete cm.value; }
+        cm.values = (cm.values || []).concat(["printing/features/colors/spot-color"]);
+        let si = bindings.find(b => b.variable === SI && (b.surface || null) === f);
+        if (!si) { si = { variable: SI, values: [] }; if (f) si.surface = f; bindings.push(si); }
+        si.values.push(ink.value);
+      }
+      steps.push(ink.label + " → spot-color layer + spot-ink " + ink.value.split("/").slice(-2).join("/") + (faces[0] ? " @" + faces.join(", @") : ""));
+    }
+  }
   trAdd("assembly: " + product + " + " + bindings.length + " binding(s) · " + steps.join(" · ") + (skipped.length ? " · left out: " + skipped.join(", ") : ""), fmtJson({ product: product, bindings: bindings }));
   // Validate first — an agent never fingerprints an unvalidated configuration.
   showBusy("own", "assembly · ptpge_validate_config …");
@@ -915,7 +956,7 @@ const AGENT_SYSTEM = [
   "1. Product first: ptpge_search_terms on the product word (limit 5) and take the ordering/products/... hit; then ptpge_get_product_envelope for it — the envelope says which variables and values this product allows.",
   "2. For every attribute in the prompt, ptpge_search_terms (query_language = the prompt's language; language = \\"LANGCODE\\"). Bind only element-level terms, never a group. Each term goes to the variable its tree position implies: configurations/formats → variables/configuration/format; setup-models → variables/configuration/setup-model; features/colors → variables/features/color-mode; surface-finish → variables/features/surface-finish; embellishments → variables/features/embellishment; completions/binding → variables/finishing/binding; paper-surfaces → variables/substrate/substrate-finish; paper-coatings → variables/substrate/substrate-coating; paper-color-shades → variables/substrate/substrate-color; substrates → variables/substrate/substrate-type. Numbers: pages → variables/configuration/page-count; gsm → variables/substrate/substrate-weight (a stated gsm wins over a weight-band word); copies → variables/order/quantity. Add surface: front/back/outside/inside when the prompt says so. On a multi-page product (booklet, magazine, book, catalogue) the buyer may name a paper per PART — cover and inside: bind substrate axes with surface: \\"cover\\" and surface: \\"inside\\" (e.g. 300 gsm cover, 130 gsm inside → two substrate-weight bindings). A paper stated for one part only leaves the other part an open question — ask, never assume.",
   "2b. Bind exactly what the buyer stated — no more. Never add a surface the buyer did not name: a face attribute stated without a face (\\"matte lamination\\", \\"full colour\\") is bound WITHOUT surface, and the validator applies it to every face of the setup. Never add an axis the buyer did not state — no substrate-type for \\"silk\\" or \\"170 gsm\\", no default weight, no orientation, no coating: resolution adds what follows from the statement (silk IS paper) by itself. The identity must be a function of the buyer's words, not of your choices; two agents given the same words must reach the same fingerprint.",
-  "3. Colour counts and notation (\\"4/4\\", \\"4+1\\", \\"4 colours double-sided\\", \\"black on the back\\") go through ptpge_resolve_color_notation on this product — never guess a colour set. If a surface comes back needs_disambiguation, STOP and return its question verbatim.",
+  "3. Colour counts and notation (\\"4/4\\", \\"4+1\\", \\"4 colours double-sided\\", \\"black on the back\\") go through ptpge_resolve_color_notation on this product — never guess a colour set. If a surface comes back needs_disambiguation, STOP and return its question verbatim. A named ink (\\"Pantone 300 C\\", \\"PMS 485\\", \\"HKS 43 K\\", \\"RAL 5015\\") is TWO bindings on that face: a spot-color layer in color-mode (values: [cmyk, spot-color] for CMYK + one spot; add one spot-color per ink) and variables/features/spot-ink with value <matching-system term>/<code> — Pantone 300 C → printing/standards/color-systems/color-matching-systems/pantone-matching-system/300-c; HKS 43 K → printing/standards/color-systems/color-matching-systems/hks/43-k; RAL 5015 → printing/standards/color-systems/color-matching-systems/ral/5015 (code lower-case, spaces → hyphens). Never invent a code; if the buyer says \\"a spot colour\\" without a name, bind the spot-color layer and let the validator ask.",
   "4. ptpge_validate_config with product and bindings. If validInEnvelope is false and the result carries alsoOfferedBy, the buyer asked for something this template does not make but another does: SWITCH to the first alsoOfferedBy product (re-read its envelope if needed), keep the bindings, validate again, and say so in the final answer. Otherwise fix what it names (a surface must be one of the bound setup's faces: flat-sheet front/back, folded-sheet outside/inside, multi-page front-cover…back-cover). If it returns needs_disambiguation (a REQUIRED axis is missing — which fold, which format, how many pages, which binding, which colour on the first face), STOP and return the question(s) verbatim with the candidates — never assume a fold, a size or a colour. When one is missing from the prompt you cannot fingerprint. Pass setup to ptpge_resolve_color_notation so the faces match the fold.",
   "4b. What the buyer does not ask for is not applied (SD-0098): never ask about, suggest or bind a finish, embellishment or other optional axis the buyer did not mention — a configuration without them is complete whenever the envelope's required variables are bound. Ask back only about required variables.",
   "5. Only when complete is true: ptpge_fingerprint with visuals: true. The tool refuses incomplete configurations (error not_fingerprintable) — that refusal is the answer, relay its questions.",
