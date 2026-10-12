@@ -259,3 +259,16 @@ def test_unknown_part_and_non_substrate_scope_are_errors(_patch_client):
     errs = " ".join(r["steps"][1]["errors"])
     assert "'spine' is not a part" in errs and "parts: cover, inside" in errs
     assert "only the substrate variables take a part scope" in errs
+
+
+def test_check_page_renders_report_server_side(_patch_client):
+    """SD-0105: with ?domain= the report is static HTML — lines and offerings in labels, provenance, indexable when ready."""
+    from ptpge_mcp.checkpage import check_html_for
+    decl, man = _trykkverk()
+    _patch_client["routes"] = _routes(decl, man)
+    r = C.check_domain(decl["domain"], _vocab_from_fixture(decl, man))
+    assert r["agentSees"]["lines"] and r["agentSees"]["offerings"]
+    h = check_html_for(r)
+    assert "What the declaration says" in h and "The file is the source" in h and 'data-ssr="1"' in h
+    assert 'content="index,follow"' in h
+    assert "Folded Brochure A6" in h

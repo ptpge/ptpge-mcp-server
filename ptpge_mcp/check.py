@@ -272,6 +272,61 @@ def _vocab_check(doc: dict, cache, step: Step, skip: set[str]) -> int:
     return n
 
 
+def _lines_reading(decl: dict, cache) -> list[dict]:
+    """Production lines as labelled summaries (SD-0105)."""
+    out = []
+    for ln in ((decl.get("capability") or {}).get("lines")) or []:
+        if not isinstance(ln, dict):
+            continue
+        presses = [f"{_label(cache, p.get('supplier', ''))} {p.get('model', '')}".strip() for p in ln.get("presses") or [] if isinstance(p, dict)]
+        subs = []
+        for sub in ln.get("substrates") or []:
+            if isinstance(sub, dict):
+                g = sub.get("grammages") or []
+                subs.append(f"{_label(cache, sub.get('supplier', ''))} {sub.get('item', '')}" + (f" ({'/'.join(str(x) for x in g)} g)" if g else ""))
+            else:
+                subs.append(_label(cache, str(sub)))
+        mf = ln.get("maxFormatMm") or {}
+        gw = ln.get("substrateWeightGsm") or {}
+        out.append({
+            "name": ln.get("name"),
+            "technology": _label(cache, ln.get("technology", "")),
+            "presses": presses,
+            "maxFormatMm": f"{mf['width']:g} × {mf['height']:g}" if mf.get("width") and mf.get("height") else None,
+            "weightGsm": f"{gw['min']:g}–{gw['max']:g}" if gw.get("min") is not None and gw.get("max") is not None else None,
+            "colourModes": [_label(cache, c) for c in ln.get("colorModes") or []],
+            "substrates": subs,
+        })
+    return out
+
+
+def _offerings_reading(decl: dict, cache) -> list[dict]:
+    """Offerings as labelled summaries (SD-0105): per variable the accepted values, in the vocabulary's words."""
+    lines = ((decl.get("capability") or {}).get("lines")) or []
+    out = []
+    for o in decl.get("offerings") or []:
+        if not isinstance(o, dict):
+            continue
+        sup = []
+        for k, v in (o.get("supports") or {}).items():
+            var, _, part = str(k).partition("@")
+            sup.append({"variable": _label(cache, var) + (f" @{part}" if part else ""),
+                        "values": [_label(cache, str(x)) for x in (v if isinstance(v, list) else [v])]})
+        li = o.get("line")
+        out.append({
+            "name": o.get("name"),
+            "product": _label(cache, o.get("product", "")),
+            "productUri": o.get("product"),
+            "line": lines[li].get("name") if isinstance(li, int) and 0 <= li < len(lines) and isinstance(lines[li], dict) else None,
+            "supports": sup,
+            "colour": o.get("colour"),
+            "pages": o.get("pages"),
+            "minimumQuantity": o.get("minimumQuantity"),
+            "leadTimeWorkingDays": o.get("leadTimeWorkingDays"),
+        })
+    return out
+
+
 def _label(cache, uri: str) -> str:
     t = cache.get_term(uri) if cache is not None else None
     if not t:
@@ -415,6 +470,9 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
                     "lineCount": len(lines),
                     "modified": decl.get("modified"),
                     "logo": bool(decl.get("logo")),
+                    # SD-0105: what the declaration says, in vocabulary labels — read live, never stored.
+                    "lines": _lines_reading(decl, cache),
+                    "offerings": _offerings_reading(decl, cache),
                 }
             else:
                 s2.detail = f"Does not validate against vendor-declaration/1: {len(errs)} error(s)."

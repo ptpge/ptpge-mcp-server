@@ -6,6 +6,15 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.37.3 — 2026-10-12
+
+- **/check reads the declaration out loud (SD-0105).** `ptpge_check_domain` and `/check.json` now carry
+  `agentSees.lines` and `agentSees.offerings` — the declaration's production lines and offerings in vocabulary
+  labels. `/check?domain=…` renders the whole report server-side, with a card «What the declaration says»
+  (provenance: read-at time, URL, document date; «the file is the source — nothing is stored»), so the text exists
+  without scripts; the page is indexable only when the domain is agent-ready. The register page on ptpge.org
+  points here and holds no reading of its own.
+
 ## 0.37.2 — 2026-10-12
 
 - **Any unit in, mm out.** A custom-width / custom-height binding may carry `unit` (mm, cm, m, in, pt); the value

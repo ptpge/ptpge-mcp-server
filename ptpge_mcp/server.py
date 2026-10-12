@@ -2204,10 +2204,20 @@ def build_app() -> Starlette:
             return Response(status_code=304, headers=headers)
         return JSONResponse(reply, headers=headers)
 
-    async def check_page(_request: Request) -> HTMLResponse:
-        """Paste a domain → what an agent finds. See ptpge_mcp/checkpage.py."""
-        from .checkpage import CHECK_HTML
-        return HTMLResponse(CHECK_HTML)
+    async def check_page(request: Request) -> HTMLResponse:
+        """Paste a domain → what an agent finds. With ?domain= the report is rendered server-side (SD-0105),
+        so the text exists without scripts; the JS keeps it live. See ptpge_mcp/checkpage.py."""
+        from .checkpage import CHECK_HTML, check_html_for
+        domain = (request.query_params.get("domain") or "").strip()
+        if not domain:
+            return HTMLResponse(CHECK_HTML)
+        from .check import check_domain
+        import asyncio
+        try:
+            report = await asyncio.get_running_loop().run_in_executor(None, check_domain, domain, cache, None)
+        except Exception:
+            report = None
+        return HTMLResponse(check_html_for(report), headers={"Cache-Control": "public, max-age=300"})
 
     async def check_json(request: Request) -> Response:
         """GET /check.json?domain=… — the same report as JSON (curl-able, CORS open)."""
