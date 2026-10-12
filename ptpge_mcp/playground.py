@@ -826,7 +826,9 @@ async function assembleFingerprint() {
       const cr = JSON.parse(json.result.content[0].text);
       trAdd("ptpge_resolve_color_notation · " + notation + " on " + product, fmtJson(cr));
       const qs = [];
+      const ndq = {}; (cr.needs_disambiguation || []).forEach(e => { if (e.surface) ndq[e.surface] = e.question; });
       for (const [sf, r] of Object.entries(cr.surfaces || {})) {
+        if (!r.binding && r.count == null && ndq[sf]) { if (!qs.some(q => q.question === ndq[sf])) qs.push({ surface: sf, question: ndq[sf], candidates: [] }); continue; }
         if (r.needs_disambiguation || (r.candidates && r.candidates.length > 1 && !r.binding)) qs.push({ surface: sf, question: r.question || (r.needs_disambiguation && r.needs_disambiguation.question) || "Which colour set is meant?", candidates: r.candidates });
         else if (r.binding && r.binding.length && !r.invalid) { const cb = { variable: "variables/features/color-mode", surface: folded ? (sf === "front" ? "outside" : (sf === "back" ? "inside" : sf)) : sf, value: rel(r.binding[0]) }; bindings.push(cb); if (folded) derivedSurface.add(cb); }
         else if (r.count === 0) { /* 4/0: nothing on that surface */ }

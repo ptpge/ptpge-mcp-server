@@ -358,3 +358,26 @@ def channels_from_terms(terms: Iterable[dict]) -> dict[str, int]:
         if n is not None and uri:
             out[uri] = n
     return out
+
+
+def resolve_many(text: str, supported: Sequence[str], channels: dict[str, int],
+                 faces: Sequence[str]) -> PairResolution:
+    """Pair notation on a setup with more than two faces (multi-page, SD-0102).
+
+    An equal pair — 4/4, 1/1 — is the trade's way of saying «every page, both
+    sides»: every face carries that count. An unequal pair (4/1) cannot be
+    placed on five faces without a guess, so every face is left open with one
+    question that names the parts: say it per part («cover 4/4, inside 1/1»).
+    """
+    pair = parse_pair(text)
+    if pair.front is not None and pair.front == pair.back:
+        surfaces = {f: resolve_surface(pair.front, supported, channels, f) for f in faces}
+        return PairResolution(pair=pair, surfaces=surfaces)
+    surfaces = {}
+    for f in faces:
+        r = SurfaceResult(surface=f, count=None)
+        r.question = (f"“{pair.raw}” on a multi-page product does not say which pages carry which colours — "
+                      "state it per part, e.g. “cover 4/4, inside 1/1”.")
+        surfaces[f] = r
+    return PairResolution(pair=pair, surfaces=surfaces)
+

@@ -6,6 +6,14 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.36.4 — 2026-10-12
+
+- **4/4 on a booklet means every page.** `ptpge_resolve_color_notation` on a setup with more than two faces
+  (multi-page) now reads an equal pair — 4/4, 1/1 — as every face; before, it mapped to front/back, which are not
+  faces of a booklet, and the validator then asked «Which colour set on the front-cover?». An unequal pair (4/1)
+  cannot be placed on five faces without a guess: one question, «state it per part, e.g. cover 4/4, inside 1/1».
+  Rule mode relays that question.
+
 ## 0.36.3 — 2026-10-12
 
 - **Rule mode knows parts.** «300 gsm matte cover, 130 gsm inside» (and omslag/innmat, Umschlag/Innenteil, …) now

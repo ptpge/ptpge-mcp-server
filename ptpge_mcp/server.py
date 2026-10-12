@@ -903,6 +903,7 @@ def color_notation_payload(cache: "VocabularyCache", args: dict) -> object:
     # the given setup, or from the product's only setup; two-faced setups map
     # the pair notation directly (front/back, outside/inside, face/back).
     setup_note = None
+    many_faces: list[str] = []
     if not surfaces:
         setup_uri = _full_uri(args["setup"]) if args.get("setup") else None
         if not setup_uri:
@@ -914,17 +915,22 @@ def color_notation_payload(cache: "VocabularyCache", args: dict) -> object:
                 surfaces = faces
                 setup_note = f"faces from setup {setup_uri.rsplit('/', 1)[-1]}: {faces[0]}/{faces[1]}"
             elif faces:
+                # SD-0102: multi-page. An equal pair is every face; an unequal pair asks per part.
+                many_faces = faces
                 setup_note = (f"setup {setup_uri.rsplit('/', 1)[-1]} has {len(faces)} faces "
-                              f"({', '.join(faces)}); pair notation mapped to the default "
-                              "front/back — pass 'surfaces' to place it")
+                              f"({', '.join(faces)}); an equal pair (4/4) means every face, an unequal "
+                              "pair must be stated per part (cover …, inside …)")
         else:
             setup_note = ("product has several setups and none was given — surfaces default to "
                           "front/back; pass 'setup' (or 'surfaces') so the faces match the fold")
 
     try:
-        resolution = colornotation.resolve(
-            args.get("notation", ""), supported, channels,
-            surfaces or colornotation.SURFACES)
+        if many_faces:
+            resolution = colornotation.resolve_many(args.get("notation", ""), supported, channels, many_faces)
+        else:
+            resolution = colornotation.resolve(
+                args.get("notation", ""), supported, channels,
+                surfaces or colornotation.SURFACES)
     except colornotation.NotationError:
         return {"error": "not_pair_notation",
                 "notation": args.get("notation"),
