@@ -16,14 +16,16 @@ _TEMPLATE = r"""<!DOCTYPE html>
 :root{--ink:#20261f;--mute:#6a6a66;--line:#e4e2dc;--soft:#f6f5f1;--bg:#fff;--ok:#2f6b3a;--warn:#9a6b12;--fail:#a63a2a}
 html.dark{--ink:#f2f3ef;--mute:#9a9a92;--line:rgba(255,255,255,.13);--soft:#1e201c;--bg:#262823;--ok:#6fbf7a;--warn:#d9a441;--fail:#e07a6a}
 body{font:15px/1.55 var(--pf-sans),-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:var(--ink);background:transparent;margin:0}
-header:not(.pf){background:transparent;border-bottom:1px solid var(--line);padding:28px 28px 18px}
+header:not(.pf){background:transparent;border-bottom:1px solid var(--line);padding:28px 0 18px}
+header:not(.pf)>*{max-width:880px;margin-left:auto;margin-right:auto;padding:0 28px}
 header:not(.pf) h1{font:italic 600 clamp(28px,3.6vw,38px)/1.1 'Spectral',Georgia,serif;margin:0}
 header:not(.pf) .sub{color:var(--mute);font-size:12.5px;margin-top:8px;max-width:760px}
 header,main{position:relative;z-index:1}
 main{max-width:880px;margin:0 auto;padding:22px 28px 60px}
 .card{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:18px 22px;margin-bottom:18px}
 .card h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.14em;font-weight:600;margin:0 0 12px}
-.drop{border:2px dashed var(--line);border-radius:6px;padding:34px 20px;text-align:center;color:var(--mute);cursor:pointer;transition:border-color .15s,background .15s}
+.drop{display:block;border:2px dashed var(--line);border-radius:6px;padding:38px 20px;text-align:center;color:var(--mute);cursor:pointer;font-size:14px;line-height:1.6;transition:border-color .15s,background .15s}
+.drop b{display:block;font-size:17px;margin-bottom:4px}
 .drop.over{border-color:var(--ink);background:var(--soft)}
 .drop b{color:var(--ink)}
 .drop input{display:none}
@@ -54,7 +56,7 @@ __FRAME_HEADER__
 </header>
 <main>
 <div class="card">
-  <label class="drop" id="drop"><input type="file" id="file" accept="application/pdf"><b>Drop a PDF here</b> or click to choose · up to 25 MB · read in memory, never kept</label>
+  <label class="drop" id="drop"><input type="file" id="file" accept="application/pdf"><b>Drop a PDF here</b>or click to choose · up to 25 MB · read in memory, never kept</label>
   <div class="meta" id="status" style="margin-top:10px"></div>
 </div>
 <div id="out"></div>
