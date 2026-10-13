@@ -39,3 +39,7 @@ python-dotenv>=1.0.0
 # Build the vectors with tools/build_embeddings.py.
 fastembed>=0.3.0
 numpy>=1.24.0
+
+# Artwork reader (/artwork, SD-0107): reads a print PDF's boxes, colour spaces and output intent.
+# Optional at runtime: if absent, /artwork answers 503 and everything else keeps working.
+pikepdf>=9.0

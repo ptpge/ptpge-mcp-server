@@ -2219,6 +2219,37 @@ def build_app() -> Starlette:
             report = None
         return HTMLResponse(check_html_for(report), headers={"Cache-Control": "public, max-age=300"})
 
+    async def artwork_read(request: Request) -> Response:
+        """POST /artwork — the PDF as the request body (Content-Type application/pdf) → bindings with
+        provenance «artwork», plus what must be asked (SD-0107). Read in memory, never stored. Hidden for now:
+        not in tools/list; becomes ptpge_read_artwork when it has settled."""
+        from .agent import cfg as _agent_cfg
+        try:
+            from . import artwork as _aw
+            import pikepdf  # noqa: F401
+        except Exception:
+            return JSONResponse({"error": "unavailable", "note": "artwork reader not installed on this server (pikepdf)"}, status_code=503)
+        origin = request.headers.get("origin", "")
+        allowed = _agent_cfg()["origins"] + ["https://gutenlex.com", "https://www.gutenlex.com"]
+        cors = {"Access-Control-Allow-Origin": origin if origin in allowed else allowed[0],
+                "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Vary": "Origin"}
+        if request.method == "OPTIONS":
+            return Response(status_code=204, headers=cors)
+        cl = int(request.headers.get("content-length") or 0)
+        if cl > _aw.MAX_BYTES:
+            return JSONResponse({"error": "too_large", "note": "25 MB at most"}, status_code=413, headers=cors)
+        data = await request.body()
+        if not data.startswith(b"%PDF"):
+            return JSONResponse({"error": "not_a_pdf", "note": "Send the PDF file as the request body (Content-Type: application/pdf)."}, status_code=400, headers=cors)
+        import asyncio
+        lang = request.query_params.get("language", "en")
+        try:
+            rep = await asyncio.get_running_loop().run_in_executor(None, _aw.read_pdf, data, cache, lang)
+        except Exception as e:  # never leak a traceback; never keep the bytes
+            rep = {"error": "read_failed", "note": str(e)[:200]}
+        del data
+        return JSONResponse(rep, status_code=200 if "error" not in rep else 422, headers={**cors, "Cache-Control": "no-store"})
+
     async def check_json(request: Request) -> Response:
         """GET /check.json?domain=… — the same report as JSON (curl-able, CORS open)."""
         from .check import check_domain
@@ -2566,6 +2597,8 @@ def build_app() -> Starlette:
             Route("/agent/messages", endpoint=_agent.agent_messages, methods=["POST", "OPTIONS"]),
             Route("/check", endpoint=check_page, methods=["GET"]),
             Route("/check.json", endpoint=check_json, methods=["GET"]),
+            Route("/artwork", endpoint=artwork_read, methods=["POST", "OPTIONS"]),
+            Route("/playground/pdf", endpoint=lambda r: HTMLResponse(__import__("ptpge_mcp.artworkpage", fromlist=["PAGE"]).PAGE), methods=["GET"]),
             Route("/favicon.ico", endpoint=_asset("favicon.ico", "image/x-icon"), methods=["GET"]),
             Route("/icon-512.png", endpoint=_asset("icon-512.png", "image/png"), methods=["GET"]),
             Route("/miss-report", endpoint=miss_report, methods=["GET"]),

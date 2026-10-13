@@ -6,6 +6,16 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.38.0 — 2026-10-13
+
+- **Artwork as a source (SD-0107) — hidden.** `POST /artwork` reads a print PDF (body = the file) and returns
+  bindings with provenance `artwork`: format from the TrimBox (named format ±1 mm or customized + mm), bleed,
+  page count, colour per face from the pages' colour spaces (CMYK / black / spot layers), named inks → `spot-ink`
+  (Pantone/HKS/RAL), print standard from a PDF/X output intent, and the file's sha256 for request/1 — plus `toAsk`:
+  fold, binding, paper, finish, quantity, which a PDF never states and are never guessed. Read in memory, never
+  stored (`Cache-Control: no-store`). Hidden page `/playground/pdf` (noindex, unlinked). Not in tools/list yet;
+  becomes `ptpge_read_artwork` when it has settled. Needs `pikepdf` on the server (requirements.txt).
+
 ## 0.37.3 — 2026-10-12
 
 - **/check reads the declaration out loud (SD-0105).** `ptpge_check_domain` and `/check.json` now carry
