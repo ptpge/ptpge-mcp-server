@@ -101,7 +101,7 @@ async function finish(){
   var text=(document.getElementById('ans').value||'').toLowerCase(); var btn=document.getElementById('go'); btn.disabled=true;
   var product=null; for(var i=0;i<PRODUCT_WORDS.length;i++){if(text.indexOf(PRODUCT_WORDS[i][0])!==-1){product=PRODUCT_WORDS[i][1];break}}
   if(!product){ // fall back to search
-    try{var sr=await rpc('tools/call',{name:'ptpge_search_terms',arguments:{query:text.split(',')[0]||'product',limit:5}});var hits=JSON.parse(sr.result.content[0].text).results||[];var h=hits.filter(function(x){return x.id.indexOf('/ordering/products/')!==-1})[0];if(h)product=short(h.id)}catch(e){}
+    try{var sr=await rpc('tools/call',{name:'ptpge_search_terms',arguments:{query:text.split(',')[0]||'product',limit:5}});var hits=JSON.parse(sr.result.content[0].text).results||[];var h=hits.filter(function(x){return x.id.indexOf('/ordering/products/')!==-1&&(x.score||0)>=0.9})[0];if(h)product=short(h.id)}catch(e){}
   }
   if(!product){st.textContent='Name the product (booklet, brochure, business cards, poster …) — the file cannot say which it is.';btn.disabled=false;return}
   var b=LAST.bindings.map(function(x){var o={variable:x.variable};if(x.surface)o.surface=x.surface;if(x.values)o.values=x.values;else o.value=x.value;return o});
@@ -123,6 +123,11 @@ async function finish(){
   if(/4\/0|one-?sided|ensidig/.test(text)&&LAST.artwork.pages===1)b.push({variable:'variables/features/color-mode',value:'printing/features/colors/none',surface:'back'});
   try{
     var vr=JSON.parse((await rpc('tools/call',{name:'ptpge_validate_config',arguments:{product:product,bindings:b}})).result.content[0].text);
+    if((vr.bindings||[]).some(function(x){return x.status==='surface_not_in_setup'})){ // the file's front/back are not this setup's faces → apply to every face (SD-0083 D5)
+      var drop={}; (vr.bindings||[]).forEach(function(x){if(x.status==='surface_not_in_setup')drop[x.variable+'@'+x.surface]=1});
+      b=b.filter(function(x){return !(x.surface&&drop[x.variable+'@'+x.surface]&&x.variable!=='variables/features/color-mode'&&x.variable!=='variables/features/spot-ink')}).map(function(x){if(x.surface&&drop[x.variable+'@'+x.surface]){var y={};for(var k in x)if(k!=='surface')y[k]=x[k];return y}return x});
+      vr=JSON.parse((await rpc('tools/call',{name:'ptpge_validate_config',arguments:{product:product,bindings:b}})).result.content[0].text);
+    }
     var qs=(vr.needs_disambiguation||[]).map(function(q){return '<li class="q">'+esc(q.question||q.reason)+'</li>'}).join('');
     var bad=(vr.bindings||[]).filter(function(x){return x.status&&['in_envelope','not_checked','envelope_implied','entailed','in_range','named_ink'].indexOf(x.status)===-1});
     var html='<div class="card"><h2>Validation · '+esc(lab(product))+'</h2>'+(vr.validInEnvelope?'<div class="meta">valid in the envelope</div>':'<div class="warn">not valid: '+esc(bad.map(function(x){return lab(x.variable)+' '+x.status}).join('; '))+'</div>')

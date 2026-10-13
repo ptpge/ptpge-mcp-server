@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.38.2 — 2026-10-13
+
+- **/playground/pdf: no guessing the product, faces follow the setup.** Without a product word the page asks instead
+  of taking the first search hit; when the file's front/back are not faces of the chosen setup (a booklet), the
+  colour bindings lose their face and apply to every face (SD-0083 D5), then validate again. Drop zone is a block.
+
 ## 0.38.0 — 2026-10-13
 
 - **Artwork as a source (SD-0107) — hidden.** `POST /artwork` reads a print PDF (body = the file) and returns
