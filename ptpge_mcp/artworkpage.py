@@ -130,7 +130,7 @@ async function finish(){
     }
     var qs=(vr.needs_disambiguation||[]).map(function(q){return '<li class="q">'+esc(q.question||q.reason)+'</li>'}).join('');
     var bad=(vr.bindings||[]).filter(function(x){return x.status&&['in_envelope','not_checked','envelope_implied','entailed','in_range','named_ink'].indexOf(x.status)===-1});
-    var html='<div class="card"><h2>Validation · '+esc(lab(product))+'</h2>'+(vr.validInEnvelope?'<div class="meta">valid in the envelope</div>':'<div class="warn">not valid: '+esc(bad.map(function(x){return lab(x.variable)+' '+x.status}).join('; '))+'</div>')
+    var html='<div class="card"><h2>Validation · '+esc(lab(product))+'</h2>'+(vr.validInEnvelope?'<div class="meta">valid in the envelope</div>':'<div class="warn">not valid: '+esc(bad.map(function(x){return lab(x.variable)+' '+x.status}).concat((vr.rules||[]).filter(function(r){return r.status==='violation'}).map(function(r){return lab(r.variable||'')+' '+r.rule+(r.values?' ('+r.values.map(lab).join(' + ')+')':'')})).join('; ')||'see the raw result')+'</div>')
       +(qs?'<p class="hint">The specification still asks:</p><ul class="l">'+qs+'</ul><p class="hint">Add the answer to your words and validate again.</p>':'')+'</div>';
     if(vr.complete&&vr.validInEnvelope){
       var fr=JSON.parse((await rpc('tools/call',{name:'ptpge_fingerprint',arguments:{product:product,bindings:b}})).result.content[0].text);

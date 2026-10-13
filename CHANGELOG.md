@@ -6,6 +6,12 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.38.3 — 2026-10-13
+
+- **/artwork: colour pages + black pages = CMYK, asked per part.** A file with some pages in CMYK and some in black
+  only no longer binds two process layers (the validator rightly refused `cmyk + black`); it binds CMYK and asks
+  «cover 4/4, inside 1/1?». The pages show rule violations in the «not valid» line.
+
 ## 0.38.2 — 2026-10-13
 
 - **/playground/pdf: no guessing the product, faces follow the setup.** Without a product word the page asks instead

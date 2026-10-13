@@ -94,3 +94,10 @@ def test_artwork_endpoint_roundtrip():
     assert c.post("/artwork", content=b"nope", headers={"Content-Type": "application/pdf"}).status_code == 400
     p = c.get("/playground/pdf")
     assert p.status_code == 200 and "Drop your PDF" in p.text and 'noindex' in p.text
+
+
+def test_mixed_colour_and_black_pages_bind_cmyk_only_and_ask_per_part():
+    r = A.read_pdf(_pdf(8, gray_pages=(3, 4, 5, 6)), _cache())
+    cm = [b for b in r["bindings"] if b["variable"] == A.COLOR_VAR][0]
+    assert cm["values"] == [A.CMYK] and "surface" not in cm
+    assert any(q["variable"] == A.COLOR_VAR and "cover" in q["hint"] for q in r["toAsk"])

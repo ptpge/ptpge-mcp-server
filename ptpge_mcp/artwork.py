@@ -309,8 +309,12 @@ def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
         for v in allv:
             if v not in uniq:
                 uniq.append(v)
-        spots = sum(1 for p in per_page for _ in p["spotInks"])
-        vals = [v for v in uniq if v != SPOT] + ([SPOT] * len({s for p in per_page for s in p["spotInks"]}))
+        # black is contained in CMYK (exclusive process group, SD-0084): pages in colour and pages in black
+        # only make a CMYK product with a per-part question, never two process layers on one face.
+        proc = [v for v in uniq if v != SPOT]
+        if CMYK in proc:
+            proc = [CMYK]
+        vals = proc + ([SPOT] * len({s for p in per_page for s in p["spotInks"]}))
         if vals:
             out["bindings"].append({"variable": COLOR_VAR, "values": vals, "provenance": "artwork", "from": "colour spaces across pages"})
             out["fromFile"].append("colour, all pages: " + _say(vals, sorted({s for p in per_page for s in p["spotInks"]})))
