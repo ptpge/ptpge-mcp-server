@@ -6,6 +6,11 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.38.4 — 2026-10-13
+
+- **/artwork: TrimBox on some pages only** is reported as such (trim where set, MediaBox elsewhere) instead of
+  «no TrimBox» next to a bleed figure.
+
 ## 0.38.3 — 2026-10-13
 
 - **/artwork: colour pages + black pages = CMYK, asked per part.** A file with some pages in CMYK and some in black

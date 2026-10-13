@@ -209,12 +209,12 @@ def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
         return {"error": "empty_pdf"}
 
     # --- geometry: TrimBox (else MediaBox), per page --------------------------------------------
-    sizes, bleeds, box_used = [], [], "TrimBox"
+    sizes, bleeds = [], []
+    n_trim = sum(1 for pg in pdf.pages if "/TrimBox" in pg)
+    box_used = "TrimBox" if n_trim == len(pdf.pages) else ("MediaBox" if n_trim == 0 else "TrimBox (some pages)")
     for pg in pdf.pages:
         tb = pg.get("/TrimBox") or pg.get("/CropBox") or pg.get("/MediaBox")
         mb = pg.get("/MediaBox")
-        if "/TrimBox" not in pg:
-            box_used = "MediaBox"
         try:
             x0, y0, x1, y1 = [float(v) for v in tb]
             w, h = abs(x1 - x0) * MM, abs(y1 - y0) * MM
@@ -235,6 +235,8 @@ def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
         out["warnings"].append("Pages differ in size — the first page's trim is used; check whether this is one product.")
     if box_used == "MediaBox":
         out["warnings"].append("No TrimBox in the file — the MediaBox is read as the trim; bleed cannot be told from trim.")
+    elif box_used.endswith("(some pages)"):
+        out["warnings"].append(f"TrimBox on {n_trim} of {n} pages — trim read where it is set, MediaBox elsewhere; bleed is reported from the pages that have a TrimBox.")
 
     w, h = first
     fm = _format_match(cache, w, h) if w and h else None
