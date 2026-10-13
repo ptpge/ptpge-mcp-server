@@ -78,8 +78,8 @@ details.card[open] summary { margin-bottom: 12px; }
 .tr-meta { font-size: 12px; color: #7fae97; margin: 0 0 6px; }
 #status { font-size: 13px; color: #777; }
 #status b { color: #1f4a35; }
-footer { text-align: center; color: #999; font-size: 12px; padding: 18px; }
-footer a { color: #2a6045; }
+footer:not(.pf) { text-align: center; color: #999; font-size: 12px; padding: 18px; }
+footer:not(.pf) a { color: #2a6045; }
 /* — v2: convergence demo + language switcher — */
 .hdr-row { display: flex; align-items: center; justify-content: space-between;
            gap: 14px; flex-wrap: wrap; }
@@ -172,7 +172,7 @@ button.secondary:hover,.conv .langrow button:hover{border-color:var(--ink);backg
 html.dark .conv .langrow button.on,html.dark .conv .prodrow button.on{background:#e6e8e2;color:#1e201c;border-color:#e6e8e2}
 input,select{background:var(--bg);color:var(--ink);border-color:var(--line);font-family:inherit}
 input:focus,select:focus{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink)}
-.hint a,footer a,#transcript summary a,#status b,#transcript summary b,.stage .slbl .num,#langlist a.on{color:var(--ink)}
+.hint a,footer:not(.pf) a,#transcript summary a,#status b,#transcript summary b,.stage .slbl .num,#langlist a.on{color:var(--ink)}
 details.card summary::after{color:var(--mute)}details.card summary:hover::after,#transcript summary:hover::after{color:var(--ink)}
 .stage{border-left-color:var(--line)}.stage .lng{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
 .stage .tag{background:var(--soft);color:var(--mute);border:1px solid var(--line);border-radius:3px}
@@ -183,7 +183,7 @@ details.card summary::after{color:var(--mute)}details.card summary:hover::after,
 #langbtn{border-radius:4px}
 .pill{background:var(--bg);color:var(--ink);border-color:var(--line);border-radius:4px}.pill:hover{border-color:var(--ink)}
 .canedit:focus{border-color:var(--ink);background:var(--soft)}
-footer{color:var(--mute)}
+footer:not(.pf){color:var(--mute)}
 #conv-hist td{border-top-color:var(--line)}
 </style>
 </head>
