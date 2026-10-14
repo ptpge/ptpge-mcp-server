@@ -28,6 +28,9 @@ import re
 BASE = "https://ptpge.org/v1/"
 MM = 25.4 / 72.0
 FORMAT_VAR = "variables/configuration/format"
+ORIENT_VAR = "variables/configuration/orientation"
+ORIENT = {"portrait": "printing/configurations/orientation/portrait", "landscape": "printing/configurations/orientation/landscape",
+          "square": "printing/configurations/orientation/square"}
 WIDTH_VAR = "variables/configuration/custom-width"
 HEIGHT_VAR = "variables/configuration/custom-height"
 PAGES_VAR = "variables/configuration/page-count"
@@ -248,6 +251,11 @@ def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
         out["bindings"].append({"variable": WIDTH_VAR, "value": min(w, h), "provenance": "artwork", "from": box_used})
         out["bindings"].append({"variable": HEIGHT_VAR, "value": max(w, h), "provenance": "artwork", "from": box_used})
         out["fromFile"].append(f"size: {w:g} × {h:g} mm — no named format of that size, bound as customized ({box_used})")
+    # orientation is stated by the trim too (SD-0107: the file binds what it states)
+    if w and h:
+        o = "square" if abs(w - h) <= 1.0 else ("portrait" if h > w else "landscape")
+        out["bindings"].append({"variable": ORIENT_VAR, "value": ORIENT[o], "provenance": "artwork", "from": box_used})
+        out["fromFile"].append(f"orientation: {o} ({w:g} × {h:g} mm)")
     if out["page"]["bleedMm"]:
         out["fromFile"].append(f"bleed: {out['page']['bleedMm']:g} mm (MediaBox − TrimBox)")
 

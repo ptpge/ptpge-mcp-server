@@ -49,6 +49,7 @@ def test_a5_booklet_with_pantone_and_fogra():
     assert "error" not in r, r
     by = {(b["variable"], b.get("surface")): b for b in r["bindings"]}
     assert by[(A.FORMAT_VAR, None)]["value"].endswith("/a-series/a5")
+    assert by[(A.ORIENT_VAR, None)]["value"].endswith("/orientation/portrait")   # 0.38.8: orientation is stated by the trim
     assert by[(A.PAGES_VAR, None)]["value"] == 16
     assert r["page"]["bleedMm"] == 3.0 and r["page"]["uniform"]
     assert A.SPOT in by[(A.COLOR_VAR, None)]["values"] and A.CMYK in by[(A.COLOR_VAR, None)]["values"]
