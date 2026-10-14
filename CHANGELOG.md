@@ -6,6 +6,29 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.39.1 — 2026-10-14
+
+- **ptpge-mark/3 amendment 2 (SD-0108):** the cross has two forms. Open cross = points at a product definition
+  (spec); capped cross (end bars at the cross's outer ends) = the same with an order cluster (request, offer);
+  breath = vendor (offer, job); brand = none. New species `request` (capped cross, no vendor needed). Offer marks
+  now carry the end bars. `fingermark.CAP_HALF` sets the bar length. Legacy frame names still map.
+- `ptpge_fingerprint`: the cfs/1 «offer» profile (order cluster, no vendor) is by content a request and now renders
+  the request mark instead of omitting the mark for lack of a vendor.
+- Tests: `tests/test_fingermark_species.py` (species grammar, cap geometry, scan layer orthogonal to species).
+
+## 0.39.0 — 2026-10-14
+
+- **`POST /validate` and `POST /fingerprint`** as plain JSON endpoints (same payloads as the tools, CORS for agent
+  origins + gutenlex.com). Validate returns `required[]`.
+
+## 0.38.8 — 2026-10-14
+
+- `/artwork` binds orientation (portrait / landscape / square) from the trim box.
+
+## 0.38.7 — 2026-10-14
+
+- Frame text «API» → «Developers».
+
 ## 0.38.4 — 2026-10-13
 
 - **/artwork: TrimBox on some pages only** is reported as such (trim where set, MediaBox elsewhere) instead of

@@ -20,6 +20,15 @@ BRAND_INK = "#111111"   # the mark is always black on PTPGE (Patrik 12.10.2026);
 
 AMP_CLASSES = (2.6, 3.5, 4.4)
 
+# ptpge-mark/3 amendment 2 (SD-0108, 14.10.2026): the cross has two forms.
+# Open cross = points at a product definition (spec). Capped cross (end bars)
+# = the same with an order cluster (request, offer). Breath = vendor (offer,
+# job). Brand carries none. CAP_HALF is half the end-bar length in the 100×100
+# frame; the bar sits at the cross's outer end (y=6 / y=94 / x=6 / x=94).
+CAP_HALF = 5.5
+CROSS_W = 1.47
+SPECIES = ("brand", "spec", "request", "offer", "job")
+
 
 def _params(hexstr: str):
     h = "".join(c for c in str(hexstr).lower() if c in "0123456789abcdef")
@@ -52,11 +61,13 @@ def _breath_gaps(vbytes, ri, ring_count):
 
 
 def _mark3_body(hexstr, ink, species, vendor, scan_frame):
-    """ptpge-mark/3 (SD-0060). Species 2x2: cross = registered (spec, offer);
-    breath = with a vendor (offer, job). Outermost ring always whole."""
+    """ptpge-mark/3 (SD-0060, amendment 2 in SD-0108). Cross = points at a
+    product definition (spec, request, offer); capped cross = with an order
+    cluster (request, offer); breath = with a vendor (offer, job); brand = none.
+    Outermost ring always whole."""
     legacy = {"square": "spec", "round": "offer", "corners": "job"}
     species = legacy.get(species, species)
-    if species not in ("brand", "spec", "offer", "job"):
+    if species not in SPECIES:
         species = "spec"
     needs_vendor = species in ("offer", "job")
     if needs_vendor and not vendor:
@@ -102,16 +113,22 @@ def _mark3_body(hexstr, ink, species, vendor, scan_frame):
             for sg in segs:
                 paths += f'<path d="M{"L".join(sg)}" fill="none" stroke="{ink}" stroke-width="2.2" stroke-linecap="round"/>'
     body = f'<circle cx="50" cy="50" r="2.94" fill="{ink}"/>' + paths
-    if species in ("spec", "offer"):
+    if species in ("spec", "request", "offer"):
         phE = p1 + (rings - 1) * 0.08
 
         def _re(th):
             return R1 + a1 * (0.5 + R1 / 50) * math.sin(k1 * th + phE) + a2 * math.sin(k2 * th + p2)
 
-        body += (f'<line x1="50" y1="6" x2="50" y2="{50 - _re(3 * math.pi / 2) - 1.5:.1f}" stroke="{ink}" stroke-width="1.47"/>'
-                 f'<line x1="50" y1="{50 + _re(math.pi / 2) + 1.5:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="1.47"/>'
-                 f'<line x1="6" y1="50" x2="{50 - _re(math.pi) - 1.5:.1f}" y2="50" stroke="{ink}" stroke-width="1.47"/>'
-                 f'<line x1="{50 + _re(0) + 1.5:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="1.47"/>')
+        body += (f'<line x1="50" y1="6" x2="50" y2="{50 - _re(3 * math.pi / 2) - 1.5:.1f}" stroke="{ink}" stroke-width="{CROSS_W}"/>'
+                 f'<line x1="50" y1="{50 + _re(math.pi / 2) + 1.5:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="{CROSS_W}"/>'
+                 f'<line x1="6" y1="50" x2="{50 - _re(math.pi) - 1.5:.1f}" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>'
+                 f'<line x1="{50 + _re(0) + 1.5:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>')
+    if species in ("request", "offer"):  # capped cross: an order cluster is in the hash
+        c = CAP_HALF
+        body += (f'<line x1="{50 - c:g}" y1="6" x2="{50 + c:g}" y2="6" stroke="{ink}" stroke-width="{CROSS_W}" stroke-linecap="round"/>'
+                 f'<line x1="{50 - c:g}" y1="94" x2="{50 + c:g}" y2="94" stroke="{ink}" stroke-width="{CROSS_W}" stroke-linecap="round"/>'
+                 f'<line x1="6" y1="{50 - c:g}" x2="6" y2="{50 + c:g}" stroke="{ink}" stroke-width="{CROSS_W}" stroke-linecap="round"/>'
+                 f'<line x1="94" y1="{50 - c:g}" x2="94" y2="{50 + c:g}" stroke="{ink}" stroke-width="{CROSS_W}" stroke-linecap="round"/>')
     if scan_frame:
         for x, y in ((6, 6), (94, 6), (94, 94), (6, 94)):
             body += f'<circle cx="{x}" cy="{y}" r="2.94" fill="{ink}"/>'

@@ -1509,7 +1509,12 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
         _reg.register_async(h, s)
         if visuals:
             try:
-                entry["markSvg"] = _fm.mark_svg(h, frame=profile if profile in ("spec", "offer", "job") else "offer")
+                # SD-0108: the cfs/1 "offer" profile carries an order cluster
+                # but no vendor — by content it is a request, and its mark is
+                # the request species (capped cross, no breath). The offer
+                # species needs a vendor identity in the hash; that arrives
+                # with the marketplace build (SD-0108, build later).
+                entry["markSvg"] = _fm.mark_svg(h, species="spec" if profile == "spec" else "request")
             except ValueError as exc:
                 # mark/3: the offer species carries a vendor's breath in the
                 # rings — without a vendor identity there is nothing to draw.
