@@ -22,6 +22,14 @@ KNOWN_ORDERED = {
 # `spec` profile excludes the commercial cluster (quantity, ...).
 COMMERCIAL_PREFIX = "variables/order/"
 
+# ptpge-cfs/1 profiles (SD-0108, 2026-10-14):
+#   spec    = the product — no variables/order/* at all
+#   request = spec + the order cluster (quantity, delivery, ...) — but never the vendor
+#   offer   = request + variables/order/vendor (a ptpge-id/1 identity URI); one per vendor
+# Each string contains the previous one. 'job' (offer + artwork sha256) follows with SD-0108 part C.
+PROFILES = ("spec", "request", "offer")
+VENDOR_VARIABLE = "variables/order/vendor"
+
 _TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9./-]*$")
 _SURFACE_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -74,14 +82,22 @@ def canonical_string(config: dict, profile: str = "spec") -> str:
     constituting it, exactly as price and vendor do. Guarded by
     tests/test_cfs_conformance.py::test_provenance_never_reaches_the_hash.
     """
-    if profile not in ("spec", "offer"):
-        raise ValueError("profile must be 'spec' or 'offer'")
+    if profile not in PROFILES:
+        if profile == "quote":
+            raise ValueError("profile 'quote' is not a cfs/1 profile; a quote carries the request fingerprint")
+        raise ValueError("profile must be one of 'spec', 'request', 'offer' (SD-0108)")
+    has_vendor = any(_token(b["variable"]) == VENDOR_VARIABLE for b in config.get("bindings", []))
+    if profile == "offer" and not has_vendor:
+        raise ValueError("profile 'offer' requires a variables/order/vendor binding (SD-0108); "
+                         "an order cluster without a vendor is a 'request'")
     product = _token(config["product"])
     stmts = []
     seen = set()
     for b in config.get("bindings", []):
         var = _token(b["variable"])
         if profile == "spec" and var.startswith(COMMERCIAL_PREFIX):
+            continue
+        if profile == "request" and var == VENDOR_VARIABLE:
             continue
         surface = b.get("surface", "") or ""
         if surface:

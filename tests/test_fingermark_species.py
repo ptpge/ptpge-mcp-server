@@ -1,11 +1,12 @@
 """ptpge-mark/3 species grammar (SD-0060 + amendment 2 in SD-0108).
 
-cross        = points at a product definition      (spec, request, offer)
-capped cross = ... with an order cluster            (request, offer)
-breath       = with a vendor                        (offer, job)
-brand        = none of the above
+cross in register (+)      = registered with the specification   (spec, offer)
+cross out of register (×)  = a request — not registered, no vendor (request)
+breath                     = with a vendor                         (offer, job)
+brand                      = none of the above
 """
 import hashlib
+import math
 import re
 
 import pytest
@@ -17,47 +18,48 @@ V = hashlib.sha256(b"ptpge-id/1:https://ptpge.org/v1/vendors/example-print").hex
 
 
 def _lines(svg):
-    return re.findall(r"<line [^>]*/>", svg)
+    out = []
+    for l in re.findall(r"<line [^>]*/>", svg):
+        g = {k: float(v) for k, v in re.findall(r'(x1|y1|x2|y2)="([-\d.]+)"', l)}
+        out.append(g)
+    return out
 
 
-def _cross(svg):
-    """The four cross arms: lines that start/end on the centre axis (x=50 or y=50)."""
-    return [l for l in _lines(svg) if ('x1="50"' in l and 'x2="50"' in l) or ('y1="50"' in l and 'y2="50"' in l)]
+def _plus(svg):
+    return [l for l in _lines(svg) if l["x1"] == l["x2"] == 50 or l["y1"] == l["y2"] == 50]
 
 
-def _caps(svg):
-    """The four end bars: perpendicular to the arms, sitting at 6 / 94."""
-    return [l for l in _lines(svg) if l not in _cross(svg)]
+def _x(svg):
+    return [l for l in _lines(svg) if abs(abs(l["x2"] - 50) - abs(l["y2"] - 50)) < 0.2 and l not in _plus(svg)]
 
 
 def _breath(svg):
     return 'stroke-linecap="round"' in "".join(re.findall(r"<path [^>]*/>", svg))
 
 
-@pytest.mark.parametrize("species,cross,caps,breath", [
+@pytest.mark.parametrize("species,plus,x,breath", [
     ("brand", 0, 0, False),
     ("spec", 4, 0, False),
-    ("request", 4, 4, False),
-    ("offer", 4, 4, True),
+    ("request", 0, 4, False),
+    ("offer", 4, 0, True),
     ("job", 0, 0, True),
 ])
-def test_species_grammar(species, cross, caps, breath):
+def test_species_grammar(species, plus, x, breath):
     vendor = V if species in ("offer", "job") else None
     svg = fm.mark_svg(H, species=species, vendor=vendor)
-    assert len(_cross(svg)) == cross
-    assert len(_caps(svg)) == caps
+    assert len(_plus(svg)) == plus
+    assert len(_x(svg)) == x
     assert _breath(svg) is breath
 
 
-def test_caps_sit_at_cross_ends_and_are_symmetric():
-    svg = fm.mark_svg(H, species="request")
-    caps = _caps(svg)
-    assert len(caps) == 4
-    c = fm.CAP_HALF
-    assert any(f'x1="{50 - c:g}" y1="6"' in l for l in caps)
-    assert any(f'x1="{50 - c:g}" y1="94"' in l for l in caps)
-    assert any(f'x1="6" y1="{50 - c:g}"' in l for l in caps)
-    assert any(f'x1="94" y1="{50 - c:g}"' in l for l in caps)
+def test_x_arms_stop_short_of_the_register_dots():
+    arms = _x(fm.mark_svg(H, species="request", scan_frame=True))
+    assert len(arms) == 4
+    for a in arms:
+        r_end = math.hypot(a["x2"] - 50, a["y2"] - 50)
+        assert abs(r_end - fm.X_ARM_R) < 0.2
+        assert r_end < 44 * math.sqrt(2) - 10          # the corner dots sit at 44·√2 on the diagonal
+        assert math.hypot(a["x1"] - 50, a["y1"] - 50) < r_end   # arm starts at the outer ring, points outward
 
 
 def test_offer_and_job_require_vendor():
@@ -67,20 +69,19 @@ def test_offer_and_job_require_vendor():
         fm.mark_svg(H, species="job")
 
 
-def test_request_needs_no_vendor_and_differs_from_spec_and_brand():
+def test_request_needs_no_vendor_and_shares_the_rings():
     spec = fm.mark_svg(H, species="spec")
     req = fm.mark_svg(H, species="request")
     brand = fm.mark_svg(H, species="brand")
     assert spec != req != brand
-    # same rings — the species only adds strokes around them
     rings = lambda s: re.findall(r"<path [^>]*/>", s)
     assert rings(spec) == rings(req) == rings(brand)
 
 
 def test_legacy_frames_still_map():
-    assert len(_cross(fm.mark_svg(H, frame="square"))) == 4          # spec
-    assert len(_caps(fm.mark_svg(H, frame="round", vendor=V))) == 4  # offer
-    assert len(_cross(fm.mark_svg(H, frame="corners", vendor=V))) == 0  # job
+    assert len(_plus(fm.mark_svg(H, frame="square"))) == 4            # spec
+    assert len(_plus(fm.mark_svg(H, frame="round", vendor=V))) == 4   # offer
+    assert len(_plus(fm.mark_svg(H, frame="corners", vendor=V))) == 0  # job
 
 
 def test_scan_frame_is_orthogonal_to_species():

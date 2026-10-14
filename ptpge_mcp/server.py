@@ -12,7 +12,7 @@ v0.4.0 — four new tools (tool surface v2, additive):
       scoring term). Deliberately not full legality — that is an implementation,
       licensed; this free tool is its demonstration.
     - ptpge_fingerprint           — canonical ptpge-cfs/1 serialization +
-      SHA-256 in both profiles (spec/offer), per SD-0040. Server-side port
+      SHA-256 in both profiles (spec/request; offer needs a vendor — SD-0108), per SD-0040. Server-side port
       in ptpge_mcp/fingerprint.py, verified byte-identical against the
       reference implementation's worked example.
     Original three tools unchanged. Playground gains a "test-prompt demo"
@@ -555,13 +555,14 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "Compute the canonical ptpge-cfs/1 serialization and SHA-256 "
             "fingerprint of a resolved product configuration (SD-0040) — the "
             "vendor-neutral identity used as quote/order/cache key. Returns "
-            "both profiles in strict containment spec ⊂ offer: 'spec' = the "
-            "manufacturable artifact, commercial cluster excluded; 'offer' = "
-            "spec plus the commercial cluster, which is exactly the four "
-            "variables under variables/order/ — quantity, lead-time, "
-            "delivery-method, incoterm (closed list, SD-0040). Transaction "
+            "both profiles in strict containment spec ⊂ request: 'spec' = the "
+            "manufacturable artifact, commercial cluster excluded; 'request' = "
+            "spec plus the commercial cluster — the variables under "
+            "variables/order/ (quantity, lead-time, delivery-method, incoterm; "
+            "SD-0040) without a vendor. An 'offer' is a request plus "
+            "variables/order/vendor, one per vendor (SD-0108). Transaction "
             "data (print-ready file, delivery date, price) is keyed BY the "
-            "offer fingerprint and never hashed into it. SD-0083: the input "
+            "request fingerprint and never hashed into it. SD-0083: the input "
             "is validated first and an identity is issued ONLY for a valid, "
             "complete configuration — every required axis of the product "
             "bound (or envelope-implied where the envelope offers one value; "
@@ -607,7 +608,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
         title="Expand a fingerprint",
         annotations=ToolAnnotations(title="Expand a fingerprint", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
         description=(
-            "Expand a spec or offer fingerprint (ptpge-cfs/1, full 64-hex or "
+            "Expand a spec or request fingerprint (ptpge-cfs/1, full 64-hex or "
             "16-hex short form) back into its structured configuration — the "
             "read-back path for MIS/ERP: matched profile, product, every "
             "binding with resolved labels, the canonical string, and the "
@@ -1501,20 +1502,19 @@ def fingerprint_payload(args: dict, cache: "VocabularyCache | None" = None) -> o
         implied = [{"variable": ib["variable"][len(_BASE):], "value": ib["value"]} for ib in res["implied"]]
     out = {"algorithm": "ptpge-cfs/1", "profiles": {}}
     visuals = bool(args.get("visuals"))
-    for profile in ("spec", "offer"):
+    for profile in ("spec", "request"):
         s = _cfs_canonical(config, profile)
         h = _cfs_fingerprint(config, profile)
         entry = {"canonical": s, "sha256": h, "short": _cfs_short(h),
                  "resolverUrl": "https://ptpge.org/f/" + h}
-        _reg.register_async(h, s)
+        if profile == "spec":
+            # SD-0108: only the spec is public with content on ptpge.org/f.
+            # A request is kept by its parties; the register will hold hash +
+            # timestamp only (part C). Nothing of it is published here.
+            _reg.register_async(h, s)
         if visuals:
             try:
-                # SD-0108: the cfs/1 "offer" profile carries an order cluster
-                # but no vendor — by content it is a request, and its mark is
-                # the request species (capped cross, no breath). The offer
-                # species needs a vendor identity in the hash; that arrives
-                # with the marketplace build (SD-0108, build later).
-                entry["markSvg"] = _fm.mark_svg(h, species="spec" if profile == "spec" else "request")
+                entry["markSvg"] = _fm.mark_svg(h, species=profile)
             except ValueError as exc:
                 # mark/3: the offer species carries a vendor's breath in the
                 # rings — without a vendor identity there is nothing to draw.
@@ -1606,8 +1606,8 @@ def expand_payload(cache: "VocabularyCache", args: dict) -> object:
         "canonical": doc.get("canonical"),
         "dataVersion": cache.version.get("version"),
         "note": ("Read-back for MIS/ERP. Bindings are the manufacturable configuration "
-                 "(profile 'spec') or that plus the commercial cluster (profile 'offer'); "
-                 "file, delivery date and price are transaction data keyed by the offer "
+                 "(profile 'spec') or that plus the commercial cluster (profile 'request'); "
+                 "file, delivery date and price are transaction data keyed by the request "
                  "fingerprint and are never part of it."),
     }
 

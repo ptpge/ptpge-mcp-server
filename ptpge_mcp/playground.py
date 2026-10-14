@@ -456,7 +456,7 @@ function fmtJson(obj) {
     if (obj && obj.profiles && obj.profiles.spec && obj.profiles.spec.markSvg) {
       obj = JSON.parse(JSON.stringify(obj));
       strip = '<div class="fpstrip" style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin:0 0 14px">';
-      for (const prof of ["spec", "offer"]) {
+      for (const prof of ["spec", "request"]) {
         const pr = obj.profiles[prof]; if (!pr || !pr.markSvg) continue;
         strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.markSvg +
                  '</span><div class="cap">' + prof + ' · ' + pr.short + '</div></div>';

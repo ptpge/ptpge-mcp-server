@@ -260,8 +260,10 @@ def test_fingerprint_matches_spec_worked_example():
     out = tool_payload(FakeCache(), "ptpge_fingerprint", args)
     assert out["profiles"]["spec"]["sha256"] == (
         "ad3f18593fe2547dc9c59ed70d92a22aa59fc4e053881777fc69bda179a3c125")
-    assert out["profiles"]["offer"]["sha256"] == (
-        "93c50214d5e1f4be035ab750d632cb35dab2301108e32089e29eba943974632e")
+    # SD-0108: the second profile is the request (no vendor); agrees with tools/fingerprint.py
+    assert out["profiles"]["request"]["sha256"] == (
+        "0fce6cc89920ebc2ca650de40eb65c7794541c7562f59f6d5c1e119fc6023094")
+    assert "offer" not in out["profiles"]
     assert out["profiles"]["spec"]["short"] == "ad3f18593fe2547d"
 
 

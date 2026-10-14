@@ -8,13 +8,15 @@ See SD-0044 for the versioning & changelog policy.
 
 ## 0.39.1 — 2026-10-14
 
-- **ptpge-mark/3 amendment 2 (SD-0108):** the cross has two forms. Open cross = points at a product definition
-  (spec); capped cross (end bars at the cross's outer ends) = the same with an order cluster (request, offer);
-  breath = vendor (offer, job); brand = none. New species `request` (capped cross, no vendor needed). Offer marks
-  now carry the end bars. `fingermark.CAP_HALF` sets the bar length. Legacy frame names still map.
-- `ptpge_fingerprint`: the cfs/1 «offer» profile (order cluster, no vendor) is by content a request and now renders
-  the request mark instead of omitting the mark for lack of a vendor.
-- Tests: `tests/test_fingermark_species.py` (species grammar, cap geometry, scan layer orthogonal to species).
+- **ptpge-mark/3 amendment 2 (SD-0108):** the cross has two positions. In register (+, on the axes) =
+  registered with the specification (spec, offer — as SD-0060 says). Out of register (×, turned 45°) = a
+  request: not registered, no vendor; the vendor's offer turns it into register. Breath = vendor (offer, job);
+  brand = none. New species `request`; `fingermark.X_ARM_R` sets where the × arms end (short of the corner
+  register dots). Legacy frame names still map. Offer and spec marks are unchanged.
+- **ptpge-cfs/1 profiles (SD-0108):** `spec` · `request` (spec + order cluster, never the vendor) · `offer`
+  (request + `variables/order/vendor`, refused without it). `ptpge_fingerprint` and `POST /fingerprint` return
+  spec + request; only the spec is registered with the public resolver. A request is kept by its parties.
+- Tests: `tests/test_fingermark_species.py`; worked-example pin updated to the request profile.
 
 ## 0.39.0 — 2026-10-14
 
