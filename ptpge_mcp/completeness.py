@@ -138,7 +138,7 @@ def completeness(cache, product: dict, bindings: list[dict], ref, language: str)
       setup             {"uri", "implied", "surfaces", "panels"}
     """
     out = {"implied": [], "surface_errors": [], "needs_disambiguation": [],
-           "advisories": [], "setup": None}
+           "advisories": [], "setup": None, "required": []}
     bound: dict[str, list[dict]] = {}
     for b in bindings:
         bound.setdefault(_tail(_full(b.get("variable", ""))), []).append(b)
@@ -221,6 +221,7 @@ def completeness(cache, product: dict, bindings: list[dict], ref, language: str)
         required.append(PAGE_COUNT_VARIABLE)
     if not is_multi and PAGE_COUNT_VARIABLE in required and setup["uri"]:
         required.remove(PAGE_COUNT_VARIABLE)   # calendars: flat variant
+    out["required"] = list(required)   # 0.39.0: what a page needs to count «n of m» — stable per product + setup
     for var in required:
         if var == SETUP_VARIABLE:
             continue

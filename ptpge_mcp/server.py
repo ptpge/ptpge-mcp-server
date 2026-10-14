@@ -1386,6 +1386,7 @@ def validate_payload(cache: "VocabularyCache", args: dict) -> object:
                                   " — validate again with that product instead of dropping the value.")
     if comp["setup"]:
         resp["setup"] = comp["setup"]
+    resp["required"] = comp.get("required") or []
     if comp["needs_disambiguation"]:
         resp["needs_disambiguation"] = comp["needs_disambiguation"]
         resp["guidance"] = ("Put each question to the user verbatim and bind the answer. "
@@ -2250,6 +2251,38 @@ def build_app() -> Starlette:
         del data
         return JSONResponse(rep, status_code=200 if "error" not in rep else 422, headers={**cors, "Cache-Control": "no-store"})
 
+    def _json_cors(request: Request) -> dict:
+        """CORS for the JSON wrappers below: the playground hosts, ptpge.org and gutenlex.com may call them from a page."""
+        from .agent import cfg as _agent_cfg
+        origin = request.headers.get("origin", "")
+        allowed = _agent_cfg()["origins"] + ["https://gutenlex.com", "https://www.gutenlex.com"]
+        return {"Access-Control-Allow-Origin": origin if origin in allowed else allowed[0],
+                "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type",
+                "Vary": "Origin", "Cache-Control": "no-store"}
+
+    async def _tool_json(request: Request, fn) -> Response:
+        """POST /validate and POST /fingerprint (0.39.0): the same payloads as the MCP tools
+        ptpge_validate_config / ptpge_fingerprint, reachable from a web page without an MCP client —
+        so ptpge.org/mapping asks the specification instead of reproducing it. Nothing is stored."""
+        cors = _json_cors(request)
+        if request.method == "OPTIONS":
+            return Response(status_code=204, headers=cors)
+        try:
+            args = await request.json()
+        except Exception:
+            return JSONResponse({"error": "bad_request", "note": "JSON body {product, bindings[], language?} required"}, status_code=400, headers=cors)
+        if not isinstance(args, dict) or not args.get("product"):
+            return JSONResponse({"error": "bad_request", "note": "product required, e.g. ordering/products/booklets"}, status_code=400, headers=cors)
+        import asyncio
+        payload = await asyncio.get_running_loop().run_in_executor(None, fn, args)
+        return JSONResponse(payload, headers=cors)
+
+    async def validate_json(request: Request) -> Response:
+        return await _tool_json(request, lambda a: validate_payload(cache, a))
+
+    async def fingerprint_json(request: Request) -> Response:
+        return await _tool_json(request, lambda a: fingerprint_payload(a, cache))
+
     async def check_json(request: Request) -> Response:
         """GET /check.json?domain=… — the same report as JSON (curl-able, CORS open)."""
         from .check import check_domain
@@ -2442,6 +2475,8 @@ def build_app() -> Starlette:
                     "check": "/check",
                     "agent": "/agent/status",
                     "check_json": "/check.json?domain=<domain>",
+                    "validate": "POST /validate {product, bindings[]} — same as ptpge_validate_config",
+                    "fingerprint": "POST /fingerprint {product, bindings[]} — same as ptpge_fingerprint",
                     "sse": "/sse" if config.sse_enabled else None,
                     "messages": "/mcp/messages/" if config.sse_enabled else None,
                     "health": "/healthz",
@@ -2598,6 +2633,8 @@ def build_app() -> Starlette:
             Route("/check", endpoint=check_page, methods=["GET"]),
             Route("/check.json", endpoint=check_json, methods=["GET"]),
             Route("/artwork", endpoint=artwork_read, methods=["POST", "OPTIONS"]),
+            Route("/validate", endpoint=validate_json, methods=["POST", "OPTIONS"]),
+            Route("/fingerprint", endpoint=fingerprint_json, methods=["POST", "OPTIONS"]),
             Route("/playground/pdf", endpoint=lambda r: HTMLResponse(__import__("ptpge_mcp.artworkpage", fromlist=["PAGE"]).PAGE), methods=["GET"]),
             Route("/favicon.ico", endpoint=_asset("favicon.ico", "image/x-icon"), methods=["GET"]),
             Route("/icon-512.png", endpoint=_asset("icon-512.png", "image/png"), methods=["GET"]),
