@@ -1,8 +1,9 @@
 """ptpge-mark/3 species grammar (SD-0060 + amendment 2 in SD-0108).
 
-cross in register (+)      = registered with the specification   (spec, offer)
-cross out of register (×)  = a request — not registered, no vendor (request)
-breath                     = with a vendor                         (offer, job)
+cross                      = a description (spec, request, offer); job = a thing, no cross
+cross in register (+)      = public with content on ptpge.org/f   (spec)
+cross out of register (×)  = held by the parties                  (request, offer)
+breath                     = a vendor stands behind it            (offer, job)
 brand                      = none of the above
 """
 import hashlib
@@ -41,7 +42,7 @@ def _breath(svg):
     ("brand", 0, 0, False),
     ("spec", 4, 0, False),
     ("request", 0, 4, False),
-    ("offer", 4, 0, True),
+    ("offer", 0, 4, True),
     ("job", 0, 0, True),
 ])
 def test_species_grammar(species, plus, x, breath):
@@ -80,7 +81,7 @@ def test_request_needs_no_vendor_and_shares_the_rings():
 
 def test_legacy_frames_still_map():
     assert len(_plus(fm.mark_svg(H, frame="square"))) == 4            # spec
-    assert len(_plus(fm.mark_svg(H, frame="round", vendor=V))) == 4   # offer
+    assert len(_x(fm.mark_svg(H, frame="round", vendor=V))) == 4      # offer
     assert len(_plus(fm.mark_svg(H, frame="corners", vendor=V))) == 0  # job
 
 

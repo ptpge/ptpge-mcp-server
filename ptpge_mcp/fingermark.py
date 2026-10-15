@@ -20,11 +20,11 @@ BRAND_INK = "#111111"   # the mark is always black on PTPGE (Patrik 12.10.2026);
 
 AMP_CLASSES = (2.6, 3.5, 4.4)
 
-# ptpge-mark/3 amendment 2 (SD-0108, 14.10.2026): the cross has two positions.
-# In register (+, on the axes) = registered with the specification (spec,
-# offer — as SD-0060 says). Out of register (×, turned 45°) = not registered:
-# a request, which a vendor's offer turns into register. Breath = vendor
-# (offer, job). Brand carries none. The × arms run from the outer ring to
+# ptpge-mark/3 amendment 2 (SD-0108, 14./15.10.2026): a cross = a description
+# (spec, request, offer); no cross = a thing (job). In register (+, on the
+# axes) = public with content on ptpge.org/f — the spec only. Out of register
+# (×, turned 45°) = held by the parties (request, offer). Breath = a vendor
+# stands behind it (offer, job). Brand carries none. The × arms run from the outer ring to
 # X_ARM_R on the diagonals — short of the corner register dots at 44·√2 ≈ 62 (Patrik 15.10: the longer arm).
 X_ARM_R = 50.0
 CROSS_W = 1.47
@@ -63,10 +63,9 @@ def _breath_gaps(vbytes, ri, ring_count):
 
 
 def _mark3_body(hexstr, ink, species, vendor, scan_frame):
-    """ptpge-mark/3 (SD-0060, amendment 2 in SD-0108). Cross in register (+)
-    = registered (spec, offer); cross out of register (×) = a request;
-    breath = with a vendor (offer, job); brand = none. Outermost ring always
-    whole."""
+    """ptpge-mark/3 (SD-0060, amendment 2 in SD-0108). + = spec (public);
+    × = request / offer (held by the parties); breath = vendor (offer, job);
+    job has no cross; brand = none. Outermost ring always whole."""
     legacy = {"square": "spec", "round": "offer", "corners": "job"}
     species = legacy.get(species, species)
     if species not in SPECIES:
@@ -120,12 +119,12 @@ def _mark3_body(hexstr, ink, species, vendor, scan_frame):
     def _re(th):
         return R1 + a1 * (0.5 + R1 / 50) * math.sin(k1 * th + phE) + a2 * math.sin(k2 * th + p2)
 
-    if species in ("spec", "offer"):
+    if species == "spec":
         body += (f'<line x1="50" y1="6" x2="50" y2="{50 - _re(3 * math.pi / 2) + JOIN:.1f}" stroke="{ink}" stroke-width="{CROSS_W}"/>'
                  f'<line x1="50" y1="{50 + _re(math.pi / 2) - JOIN:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="{CROSS_W}"/>'
                  f'<line x1="6" y1="50" x2="{50 - _re(math.pi) + JOIN:.1f}" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>'
                  f'<line x1="{50 + _re(0) - JOIN:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>')
-    if species == "request":  # cross out of register: four arms on the diagonals, ring edge → X_ARM_R
+    if species in ("request", "offer"):  # cross out of register: four arms on the diagonals, ring edge → X_ARM_R
         for th in (math.pi / 4, 3 * math.pi / 4, 5 * math.pi / 4, 7 * math.pi / 4):
             r0 = _re(th) - JOIN
             body += (f'<line x1="{50 + r0 * math.cos(th):.1f}" y1="{50 + r0 * math.sin(th):.1f}" '
