@@ -26,7 +26,7 @@ AMP_CLASSES = (2.6, 3.5, 4.4)
 # (×, turned 45°) = held by the parties (request, offer). Breath = a vendor
 # stands behind it (offer, job). Brand carries none. The × arms run from the outer ring to
 # X_ARM_R on the diagonals — short of the corner register dots at 44·√2 ≈ 62 (Patrik 15.10: the longer arm).
-X_ARM_R = 50.0
+X_ARM_R = 54.0
 CROSS_W = 1.47
 JOIN = 1.0   # the cross arms end this far INSIDE the outer ring's centreline — they join the ring, no air gap (Patrik 15.10)
 SPECIES = ("brand", "spec", "request", "offer", "job")
