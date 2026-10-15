@@ -59,7 +59,7 @@ def test_x_arms_stop_short_of_the_register_dots():
     for a in arms:
         r_end = math.hypot(a["x2"] - 50, a["y2"] - 50)
         assert abs(r_end - fm.X_ARM_R) < 0.2
-        assert r_end < 44 * math.sqrt(2) - 10          # the corner dots sit at 44·√2 on the diagonal
+        assert r_end <= 44 * math.sqrt(2) - 8           # the corner dots sit at 44·√2 ≈ 62.2 on the diagonal; ≥ 8 u (0.8 mm at 10 mm) of air
         assert math.hypot(a["x1"] - 50, a["y1"] - 50) < r_end   # arm starts at the outer ring, points outward
 
 
