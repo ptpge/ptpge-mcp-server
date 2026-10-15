@@ -8,6 +8,7 @@ See SD-0044 for the versioning & changelog policy.
 
 ## 0.39.2 — 2026-10-15
 
+- Cross arms (+ and ×) now end 1.0 u inside the outer ring's centreline (`JOIN`) — they join the ring; before, they stopped 0.4 u outside the stroke and read as an air gap (Patrik 15.10).
 - Request mark: the × arms run to r 50 on the diagonals (was 44) — the longer form Patrik chose; still ≈1.2 mm short of the corner register dots at 10 mm. The four equal register dots stay as SD-0060 tested them: rotation is resolved by the ring phases, and + vs × survives any 90° turn, so no anchor dot is needed.
 
 ## 0.39.1 — 2026-10-14

@@ -28,6 +28,7 @@ AMP_CLASSES = (2.6, 3.5, 4.4)
 # X_ARM_R on the diagonals — short of the corner register dots at 44·√2 ≈ 62 (Patrik 15.10: the longer arm).
 X_ARM_R = 50.0
 CROSS_W = 1.47
+JOIN = 1.0   # the cross arms end this far INSIDE the outer ring's centreline — they join the ring, no air gap (Patrik 15.10)
 SPECIES = ("brand", "spec", "request", "offer", "job")
 
 
@@ -120,13 +121,13 @@ def _mark3_body(hexstr, ink, species, vendor, scan_frame):
         return R1 + a1 * (0.5 + R1 / 50) * math.sin(k1 * th + phE) + a2 * math.sin(k2 * th + p2)
 
     if species in ("spec", "offer"):
-        body += (f'<line x1="50" y1="6" x2="50" y2="{50 - _re(3 * math.pi / 2) - 1.5:.1f}" stroke="{ink}" stroke-width="{CROSS_W}"/>'
-                 f'<line x1="50" y1="{50 + _re(math.pi / 2) + 1.5:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="{CROSS_W}"/>'
-                 f'<line x1="6" y1="50" x2="{50 - _re(math.pi) - 1.5:.1f}" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>'
-                 f'<line x1="{50 + _re(0) + 1.5:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>')
+        body += (f'<line x1="50" y1="6" x2="50" y2="{50 - _re(3 * math.pi / 2) + JOIN:.1f}" stroke="{ink}" stroke-width="{CROSS_W}"/>'
+                 f'<line x1="50" y1="{50 + _re(math.pi / 2) - JOIN:.1f}" x2="50" y2="94" stroke="{ink}" stroke-width="{CROSS_W}"/>'
+                 f'<line x1="6" y1="50" x2="{50 - _re(math.pi) + JOIN:.1f}" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>'
+                 f'<line x1="{50 + _re(0) - JOIN:.1f}" y1="50" x2="94" y2="50" stroke="{ink}" stroke-width="{CROSS_W}"/>')
     if species == "request":  # cross out of register: four arms on the diagonals, ring edge → X_ARM_R
         for th in (math.pi / 4, 3 * math.pi / 4, 5 * math.pi / 4, 7 * math.pi / 4):
-            r0 = _re(th) + 1.5
+            r0 = _re(th) - JOIN
             body += (f'<line x1="{50 + r0 * math.cos(th):.1f}" y1="{50 + r0 * math.sin(th):.1f}" '
                      f'x2="{50 + X_ARM_R * math.cos(th):.1f}" y2="{50 + X_ARM_R * math.sin(th):.1f}" '
                      f'stroke="{ink}" stroke-width="{CROSS_W}"/>')
