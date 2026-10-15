@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.39.2 — 2026-10-15
+
+- Request mark: the × arms run to r 50 on the diagonals (was 44) — the longer form Patrik chose; still ≈1.2 mm short of the corner register dots at 10 mm. The four equal register dots stay as SD-0060 tested them: rotation is resolved by the ring phases, and + vs × survives any 90° turn, so no anchor dot is needed.
+
 ## 0.39.1 — 2026-10-14
 
 - **ptpge-mark/3 amendment 2 (SD-0108):** the cross has two positions. In register (+, on the axes) =

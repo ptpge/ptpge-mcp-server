@@ -25,8 +25,8 @@ AMP_CLASSES = (2.6, 3.5, 4.4)
 # offer — as SD-0060 says). Out of register (×, turned 45°) = not registered:
 # a request, which a vendor's offer turns into register. Breath = vendor
 # (offer, job). Brand carries none. The × arms run from the outer ring to
-# X_ARM_R on the diagonals — short of the corner register dots at 44·√2.
-X_ARM_R = 44.0
+# X_ARM_R on the diagonals — short of the corner register dots at 44·√2 ≈ 62 (Patrik 15.10: the longer arm).
+X_ARM_R = 50.0
 CROSS_W = 1.47
 SPECIES = ("brand", "spec", "request", "offer", "job")
 
