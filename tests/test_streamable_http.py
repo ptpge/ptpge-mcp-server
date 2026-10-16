@@ -94,6 +94,7 @@ def test_tools_list_exposes_all_ten_tools():
         "ptpge_resolve_color_notation",          # SD-0071
         "ptpge_expand_fingerprint",              # 0.25.0 — read-back over MCP
         "ptpge_check_domain",                    # 0.33.0 — does an agent find you?
+        "ptpge_validate_document",               # 0.40.0 — PTPGE Ready document check
     }
     # inputSchema must survive serialisation (camelCase alias)
     assert all("inputSchema" in t for t in resp["result"]["tools"])
