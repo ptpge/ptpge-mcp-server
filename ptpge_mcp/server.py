@@ -736,6 +736,7 @@ VARIABLE_ENVELOPE = {
     "variables/features/embellishment": ("perSurfaceSupportsEmbellishment", "surface"),
     "variables/features/surface-finish": ("perSurfaceSupportsSurfaceFinish", "surface"),
     "variables/finishing/structural-finishing": ("supportsStructuralFinishing", "product"),
+    "variables/finishing/banner-finishing":     ("supportsBannerFinishing", "product"),   # SD-0109 (2026-10-16)
     "variables/configuration/shape":            ("supportsShape", "product"),
     # SD-0076 (2026-09-03): substrate class (ISO 12647-2 PS1–PS5) and back orientation (XJDF LayoutIntent@Sides)
     "variables/substrate/substrate-class":      ("supportsSubstrateClass", "product"),
