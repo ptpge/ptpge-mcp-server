@@ -658,6 +658,29 @@ TOOL_DESCRIPTORS: list[Tool] = [
             "required": ["domain"],
         },
     ),
+    Tool(
+        name="ptpge_validate_document",
+        title="Validate a PTPGE document",
+        annotations=ToolAnnotations(title="Validate a PTPGE document", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
+        description=(
+            "Validate ONE document you hand over — a vendor declaration, supplier catalogue, "
+            "request, quote or UCP manifest (its `schema` field says which) — against the "
+            "published JSON Schema, the vocabulary (every term URI must exist; deprecated warns) "
+            "and, for request/1 and quote/1, the identity: the spec and request fingerprints are "
+            "recomputed from the configuration and must match what the document states; a quote's "
+            "offer fingerprint must equal request + the quote's vendor (SD-0108). Nothing is fetched "
+            "from any domain and nothing is stored. This is the PTPGE Ready conformance check for a "
+            "module that writes these documents (ptpge.org/ready/). Returns valid, errors[], warnings[] "
+            "and what was checked."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "document": {"type": "object", "description": "The document itself (JSON object with a `schema` field)."},
+            },
+            "required": ["document"],
+        },
+    ),
 ]
 
 
@@ -1690,6 +1713,9 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
     if name == "ptpge_check_domain":
         from .check import check_domain
         return check_domain(str(args.get("domain", "")), cache, args.get("document") or None)
+    if name == "ptpge_validate_document":
+        from .check import validate_document
+        return validate_document(args.get("document"), cache)
 
     raise ValueError(f"Unknown tool: {name}")
 
@@ -2289,6 +2315,23 @@ def build_app() -> Starlette:
     async def fingerprint_json(request: Request) -> Response:
         return await _tool_json(request, lambda a: fingerprint_payload(a, cache))
 
+    async def validate_document_json(request: Request) -> Response:
+        """POST /validate-document — body = the document (or {"document": {...}}); same as ptpge_validate_document.
+        CORS open: a module author tests from anywhere, nothing is stored."""
+        from .check import validate_document
+        cors = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type", "Cache-Control": "no-store"}
+        if request.method == "OPTIONS":
+            return Response(status_code=204, headers=cors)
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "bad_request", "note": "JSON body required: the document, or {\"document\": {...}}"}, status_code=400, headers=cors)
+        doc = body.get("document") if isinstance(body, dict) and "document" in body and "schema" not in body else body
+        import asyncio
+        out = await asyncio.get_running_loop().run_in_executor(None, validate_document, doc, cache)
+        return JSONResponse(out, headers=cors)
+
     async def check_json(request: Request) -> Response:
         """GET /check.json?domain=… — the same report as JSON (curl-able, CORS open)."""
         from .check import check_domain
@@ -2483,6 +2526,7 @@ def build_app() -> Starlette:
                     "check_json": "/check.json?domain=<domain>",
                     "validate": "POST /validate {product, bindings[]} — same as ptpge_validate_config",
                     "fingerprint": "POST /fingerprint {product, bindings[]} — same as ptpge_fingerprint",
+                    "validate_document": "POST /validate-document <document> — same as ptpge_validate_document (PTPGE Ready)",
                     "sse": "/sse" if config.sse_enabled else None,
                     "messages": "/mcp/messages/" if config.sse_enabled else None,
                     "health": "/healthz",
@@ -2641,6 +2685,7 @@ def build_app() -> Starlette:
             Route("/artwork", endpoint=artwork_read, methods=["POST", "OPTIONS"]),
             Route("/validate", endpoint=validate_json, methods=["POST", "OPTIONS"]),
             Route("/fingerprint", endpoint=fingerprint_json, methods=["POST", "OPTIONS"]),
+            Route("/validate-document", endpoint=validate_document_json, methods=["POST", "OPTIONS"]),
             Route("/playground/pdf", endpoint=lambda r: HTMLResponse(__import__("ptpge_mcp.artworkpage", fromlist=["PAGE"]).PAGE), methods=["GET"]),
             Route("/favicon.ico", endpoint=_asset("favicon.ico", "image/x-icon"), methods=["GET"]),
             Route("/icon-512.png", endpoint=_asset("icon-512.png", "image/png"), methods=["GET"]),

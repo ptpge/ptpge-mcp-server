@@ -573,3 +573,91 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
         rep.verdict = "partial"
     rep.ms = int((time.time() - t0) * 1000)
     return rep.as_dict()
+
+
+# ---------------------------------------------------------------- validate one document (SD-0108 / PTPGE Ready)
+
+def validate_document(doc: Any, cache=None) -> dict:
+    """Validate ONE PTPGE document handed to us (not fetched): a vendor declaration, supplier
+    catalogue, request, quote or UCP manifest. Three layers, like tools/validate_declaration.py:
+    shape (published JSON Schema) · vocabulary (every term URI exists; deprecated warns) ·
+    identity (request/quote: the fingerprints are recomputed from the configuration and must
+    match — spec, request, and offer = request + the quote's vendor). Nothing is fetched from
+    the document's domain; that is /check's job. Read-only, nothing stored."""
+    t0 = time.time()
+    out: dict[str, Any] = {"valid": False, "schema": None, "errors": [], "warnings": [], "checked": {}}
+    if not isinstance(doc, dict):
+        out["errors"].append("$: the document must be a JSON object")
+        return _vd_finish(out, t0)
+    schema = str(doc.get("schema") or "")
+    key = schema.removeprefix(SCHEMA_BASE) if schema.startswith(SCHEMA_BASE) else None
+    if key not in SCHEMAS:
+        out["errors"].append("$.schema: must be one of " + ", ".join(SCHEMA_BASE + k for k in SCHEMAS))
+        return _vd_finish(out, t0)
+    out["schema"] = key
+    with _client() as client:
+        try:
+            errs = shape_errors(client, key, doc)
+        except Exception as exc:  # schema not reachable — say so, do not pretend
+            out["errors"].append(f"shape: could not load the published schema ({exc})")
+            return _vd_finish(out, t0)
+    out["errors"].extend(errs)
+    out["checked"]["shape"] = True
+    step = Step("vocab", "Vocabulary")
+    skip: set[str] = set()
+    for k in ("identity", "vendor"):
+        v = doc.get(k)
+        if isinstance(v, str):
+            skip.add(v)
+    n = _vocab_check(doc, cache, step, skip)
+    out["errors"].extend(step.errors); out["warnings"].extend(step.warnings)
+    out["checked"]["vocabulary"] = n if cache is not None else None
+    if cache is None:
+        out["warnings"].append("vocabulary not checked (no term index)")
+    # declaration semantics (same as /check)
+    if key == "vendor-declaration/1" and cache is not None:
+        lines = ((doc.get("capability") or {}).get("lines")) or []
+        for i, off in enumerate(doc.get("offerings") or []):
+            pt = cache.get_term(off.get("product", ""))
+            if pt is not None and pt.get("elementType") != "product":
+                out["errors"].append(f"offerings[{i}].product is not a product template")
+            if isinstance(off.get("line"), int) and off["line"] >= len(lines):
+                out["errors"].append(f"offerings[{i}].line = {off['line']} but capability.lines has {len(lines)} entries")
+            for var in (off.get("supports") or {}):
+                check_supports_key(var, cache, pt, f"offerings[{i}].supports", out["errors"])
+    # identity: request/quote fingerprints (ptpge-cfs/1, SD-0108)
+    if key in ("request/1", "quote/1"):
+        from .fingerprint import fingerprint as _fp
+        cfg = doc.get("configuration"); fpd = doc.get("fingerprint") or {}
+        if isinstance(cfg, dict) and isinstance(fpd, dict):
+            try:
+                spec = _fp(cfg, "spec"); req = _fp(cfg, "request")
+                out["checked"]["fingerprint"] = {"spec": spec, "request": req}
+                if fpd.get("spec") and fpd["spec"] != spec:
+                    out["errors"].append(f"fingerprint.spec: stated {str(fpd['spec'])[:16]}… but the configuration serializes to {spec[:16]}…")
+                if fpd.get("request") and fpd["request"] != req:
+                    out["errors"].append(f"fingerprint.request: stated {str(fpd['request'])[:16]}… but the configuration's order bindings give {req[:16]}…")
+                if key == "quote/1":
+                    irt = (doc.get("inReplyTo") or {}).get("fingerprint")
+                    if irt and irt != spec:
+                        out["errors"].append("inReplyTo.fingerprint must equal fingerprint.spec (the request's spec)")
+                    if fpd.get("offer"):
+                        vendor = doc.get("vendor")
+                        if not vendor:
+                            out["errors"].append("fingerprint.offer needs the quote's vendor")
+                        else:
+                            cfgv = {"product": cfg.get("product"), "bindings": list(cfg.get("bindings") or []) +
+                                    [{"variable": TERM_PREFIX + "variables/order/vendor", "value": vendor}]}
+                            offer = _fp(cfgv, "offer"); out["checked"]["fingerprint"]["offer"] = offer
+                            if fpd["offer"] != offer:
+                                out["errors"].append(f"fingerprint.offer: stated {str(fpd['offer'])[:16]}… but request + vendor gives {offer[:16]}…")
+            except Exception as exc:
+                out["errors"].append(f"fingerprint: configuration cannot be serialized — {exc}")
+    return _vd_finish(out, t0)
+
+
+def _vd_finish(out: dict, t0: float) -> dict:
+    out["valid"] = not out["errors"]
+    out["durationMs"] = int((time.time() - t0) * 1000)
+    out["how"] = "https://ptpge.org/ready/"
+    return out

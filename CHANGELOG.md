@@ -6,6 +6,17 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.40.0 — 2026-10-16
+
+- **`ptpge_validate_document` + `POST /validate-document`** — validate one PTPGE document you hand over (vendor
+  declaration, supplier catalogue, request, quote, UCP manifest; `schema` says which): published JSON Schema ·
+  vocabulary (unknown term = error, deprecated = warning) · identity — for request/1 and quote/1 the spec and request
+  fingerprints are recomputed from the configuration and must match; a quote's offer fingerprint must equal request +
+  the quote's vendor (SD-0108). Nothing fetched from the document's domain (that is /check), nothing stored. This is the
+  PTPGE Ready document check for a module that writes these documents (ptpge.org/ready/). Eleven tools now.
+- `VARIABLE_ENVELOPE`: `variables/finishing/banner-finishing` → `supportsBannerFinishing` (SD-0109).
+- Tests: `tests/test_validate_document.py` (fixtures valid; tampered quantity breaks request not spec; wrong vendor breaks offer).
+
 ## 0.39.2 — 2026-10-15
 
 - **Offer mark = × + breath** (Patrik 15.10). Final grammar: a cross = a description (spec, request, offer), no cross = a thing (job); + = public with content on ptpge.org/f (spec only); × = held by the parties (request, offer); breath = a vendor stands behind it (offer, job). Request → offer is «the same cross, plus breath»; offer → job «the breath stays, the description goes».
