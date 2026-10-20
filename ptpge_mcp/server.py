@@ -550,9 +550,9 @@ TOOL_DESCRIPTORS: list[Tool] = [
     Tool(
         name="ptpge_fingerprint",
         title="Fingerprint a configuration",
-        annotations=ToolAnnotations(title="Fingerprint a configuration", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
+        annotations=ToolAnnotations(title="Fingerprint a configuration", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=True),
         description=(
-            "Compute the canonical ptpge-cfs/1 serialization and SHA-256 "
+            "Side effect: the spec-profile fingerprint is registered in the public register at ptpge.org/f (no personal data; same configuration → same entry; cannot be undone). Compute the canonical ptpge-cfs/1 serialization and SHA-256 "
             "fingerprint of a resolved product configuration (SD-0040) — the "
             "vendor-neutral identity used as quote/order/cache key. Returns "
             "both profiles in strict containment spec ⊂ request: 'spec' = the "
@@ -661,7 +661,7 @@ TOOL_DESCRIPTORS: list[Tool] = [
     Tool(
         name="ptpge_validate_document",
         title="Validate a PTPGE document",
-        annotations=ToolAnnotations(title="Validate a PTPGE document", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False),
+        annotations=ToolAnnotations(title="Validate a PTPGE document", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True),
         description=(
             "Validate ONE document you hand over — a vendor declaration, supplier catalogue, "
             "request, quote or UCP manifest (its `schema` field says which) — against the "
@@ -2530,18 +2530,33 @@ def build_app() -> Starlette:
                     "sse": "/sse" if config.sse_enabled else None,
                     "messages": "/mcp/messages/" if config.sse_enabled else None,
                     "health": "/healthz",
+                    "security": "/security",
                 },
                 "transport": {
                     "recommended": "streamable-http (/mcp, stateless JSON)",
                     "legacy": "sse (/sse)" if config.sse_enabled else "sse disabled on this endpoint",
                 },
                 "documentation": "https://ptpge.org/developers/",
+                "security": {
+                    "policy": "/security",
+                    "report": "security@ptpge.org",
+                    "read_only_tools": "10 of 11 — ptpge_fingerprint registers the spec fingerprint publicly and is declared readOnlyHint=false",
+                    "signed_releases": "in progress (Sigstore)",
+                    "customer_data_stored": False,
+                },
                 "icon": "/icon-512.png",
                 "status": "public-beta",
             }
         )
 
     _ASSET_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    async def security_md(_request: Request) -> Response:
+        """GET /security — SECURITY.md verbatim (text/markdown): the five vendor questions, answered."""
+        path = os.path.join(_ASSET_DIR, "SECURITY.md")
+        if not os.path.isfile(path):
+            return Response("SECURITY.md not deployed", status_code=404, media_type="text/plain")
+        return FileResponse(path, media_type="text/markdown; charset=utf-8", headers={"Cache-Control": "public, max-age=3600"})
 
     def _asset(name: str, media_type: str):
         """Serve a static brand asset (favicon / icon) from the repo root."""
@@ -2677,6 +2692,7 @@ def build_app() -> Starlette:
         middleware=middleware,
         routes=[
             Route("/", endpoint=root, methods=["GET"]),
+            Route("/security", endpoint=security_md, methods=["GET"]),
             Route("/playground", endpoint=playground, methods=["GET"]),
             Route("/agent/status", endpoint=_agent.agent_status, methods=["GET", "OPTIONS"]),
             Route("/agent/messages", endpoint=_agent.agent_messages, methods=["POST", "OPTIONS"]),

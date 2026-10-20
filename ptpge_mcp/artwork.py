@@ -196,6 +196,15 @@ def _format_match(cache, w: float, h: float):
     return best[1] if best else None
 
 
+def _safe(s, n: int = 40) -> str:
+    """A string that came out of the file (a separation name, an OutputIntent identifier) is DATA from an
+    untrusted source. It is echoed back only as a label: printable characters, no newlines, capped — so a
+    PDF cannot smuggle an instruction to the agent through a colorant name (prompt injection, OWASP LLM01)."""
+    t = "".join(ch for ch in str(s) if ch.isprintable() and ch not in "\r\n\t")
+    t = re.sub(r"\s+", " ", t).strip()
+    return t[:n] + ("…" if len(t) > n else "")
+
+
 def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
     import pikepdf
     if len(data) > MAX_BYTES:
@@ -278,7 +287,7 @@ def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
                     process.add("gray")
                 continue
             if s not in inks:
-                inks.append(s)
+                inks.append(_safe(s))
         per_page.append({"page": i + 1, "process": sorted(process), "spotInks": inks, "hasImage": has_img})
     out["colour"] = {"perPage": per_page[:64]}
     rgb_pages = [p["page"] for p in per_page if "rgb" in p["process"]]
@@ -340,7 +349,7 @@ def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
         sysc = _ink_system(s)
         if sysc:
             v = SYSTEMS + sysc[0] + "/" + sysc[1]
-            b = {"variable": INK_VAR, "value": v, "provenance": "artwork", "from": f"Separation «{s}»"}
+            b = {"variable": INK_VAR, "value": v, "provenance": "artwork", "from": f"Separation «{_safe(s)}»"}
             if n == 1:
                 b["surface"] = "front"
             elif n == 2:
@@ -362,11 +371,11 @@ def read_pdf(data: bytes, cache=None, language: str = "en") -> dict:
             for key, tail in _OUTPUT_INTENTS:
                 if key in low:
                     out["bindings"].append({"variable": STD_VAR, "value": STANDARDS + tail, "provenance": "artwork", "from": "PDF/X OutputIntent"})
-                    out["fromFile"].append(f"print standard: {tail.upper()} (OutputIntent «{ident.strip()[:60]}»)")
+                    out["fromFile"].append(f"print standard: {tail.upper()} (OutputIntent «{_safe(ident, 60)}»)")
                     break
             else:
                 if ident.strip():
-                    out["warnings"].append(f"OutputIntent «{ident.strip()[:60]}» is not a print standard the vocabulary names.")
+                    out["warnings"].append(f"OutputIntent «{_safe(ident, 60)}» is not a print standard the vocabulary names.")
             break
     except Exception:
         pass

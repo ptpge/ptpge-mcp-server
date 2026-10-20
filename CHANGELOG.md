@@ -6,6 +6,15 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.40.1 — 2026-10-20
+
+Security hygiene, prompted by agenticprint.org's «MCP Security Checklist for Print Businesses» (17.10).
+
+- `ptpge_fingerprint` is now declared `readOnlyHint=false` / `openWorldHint=true` and says in its description that it registers the spec-profile fingerprint in the public register (no personal data, idempotent, not undoable). Ten of eleven tools are read-only and declared so; a client can require approval for this one.
+- `ptpge_validate_document` declared `openWorldHint=true` (it fetches schemas from ptpge.org).
+- `/artwork`: every string echoed from the file (separation names, OutputIntent identifier) is sanitised — printable characters only, capped — so a PDF cannot carry an instruction to the agent through a colorant name (OWASP LLM01).
+- New `SECURITY.md` (how to report, what we do, how we tell you) and a Security section on the server's front page answering the checklist's five vendor questions.
+
 ## 0.40.0 — 2026-10-16
 
 - **`ptpge_validate_document` + `POST /validate-document`** — validate one PTPGE document you hand over (vendor
