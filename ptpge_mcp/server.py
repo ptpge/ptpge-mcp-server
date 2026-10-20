@@ -2541,7 +2541,7 @@ def build_app() -> Starlette:
                     "policy": "/security",
                     "report": "security@ptpge.org",
                     "read_only_tools": "10 of 11 — ptpge_fingerprint registers the spec fingerprint publicly and is declared readOnlyHint=false",
-                    "signed_releases": "in progress (Sigstore)",
+                    "signed_releases": "yes — Sigstore, from v0.40.1 (github.com/ptpge/ptpge-mcp-server/releases)",
                     "customer_data_stored": False,
                 },
                 "icon": "/icon-512.png",

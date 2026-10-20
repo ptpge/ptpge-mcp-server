@@ -4,7 +4,14 @@ The PTPGE MCP server (`org.ptpge/mcp-server`) is a **read-only reference server 
 
 ## 1 · Do you sign your releases?
 
-Releases are tagged in git (`v<version>`) and published through the official MCP registry. **Signed releases (Sigstore) are being set up** — until they are live, verify by comparing the tag's commit hash with the registry entry. This section will say «yes» when it is true, not before.
+**Yes.** Every release is tagged in git (`v<version>`), built in GitHub Actions and signed with [Sigstore](https://sigstore.dev) — keyless, bound to this repository and tag. The wheel, the sdist, their `.sigstore.json` bundles and `SHA256SUMS.txt` are attached to the [GitHub Release](https://github.com/ptpge/ptpge-mcp-server/releases). Verify before you install:
+
+```
+pip install sigstore
+sigstore verify github --cert-identity-regexp 'github.com/ptpge/ptpge-mcp-server' ptpge_mcp_server-<version>-py3-none-any.whl
+```
+
+First signed release: v0.40.1 (20 October 2026).
 
 ## 2 · How fast do you repair a critical vulnerability, and how do you tell us?
 
