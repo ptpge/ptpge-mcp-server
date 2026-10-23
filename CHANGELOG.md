@@ -6,6 +6,13 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.40.2 — 2026-10-23
+
+Fix: `/check` was dead in the browser since 0.37.3 — two apostrophes in the page's JavaScript (`vocabulary's`,
+`specification's`) were escaped for Python (`\'`), which JavaScript reads as the end of the string; the script
+failed to parse, the form fell back to a plain GET and nothing was shown. `check.json` and the MCP tool were
+unaffected. New test parses every inline script on the page with node. No other change.
+
 ## 0.40.1 — 2026-10-20
 
 Security hygiene, prompted by agenticprint.org's «MCP Security Checklist for Print Businesses» (17.10).

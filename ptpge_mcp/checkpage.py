@@ -106,8 +106,8 @@ function render(r){
     var ls=(a.lines||[]).map(function(l){ var b=[esc(l.technology)]; if((l.presses||[]).length)b.push(esc(l.presses.join(', '))); if(l.maxFormatMm)b.push('max '+esc(l.maxFormatMm)+' mm'); if(l.weightGsm)b.push(esc(l.weightGsm)+' g/m²'); if((l.colourModes||[]).length)b.push('colour '+esc(l.colourModes.join(', '))); if((l.substrates||[]).length)b.push('stock: '+esc(l.substrates.join('; '))); return '<li><b>'+esc(l.name)+'</b> — '+b.join(' · ')+'</li>'; }).join('');
     var os=(a.offerings||[]).map(function(o){ var b=(o.supports||[]).map(function(x){return esc(x.variable)+': '+esc((x.values||[]).join(', '))}); if((o.colour||[]).length)b.push('colour '+esc(o.colour.join(', '))); if((o.pages||[]).length)b.push('pages '+esc(o.pages.join('/'))); if(o.minimumQuantity)b.push('min '+esc(o.minimumQuantity)); if(o.leadTimeWorkingDays!=null)b.push('lead '+esc(o.leadTimeWorkingDays)+' working days'); return '<li><b>'+esc(o.name)+'</b> (<a href="'+esc(o.productUri)+'" target="_blank" rel="noopener">'+esc(o.product)+'</a>)'+(o.line?' on «'+esc(o.line)+'»':'')+' — '+b.join('; ')+'</li>'; }).join('');
     var ds=(r.steps||[]).filter(function(s){return s.id==='declaration'})[0]||{};
-    h+='<div class="card"><h2>What the declaration says</h2><p class="prov">Read just now from <a href="'+esc(ds.url||'')+'" target="_blank" rel="noopener">'+esc(ds.url||'the declaration')+'</a>'+(a.modified?' · document modified '+esc(String(a.modified).slice(0,10)):'')+'. <b>The file is the source</b> — this is a reading of it in the vocabulary\'s labels; nothing is stored. No prices: a price is a quote.</p>'
-      +(ls?'<h3>Production lines (capability)</h3><ul class="rd">'+ls+'</ul>':'')+(os?'<h3>Offerings — in the specification\'s terms</h3><ul class="rd">'+os+'</ul>':'')+'</div>';
+    h+='<div class="card"><h2>What the declaration says</h2><p class="prov">Read just now from <a href="'+esc(ds.url||'')+'" target="_blank" rel="noopener">'+esc(ds.url||'the declaration')+'</a>'+(a.modified?' · document modified '+esc(String(a.modified).slice(0,10)):'')+'. <b>The file is the source</b> — this is a reading of it in the vocabulary’s labels; nothing is stored. No prices: a price is a quote.</p>'
+      +(ls?'<h3>Production lines (capability)</h3><ul class="rd">'+ls+'</ul>':'')+(os?'<h3>Offerings — in the specification’s terms</h3><ul class="rd">'+os+'</ul>':'')+'</div>';
   }
   if((r.missing||[]).length){
     h+='<div class="card"><h2>What is missing</h2>'+r.missing.map(function(m){return '<div class="miss"><b>'+esc(m.what)+'</b><div class="why">'+esc(m.why)+'</div><a href="'+esc(m.where)+'" target="_blank" rel="noopener">'+esc(m.where)+'</a></div>'}).join('')+'</div>';
@@ -195,9 +195,9 @@ def render_report_html(r: dict) -> str:
         h += (f'<div class="card"><h2>What the declaration says</h2><p class="prov">Read at {_e(r.get("checkedAt"))} from '
               f'<a href="{_e(ds.get("url"))}" rel="noopener">{_e(ds.get("url"))}</a>'
               + (f' · document modified {_e(str(a["modified"])[:10])}' if a.get("modified") else "")
-              + '. <b>The file is the source</b> — this is a reading of it in the vocabulary\'s labels; nothing is stored. No prices: a price is a quote.</p>'
+              + '. <b>The file is the source</b> — this is a reading of it in the vocabulary’s labels; nothing is stored. No prices: a price is a quote.</p>'
               + (f'<h3>Production lines (capability)</h3><ul class="rd">{ls}</ul>' if ls else "")
-              + (f'<h3>Offerings — in the specification\'s terms</h3><ul class="rd">{os_}</ul>' if os_ else "") + "</div>")
+              + (f'<h3>Offerings — in the specification’s terms</h3><ul class="rd">{os_}</ul>' if os_ else "") + "</div>")
     if r.get("missing"):
         h += '<div class="card"><h2>What is missing</h2>' + "".join(
             f'<div class="miss"><b>{_e(m.get("what"))}</b><div class="why">{_e(m.get("why"))}</div><a href="{_e(m.get("where"))}" rel="noopener">{_e(m.get("where"))}</a></div>'
