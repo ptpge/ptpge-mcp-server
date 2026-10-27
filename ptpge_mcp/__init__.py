@@ -1,3 +1,3 @@
 """PTPGE MCP Server — exposes the PTPGE specification — the open vocabulary of print — to AI agents."""
 
-__version__ = "0.40.2"
+__version__ = "0.41.0"

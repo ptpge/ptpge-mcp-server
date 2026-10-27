@@ -6,6 +6,17 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.41.0 — 2026-10-27
+
+Production origin (SD-0114, TN-2). A vendor declaration may now carry `sites[]` (country, city, own or partner,
+certifications that hold there) and `operated: own | partner` on every press and finishing machine, with the line as
+default. From that, `/validate-document` and `/check` derive per offering whether the product is made **in-house**,
+**partly outsourced** (and which steps — «lamination») or **outsourced**, in which countries, and which certifications
+actually cover it (`production` in the result; `sees.production` in the check report). Nothing is stored on the
+product; the equipment is the source. A finishing machine's `serves` may now also list surface-finish features
+(laminators, foil units), so an embellishment can carry its own `operated`. New checks: `sites[].id` unique,
+`line.site` must exist. Fully backward compatible — a declaration without the fields validates as before.
+
 ## 0.40.2 — 2026-10-23
 
 Fix: `/check` was dead in the browser since 0.37.3 — two apostrophes in the page's JavaScript (`vocabulary's`,

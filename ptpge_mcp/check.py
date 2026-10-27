@@ -450,6 +450,7 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
                         s2.errors.append(f"offerings[{i}].line = {off['line']} but capability.lines has {len(lines)} entries")
                     for var in (off.get("supports") or {}):
                         check_supports_key(var, cache, pt, f"offerings[{i}].supports", s2.errors)
+                _check_sites(decl, s2.errors)
                 n = _vocab_check(decl, cache, s2, skip={declared_identity} if declared_identity else set())
                 s2.detail = f"Valid vendor-declaration/1 · {n} term URIs checked." if not s2.errors else f"vendor-declaration/1: {len(s2.errors)} error(s)."
                 if cache is None:
@@ -468,6 +469,7 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
                     "pressCount": len(presses),
                     "substrateCount": len(subs),
                     "lineCount": len(lines),
+                    "production": _production_view(decl),
                     "modified": decl.get("modified"),
                     "logo": bool(decl.get("logo")),
                     # SD-0105: what the declaration says, in vocabulary labels — read live, never stored.
@@ -577,6 +579,28 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
 
 # ---------------------------------------------------------------- validate one document (SD-0108 / PTPGE Ready)
 
+def _production_view(decl: dict) -> dict | None:
+    """TN-2 for the /check report: where it produces and, per offering, in-house / partly / outsourced."""
+    try:
+        from .production import derive as _derive, summary as _summary
+        return {"summary": _summary(decl),
+                "offerings": [{"name": r["name"], "production": r["production"], "outsourced": r["outsourced"],
+                               "countries": r["countries"]} for r in _derive(decl)]}
+    except Exception:
+        return None
+
+
+def _check_sites(decl: dict, errors: list) -> None:
+    """SD-0114: sites[] ids unique; line.site must point at one."""
+    ids = [s.get("id") for s in (decl.get("sites") or []) if isinstance(s, dict)]
+    dup = sorted({x for x in ids if ids.count(x) > 1})
+    if dup:
+        errors.append(f"sites: duplicate ids {dup}")
+    for j, ln in enumerate(((decl.get("capability") or {}).get("lines")) or []):
+        if isinstance(ln, dict) and ln.get("site") and ln["site"] not in ids:
+            errors.append(f"capability.lines[{j}].site '{ln['site']}' is not an id in sites[]")
+
+
 def validate_document(doc: Any, cache=None) -> dict:
     """Validate ONE PTPGE document handed to us (not fetched): a vendor declaration, supplier
     catalogue, request, quote or UCP manifest. Three layers, like tools/validate_declaration.py:
@@ -625,6 +649,14 @@ def validate_document(doc: Any, cache=None) -> dict:
                 out["errors"].append(f"offerings[{i}].line = {off['line']} but capability.lines has {len(lines)} entries")
             for var in (off.get("supports") or {}):
                 check_supports_key(var, cache, pt, f"offerings[{i}].supports", out["errors"])
+        _check_sites(doc, out["errors"])
+    if key == "vendor-declaration/1" and not out["errors"]:
+        # TN-2: production status per offering — in-house / partly / outsourced, derived from the equipment
+        from .production import derive as _derive, summary as _summary
+        try:
+            out["production"] = {"summary": _summary(doc), "offerings": _derive(doc)}
+        except Exception as exc:  # never fail validation over the derived view
+            out["warnings"].append(f"production: not derived ({exc})")
     # identity: request/quote fingerprints (ptpge-cfs/1, SD-0108)
     if key in ("request/1", "quote/1"):
         from .fingerprint import fingerprint as _fp
