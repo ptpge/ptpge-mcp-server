@@ -458,13 +458,12 @@ function fmtJson(obj) {
       strip = '<div class="fpstrip" style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin:0 0 14px">';
       for (const prof of ["spec", "request"]) {
         const pr = obj.profiles[prof]; if (!pr || !pr.markSvg) continue;
-        strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.markSvg +
-                 '</span><div class="cap">' + prof + ' · ' + pr.short + '</div></div>';
+        strip += '<div style="text-align:center;font-size:11px;color:#7fae97;max-width:190px"><span class="mktile">' + pr.markSvg +
+                 '</span><div class="cap">' + prof + ' · ' + pr.short + '</div>' +
+                 (prof === "request" ? '<div class="cap" style="margin-top:4px;opacity:.75;line-height:1.35">carries the quantity — stays between buyer and shop, not on /f (SD-0108)</div>' : '') + '</div>';
         if (pr.qrSvg && prof === "spec") {   // 2.11: only the spec is public on /f (SD-0108) — the request carries quantity, so no QR, no dead link
           strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.qrSvg + '</span>' +
                    '<div class="cap"><a href="' + pr.resolverUrl + '" target="_blank" rel="noopener" style="color:#37d98a">resolver ↗</a></div></div>';
-        } else if (prof === "request") {
-          strip += '<div style="font-size:11px;color:#7fae97;max-width:150px;align-self:center">the request identity carries quantity and stays between buyer and shop — not resolvable on /f (SD-0108)</div>';
         }
         pr.markSvg = "(rendered above)";
         if (pr.qrSvg) { pr.qrSvg = "(rendered above)"; }
