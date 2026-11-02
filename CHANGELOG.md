@@ -6,6 +6,11 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.41.1 — 2026-11-02
+
+- Playground: the request fingerprint no longer gets a QR and a dead resolver link — only the spec is public on /f (SD-0108); a one-line note says why.
+- Playground agent: the final answer and any question back are written in the page's language (UI), not the prompt's. A Norwegian prompt on the English page got a Norwegian answer.
+
 ## 0.41.0 — 2026-10-27
 
 Production origin (SD-0114, TN-2). A vendor declaration may now carry `sites[]` (country, city, own or partner,

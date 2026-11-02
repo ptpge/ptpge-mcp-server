@@ -460,9 +460,11 @@ function fmtJson(obj) {
         const pr = obj.profiles[prof]; if (!pr || !pr.markSvg) continue;
         strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.markSvg +
                  '</span><div class="cap">' + prof + ' · ' + pr.short + '</div></div>';
-        if (pr.qrSvg) {
+        if (pr.qrSvg && prof === "spec") {   // 2.11: only the spec is public on /f (SD-0108) — the request carries quantity, so no QR, no dead link
           strip += '<div style="text-align:center;font-size:11px;color:#7fae97"><span class="mktile">' + pr.qrSvg + '</span>' +
                    '<div class="cap"><a href="' + pr.resolverUrl + '" target="_blank" rel="noopener" style="color:#37d98a">resolver ↗</a></div></div>';
+        } else if (prof === "request") {
+          strip += '<div style="font-size:11px;color:#7fae97;max-width:150px;align-self:center">the request identity carries quantity and stays between buyer and shop — not resolvable on /f (SD-0108)</div>';
         }
         pr.markSvg = "(rendered above)";
         if (pr.qrSvg) { pr.qrSvg = "(rendered above)"; }
@@ -992,7 +994,7 @@ const AGENT_SYSTEM = [
   "4. ptpge_validate_config with product and bindings. If validInEnvelope is false and the result carries alsoOfferedBy, the buyer asked for something this template does not make but another does: SWITCH to the first alsoOfferedBy product (re-read its envelope if needed), keep the bindings, validate again, and say so in the final answer. Otherwise fix what it names (a surface must be one of the bound setup's faces: flat-sheet front/back, folded-sheet outside/inside, multi-page front-cover…back-cover). If it returns needs_disambiguation (a REQUIRED axis is missing — which fold, which format, how many pages, which binding, which colour on the first face), STOP and return the question(s) verbatim with the candidates — never assume a fold, a size or a colour. When one is missing from the prompt you cannot fingerprint. Pass setup to ptpge_resolve_color_notation so the faces match the fold.",
   "4b. What the buyer does not ask for is not applied (SD-0098): never ask about, suggest or bind a finish, embellishment or other optional axis the buyer did not mention — a configuration without them is complete whenever the envelope's required variables are bound. Ask back only about required variables.",
   "5. Only when complete is true: ptpge_fingerprint with visuals: true. The tool refuses incomplete configurations (error not_fingerprintable) — that refusal is the answer, relay its questions.",
-  "Aim for at most 10 tool calls. Final answer: two to four plain sentences in the buyer's language — the product, the bindings, and the spec fingerprint's short id — or the open question.",
+  "Aim for at most 10 tool calls. Final answer: two to four plain sentences — the product, the bindings, and the spec fingerprint's short id — or the open question. Write the final answer and any question back in the language whose code is UILANG (the language this page is shown in), even when the prompt is in another language; term labels may stay as the tools return them.",
 ].join("\\n");
 
 function agEl(id) { return document.getElementById(id); }
@@ -1156,7 +1158,7 @@ async function agentRun(opts) {
       tools = (tl.json.result && tl.json.result.tools) || [];
       if (!tools.length) throw new Error("tools/list returned no tools");
       trAdd("tools/list · " + tools.length + " tools handed to the model (" + mode + ")", fmtJson(tools.map(t => t.name)));
-      system = AGENT_SYSTEM.replace("LANGCODE", lang);
+      system = AGENT_SYSTEM.replace("LANGCODE", lang).replace("UILANG", (document.documentElement.lang || "en").slice(0, 2));   // 2.11 (Patrik): answers follow the page language, not the prompt's
       messages = [{ role: "user", content: prompt }];
     }
     AG_CONV = { runId: runId, tools: tools, system: system, messages: messages, story: story };
