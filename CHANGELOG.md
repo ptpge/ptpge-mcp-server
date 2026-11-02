@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.41.2 — 2026-11-02
+
+- CORS: `*.gutenlex.store` storefronts may call /artwork and the JSON tools from the browser (the Mapping page on a hosted shop failed with «could not read the PDF»).
+
 ## 0.41.1 — 2026-11-02
 
 - Playground: the request fingerprint no longer gets a QR and a dead resolver link — only the spec is public on /f (SD-0108); a one-line note says why.

@@ -2178,6 +2178,11 @@ def build_app() -> Starlette:
             await mcp_server.run(streams[0], streams[1], mcp_server.create_initialization_options())
         return Response()
 
+    def _shop_origin(origin: str) -> bool:
+        """0.41.2 (2.11): every GutenLex-hosted storefront (*.gutenlex.store) may call /artwork and the JSON tools
+        from the buyer's browser — IT Grafisk's /mapping/ failed on CORS without being listed."""
+        return bool(re.fullmatch(r"https://[a-z0-9-]+\.gutenlex\.store", origin or ""))
+
     def _mcp_cors_headers() -> dict:
         """CORS for /mcp (0.28.8): a browser page on another origin may call the
         open server directly — trykkverk.no/prompt/ runs the agent's tool calls
@@ -2264,7 +2269,7 @@ def build_app() -> Starlette:
             return JSONResponse({"error": "unavailable", "note": "artwork reader not installed on this server (pikepdf)"}, status_code=503)
         origin = request.headers.get("origin", "")
         allowed = _agent_cfg()["origins"] + ["https://gutenlex.com", "https://www.gutenlex.com"]
-        cors = {"Access-Control-Allow-Origin": origin if origin in allowed else allowed[0],
+        cors = {"Access-Control-Allow-Origin": origin if (origin in allowed or _shop_origin(origin)) else allowed[0],
                 "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Vary": "Origin"}
         if request.method == "OPTIONS":
             return Response(status_code=204, headers=cors)
@@ -2288,7 +2293,7 @@ def build_app() -> Starlette:
         from .agent import cfg as _agent_cfg
         origin = request.headers.get("origin", "")
         allowed = _agent_cfg()["origins"] + ["https://gutenlex.com", "https://www.gutenlex.com"]
-        return {"Access-Control-Allow-Origin": origin if origin in allowed else allowed[0],
+        return {"Access-Control-Allow-Origin": origin if (origin in allowed or _shop_origin(origin)) else allowed[0],
                 "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type",
                 "Vary": "Origin", "Cache-Control": "no-store"}
 
