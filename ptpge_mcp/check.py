@@ -415,7 +415,11 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
         s2 = Step("declaration", "Vendor declaration", url=decl_url)
         if hosted and decl_url == hosted:
             decl, status, err = hosted_doc, 200, None
-            s2.warnings.append("hosted elsewhere than the known path — the entry is marked «hosted»")
+            _hh = urlparse(hosted).hostname or ""
+            if _hh == host or _hh.endswith("." + host):
+                s2.warnings.append(f"served from {_hh} — the vendor's own domain, not the known path on {host}; the entry is marked «hosted»")   # 3.11: a storefront subdomain (bestill.itgrafisk.no)
+            else:
+                s2.warnings.append("hosted elsewhere than the known path — the entry is marked «hosted»")
         else:
             status, decl, err = _get_json(client, decl_url)
         declared_identity: str | None = None

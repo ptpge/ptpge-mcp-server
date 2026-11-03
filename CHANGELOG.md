@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.41.3 — 2026-11-03
+
+- check: a hosted declaration served from a subdomain of the registered domain (a storefront at bestill.itgrafisk.no) is reported as the vendor's own domain, not «hosted elsewhere».
+
 ## 0.41.2 — 2026-11-02
 
 - CORS: `*.gutenlex.store` storefronts may call /artwork and the JSON tools from the browser (the Mapping page on a hosted shop failed with «could not read the PDF»).
