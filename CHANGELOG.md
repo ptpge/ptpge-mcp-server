@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.42.1 — 2026-11-04
+
+- fix: the two find tools returned a double-wrapped payload over Streamable HTTP (500).
+
 ## 0.42.0 — 2026-11-04
 
 - New tools `ptpge_find_vendors` and `ptpge_find_suppliers` — «who can make this?». Reads the register and every claimed vendor's own declaration (the file is the source) and filters on country, product template, printing technology, certification, substrate or free text; a certification, technology or substrate is judged on the offering's production line (TN-2: `lines[].certifications` narrows the site). Returns the shop's identity, places, products, matching offerings and the doors an agent needs next (declaration, UCP manifest, register entry). Never ranked, never priced. Suppliers: makers by what they make, with their catalogue items when the identity is claimed. Read-only, cached ten minutes.

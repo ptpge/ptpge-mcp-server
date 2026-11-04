@@ -1768,10 +1768,10 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
         return validate_document(args.get("document"), cache)
     if name == "ptpge_find_vendors":
         from .find import find_vendors
-        return _json_text(find_vendors(args, cache))
+        return find_vendors(args, cache)
     if name == "ptpge_find_suppliers":
         from .find import find_suppliers
-        return _json_text(find_suppliers(args, cache))
+        return find_suppliers(args, cache)
 
     raise ValueError(f"Unknown tool: {name}")
 
