@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.41.5 — 2026-11-04
+
+- check page: warning/error lines inside a step no longer inherit the step's grid (one word per line).
+
 ## 0.41.4 — 2026-11-04
 
 - check: a storefront on a subdomain of the identity domain (bestill.itgrafisk.no under itgrafisk.no) is the vendor's own — the declaration's `domain` and the register entry may say the parent domain; checking the parent domain with a hosted document finds the manifest on the storefront subdomain.

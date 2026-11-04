@@ -36,8 +36,8 @@ button:disabled{background:var(--line);color:var(--mute);border-color:var(--line
 .verdict.ready,.verdict.maker{color:var(--ok)}.verdict.partial{color:var(--warn)}.verdict.none{color:var(--fail)}
 .summary{color:var(--mute);margin:0 0 4px}
 ol.steps{list-style:none;margin:0;padding:0}
-ol.steps li{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
-ol.steps li:first-child{border-top:0}
+ol.steps > li{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+ol.steps > li:first-child{border-top:0}
 .dot{width:16px;height:16px;border-radius:50%;margin-top:4px;background:var(--line)}
 .dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.fail{background:var(--fail)}.dot.skip{background:transparent;border:2px solid var(--line)}
 .st b{font-weight:600}.st .u{display:block;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--mute);word-break:break-all;margin-top:2px}
