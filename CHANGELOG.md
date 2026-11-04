@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.42.2 — 2026-11-04
+
+- check: a GutenLex-hosted storefront (<slug>.gutenlex.store) whose document the register points at passes the identity step with a note, instead of «register entry points at <domain>, not <host>» (Moderna Printing before its own domain).
+
 ## 0.42.1 — 2026-11-04
 
 - fix: the two find tools returned a double-wrapped payload over Streamable HTTP (500).

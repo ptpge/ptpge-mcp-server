@@ -571,9 +571,12 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
                     rep.missing.append({"what": f"A register entry for {ident}", "why": "An identity is permanent only once the register points at the domain; claim it on the adopt page.", "where": "https://ptpge.org/adopt/"})
                     continue
                 reg_domain = (entry.get("domain") or "").strip().lower()
-                if reg_domain and reg_domain != host and not _own_host(host, reg_domain):
+                _reg_doc_host = (urlparse(str(((entry.get("document") or {}).get("url")) or "")).hostname or "").lower()
+                if reg_domain and reg_domain != host and not _own_host(host, reg_domain) and _reg_doc_host != host:
                     s3.errors.append(f"{ident}: register entry points at {reg_domain}, not {host}")
                     continue
+                if reg_domain and reg_domain != host and _reg_doc_host == host:
+                    s3.warnings.append(f"the register names {reg_domain}; this document is the hosted copy the register points at ({host})")   # 4.11: a GutenLex-hosted storefront before the shop's own domain
                 details.append(f"{register}/{ident.rsplit('/', 1)[-1]} found" + (f", points at {host}" if reg_domain else ""))
                 rep.sees.setdefault("registerName", entry.get("name") or entry.get("prefLabel"))
             s3.status = "fail" if s3.errors else "ok"
