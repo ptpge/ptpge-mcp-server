@@ -2178,10 +2178,42 @@ def build_app() -> Starlette:
             await mcp_server.run(streams[0], streams[1], mcp_server.create_initialization_options())
         return Response()
 
+    _reg_domains: dict = {"ts": 0.0, "domains": set()}
+
+    def _register_domains() -> set:
+        """0.41.6: the claimed domains of the vendor register (api.ptpge.org/v1/vendors/*), cached 10 minutes — a storefront on a
+        registered vendor's own domain (bestill.itgrafisk.no under itgrafisk.no) may call the open tools from the browser."""
+        import time as _t
+        if _reg_domains["ts"] > _t.time():
+            return _reg_domains["domains"]
+        found: set = set()
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                idx = client.get("https://api.ptpge.org/v1/vendors.jsonld").json()
+                for uri in idx.get("narrower") or []:
+                    try:
+                        e = client.get(uri.replace("https://ptpge.org/", "https://api.ptpge.org/") + ".jsonld").json()
+                        d = str(e.get("domain") or "").lower().strip()
+                        if d and e.get("identityClaimed"):
+                            found.add(d)
+                    except Exception:  # noqa: BLE001
+                        continue
+            _reg_domains["domains"] = found; _reg_domains["ts"] = _t.time() + 600
+        except Exception:  # noqa: BLE001 — keep the previous set, retry soon
+            _reg_domains["ts"] = _t.time() + 30
+        return _reg_domains["domains"]
+
     def _shop_origin(origin: str) -> bool:
         """0.41.2 (2.11): every GutenLex-hosted storefront (*.gutenlex.store) may call /artwork and the JSON tools
-        from the buyer's browser — IT Grafisk's /mapping/ failed on CORS without being listed."""
-        return bool(re.fullmatch(r"https://[a-z0-9-]+\.gutenlex\.store", origin or ""))
+        from the buyer's browser — IT Grafisk's /mapping/ failed on CORS without being listed.
+        0.41.6 (4.11): so may a storefront on a registered vendor's own domain or a subdomain of it."""
+        if re.fullmatch(r"https://[a-z0-9-]+\.gutenlex\.store", origin or ""):
+            return True
+        m = re.fullmatch(r"https://([a-z0-9.-]+)", (origin or "").lower())
+        if not m:
+            return False
+        host = m.group(1)
+        return any(host == d or host.endswith("." + d) for d in _register_domains())
 
     def _mcp_cors_headers() -> dict:
         """CORS for /mcp (0.28.8): a browser page on another origin may call the

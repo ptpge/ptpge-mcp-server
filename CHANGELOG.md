@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.41.6 — 2026-11-04
+
+- CORS: a storefront on a registered vendor's own domain (or a subdomain of it — bestill.itgrafisk.no) may call the open tools and /artwork from the browser; the register's claimed domains are read from api.ptpge.org and cached 10 minutes.
+
 ## 0.41.5 — 2026-11-04
 
 - check page: warning/error lines inside a step no longer inherit the step's grid (one word per line).
