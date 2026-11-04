@@ -44,6 +44,13 @@ SCHEMAS = {
     "quote/1":              ("quote", 1),
 }
 UCP_PATH = "/.well-known/ucp"
+
+
+def _own_host(host: str, domain: str) -> bool:
+    """4.11: a storefront on a subdomain of the company's identity domain (bestill.itgrafisk.no under itgrafisk.no)
+    is the vendor's own — the declaration says the identity domain, the register points at it, the host serves it."""
+    d = (domain or "").strip().lower()
+    return bool(d) and (host == d or host.endswith("." + d))
 DECL_PATH = "/.well-known/ptpge/declaration.json"
 CAT_PATH = "/.well-known/ptpge/catalogue.json"
 UA = "ptpge.org check (SD-0101; https://ptpge.org/check/)"
@@ -370,6 +377,13 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
         # 1 — UCP manifest -------------------------------------------------
         s1 = Step("ucp", "UCP manifest", url=f"https://{host}{UCP_PATH}")
         status, manifest, err = _get_json(client, s1.url)
+        if manifest is None and hosted and _own_host(urlparse(hosted).hostname or "", host) and (urlparse(hosted).hostname or "") != host:
+            # 4.11: the company's storefront lives on a subdomain (bestill.itgrafisk.no) — the manifest is there, not at the apex
+            _alt = f"https://{urlparse(hosted).hostname}{UCP_PATH}"
+            status2, manifest2, err2 = _get_json(client, _alt)
+            if isinstance(manifest2, dict):
+                s1.url, status, manifest, err = _alt, status2, manifest2, err2
+                s1.warnings.append(f"not at https://{host}{UCP_PATH} — found on the storefront subdomain {urlparse(hosted).hostname}")
         if manifest is None:
             s1.status = "fail"
             s1.detail = _absent(status, err)
@@ -438,8 +452,10 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
             s2.errors = errs
             if not errs:
                 declared_identity = decl.get("identity")
-                if decl.get("domain") != host:
+                if decl.get("domain") != host and not _own_host(host, decl.get("domain") or ""):
                     s2.errors.append(f"domain says {decl.get('domain')!r}, but the document is served from {host}")
+                elif decl.get("domain") != host:
+                    s2.warnings.append(f"served from {host}, a subdomain of the identity domain {decl.get('domain')}")
                 if urlparse(decl_url).path != DECL_PATH and decl_url != hosted:
                     s2.errors.append(f"served from {urlparse(decl_url).path}, the known path is {DECL_PATH}")
                 if identity_from_manifest and declared_identity and identity_from_manifest != declared_identity:
@@ -555,7 +571,7 @@ def check_domain(domain: str, cache=None, document: str | None = None) -> dict:
                     rep.missing.append({"what": f"A register entry for {ident}", "why": "An identity is permanent only once the register points at the domain; claim it on the adopt page.", "where": "https://ptpge.org/adopt/"})
                     continue
                 reg_domain = (entry.get("domain") or "").strip().lower()
-                if reg_domain and reg_domain != host:
+                if reg_domain and reg_domain != host and not _own_host(host, reg_domain):
                     s3.errors.append(f"{ident}: register entry points at {reg_domain}, not {host}")
                     continue
                 details.append(f"{register}/{ident.rsplit('/', 1)[-1]} found" + (f", points at {host}" if reg_domain else ""))

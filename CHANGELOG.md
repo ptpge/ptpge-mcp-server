@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.41.4 — 2026-11-04
+
+- check: a storefront on a subdomain of the identity domain (bestill.itgrafisk.no under itgrafisk.no) is the vendor's own — the declaration's `domain` and the register entry may say the parent domain; checking the parent domain with a hosted document finds the manifest on the storefront subdomain.
+
 ## 0.41.3 — 2026-11-03
 
 - check: a hosted declaration served from a subdomain of the registered domain (a storefront at bestill.itgrafisk.no) is reported as the vendor's own domain, not «hosted elsewhere».
