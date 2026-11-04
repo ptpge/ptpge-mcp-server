@@ -659,6 +659,56 @@ TOOL_DESCRIPTORS: list[Tool] = [
         },
     ),
     Tool(
+        name="ptpge_find_vendors",
+        title="Find print shops that can make it",
+        annotations=ToolAnnotations(title="Find print shops that can make it", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True),
+        description=(
+            "Who can make this? Reads the PTPGE vendor register and every claimed print shop's own declaration "
+            "(/.well-known/ptpge/declaration.json — the file is the source) and filters on what the documents say: "
+            "country (ISO 3166-1 alpha-2), product template (e.g. ordering/products/booklets or just «booklets»), printing "
+            "technology (a term under printing/technologies/printing-technologies — a parent matches its children, so "
+            "«digital» finds laser and inkjet), certification (e.g. nordic-swan-ecolabel), substrate, or free text on name/city. "
+            "Returns each matching shop with its identity, countries and cities, products, technologies, certifications, the "
+            "matching offerings (minimum quantity, lead time) and the doors an agent needs next: the declaration, the UCP "
+            "manifest, the register entry. Never ranked, never priced — for price and an order use the shop's own MCP endpoint "
+            "from its manifest; the spec fingerprint is the same key everywhere. Read-only; cached ten minutes; nothing stored."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "description": "ISO 3166-1 alpha-2, e.g. NO, DE, US."},
+                "product": {"type": "string", "description": "Product template: URI, /v1/ path or slug (booklets, business-cards, posters …)."},
+                "technology": {"type": "string", "description": "Printing technology term: URI, path or slug (offset, digital, laser, uv-inkjet …)."},
+                "certification": {"type": "string", "description": "Certification term: URI, path or slug (nordic-swan-ecolabel, fsc, trykt-i-norge …)."},
+                "substrate": {"type": "string", "description": "Substrate term: URI, path or slug (paper, cardboard, vinyl …)."},
+                "text": {"type": "string", "description": "Free text matched against name, legal name, domain and cities."},
+                "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 50},
+                "language": {"type": "string", "default": "en"},
+            },
+            "required": [],
+        },
+    ),
+    Tool(
+        name="ptpge_find_suppliers",
+        title="Find makers (presses, paper, equipment)",
+        annotations=ToolAnnotations(title="Find makers (presses, paper, equipment)", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True),
+        description=(
+            "Makers in the PTPGE supplier register — press and equipment builders, paper mills — with what each one makes "
+            "(a term under printing/…) and, when the maker has claimed its identity, its own catalogue "
+            "(/.well-known/ptpge/catalogue.json: press models, paper series). Filter by `makes` (a term path or slug: "
+            "printing-presses, wide-format-printers, paper …) or free text. Read-only; cached ten minutes."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "makes": {"type": "string", "description": "A term the maker's products fall under: URI, path or slug."},
+                "text": {"type": "string", "description": "Free text matched against the maker's name and definition."},
+                "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 50},
+            },
+            "required": [],
+        },
+    ),
+    Tool(
         name="ptpge_validate_document",
         title="Validate a PTPGE document",
         annotations=ToolAnnotations(title="Validate a PTPGE document", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True),
@@ -1716,6 +1766,12 @@ def tool_payload(cache: "VocabularyCache", name: str, args: dict) -> object:
     if name == "ptpge_validate_document":
         from .check import validate_document
         return validate_document(args.get("document"), cache)
+    if name == "ptpge_find_vendors":
+        from .find import find_vendors
+        return _json_text(find_vendors(args, cache))
+    if name == "ptpge_find_suppliers":
+        from .find import find_suppliers
+        return _json_text(find_suppliers(args, cache))
 
     raise ValueError(f"Unknown tool: {name}")
 

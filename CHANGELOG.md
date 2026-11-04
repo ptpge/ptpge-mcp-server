@@ -6,6 +6,10 @@ Model Context Protocol. Endpoint: `mcp.ptpge.org`.
 Versioning: **semver** (software). Dates reflect the project work log.
 See SD-0044 for the versioning & changelog policy.
 
+## 0.42.0 — 2026-11-04
+
+- New tools `ptpge_find_vendors` and `ptpge_find_suppliers` — «who can make this?». Reads the register and every claimed vendor's own declaration (the file is the source) and filters on country, product template, printing technology, certification, substrate or free text; a certification, technology or substrate is judged on the offering's production line (TN-2: `lines[].certifications` narrows the site). Returns the shop's identity, places, products, matching offerings and the doors an agent needs next (declaration, UCP manifest, register entry). Never ranked, never priced. Suppliers: makers by what they make, with their catalogue items when the identity is claimed. Read-only, cached ten minutes.
+
 ## 0.41.6 — 2026-11-04
 
 - CORS: a storefront on a registered vendor's own domain (or a subdomain of it — bestill.itgrafisk.no) may call the open tools and /artwork from the browser; the register's claimed domains are read from api.ptpge.org and cached 10 minutes.
